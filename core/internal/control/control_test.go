@@ -193,6 +193,7 @@ func TestControlFlow(t *testing.T) {
 		TunnelConfig:    validTunnel(t),
 		DashboardURL:    "http://192.168.0.3:3000",
 		AllowExternal:   true,
+		ExternalMode:    "origins",
 		ExternalOrigins: []string{" HTTPS://Fonts.GoogleAPIs.com/ ", "https://fonts.googleapis.com"},
 	}
 	resp, data = call(t, client, http.MethodPost, "/profiles", profileBody)
@@ -209,7 +210,8 @@ func TestControlFlow(t *testing.T) {
 	if profile.ID == "" || profile.Name != "Home" {
 		t.Fatalf("profile = %+v", profile)
 	}
-	if !profile.AllowExternal || len(profile.ExternalOrigins) != 1 ||
+	if !profile.AllowExternal || profile.ExternalMode != "origins" ||
+		len(profile.ExternalOrigins) != 1 ||
 		profile.ExternalOrigins[0] != "https://fonts.googleapis.com" {
 		t.Fatalf("external profile = %+v", profile)
 	}
@@ -244,7 +246,8 @@ func TestControlFlow(t *testing.T) {
 	if connects != 1 {
 		t.Fatalf("connector connects = %d, want 1", connects)
 	}
-	if !last.AllowExternal || len(last.ExternalOrigins) != 1 ||
+	if !last.AllowExternal || last.ExternalMode != "origins" ||
+		len(last.ExternalOrigins) != 1 ||
 		last.ExternalOrigins[0] != "https://fonts.googleapis.com" {
 		t.Fatalf("connector options = %+v", last)
 	}

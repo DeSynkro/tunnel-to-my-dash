@@ -56,8 +56,8 @@ export/import, lockout and tamper checks.
 
 - [x] Minimal TypeScript shell with no UI framework
 - [x] Lock screen and first-run setup
-- [x] Settings for the tunnel and dashboard URL
-- [x] External-content toggle and exact-origin panel
+- [x] Profiles for the tunnel, dashboard URL and external-content mode
+- [x] External-content modes: LAN only, allow all, or exact origins
 - [x] Sidecar lifecycle and local control socket
 - [x] Sandboxed dashboard window with proxy
 - [x] Dashboard service tiles open in-app for private http(s) URLs

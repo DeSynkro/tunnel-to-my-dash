@@ -403,7 +403,8 @@ with opt-in exact external origins for fonts and widgets.
 - First run: create the vault (optional password), import or paste a
   WireGuard config, name the profile, set the dashboard URL.
 - Lock: unlock with the password; keyfile vaults open directly.
-- Main: profile list, connect/disconnect, lock, add profile, settings.
+- Main: profile list, connect/disconnect, lock, add profile, edit profile,
+  settings.
 - Dashboard: a sandboxed `BaseWindow` with a 36px toolbar (App, back,
   forward, reload, Home and host label) above a `WebContentsView`. Closing it
   disconnects the tunnel.
@@ -430,9 +431,9 @@ with opt-in exact external origins for fonts and widgets.
   denied, `window.open` denied.
 - Chromium background networking and known Google services disabled with
   command-line switches, then audited.
-- External content is off by default. A profile may opt into exact public
-  origins; those use a direct dialer and the normal network or VPN, never the
-  tunnel. Top-level navigation stays private-only.
+- External content is off by default. A profile may opt into all public
+  origins or an exact origin list; those use a direct dialer and the normal
+  network or VPN, never the tunnel. Top-level navigation stays private-only.
 
 ### Tasks
 
@@ -462,8 +463,8 @@ with opt-in exact external origins for fonts and widgets.
   private LAN links navigate in the same view and public URLs stay blocked.
 - [x] Settings page for profile names, dashboard URLs and the app lock, with
   confirm-password checks on setup and password changes.
-- [x] External content is off by default; allowed origins load directly and
-  unlisted origins are refused.
+- [x] External content is off by default; allow-all and exact-origin modes
+  both load directly, and unlisted origins are refused in exact mode.
 - [x] No Node in the shell renderer or dashboard; no permission prompts.
 - [x] `make check` passes and the desktop code type-checks.
 - [x] No unexpected outbound traffic beyond the WireGuard endpoint.

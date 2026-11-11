@@ -378,7 +378,7 @@ func TestExternalPolicyRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	policy := ExternalPolicy{Allow: true, Origins: origins}
+	policy := ExternalPolicy{Mode: external.ModeOrigins, Origins: origins}
 
 	tests := []struct {
 		name   string
@@ -406,9 +406,14 @@ func TestExternalPolicyRoutes(t *testing.T) {
 		})
 	}
 
-	off := ExternalPolicy{Allow: false, Origins: origins}
+	off := ExternalPolicy{Mode: external.ModeOff, Origins: origins}
 	if _, err := off.Route("https", "fonts.googleapis.com", "443"); err == nil {
 		t.Fatal("external content should be off by default")
+	}
+
+	all := ExternalPolicy{Mode: external.ModeAll}
+	if route, err := all.Route("https", "anything.example", "443"); err != nil || route != RouteDirect {
+		t.Fatalf("allow-all route = %v, %v", route, err)
 	}
 }
 

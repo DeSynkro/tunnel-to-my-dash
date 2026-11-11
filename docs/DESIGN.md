@@ -89,9 +89,9 @@ Startup sequence:
 
 The shell uses one ink neutral ramp, a mint accent for live status and focus,
 and off-white primary actions. Addresses, versions and route labels use the
-system mono. On the main and settings screens a 200px rail carries the
-Dashboards and Settings entries, the app-lock state and the version. Setup is
-an asymmetric split; lock is a compact card. The route mark and route line are
+system mono. On the main, profile and settings screens a 200px rail carries
+the Dashboards and Settings entries, the app-lock state and the version.
+Setup is an asymmetric split; lock is a compact card. The route mark and route line are
 the repeating signature detail. Short labels are sentence case, and spacing
 stays on a 4px scale.
 
@@ -157,18 +157,21 @@ Dashboards often pull fonts, icons or widget data from public origins. Strict
 LAN-only mode blocks those and the page falls back to system fonts or empty
 widgets.
 
-External content is a per-profile switch, off by default. When it is on:
+External content is set per profile in the profile editor, off by default.
+There are three modes:
 
-- The user lists exact origins in Settings. Paths, credentials and wildcards
-  are rejected, so a rule cannot silently widen.
-- Only those origins are dialed, and they go over the normal network or VPN,
-  never through the WireGuard tunnel. Everything else stays blocked.
-- The proxy resolves external names itself and dials only public addresses.
-  A name that resolves to loopback, a private range or CGNAT is refused.
-- Top-level navigation stays private-only. External origins are for
-  subresources such as fonts, icons and widgets.
-- Allowed origins still see the request and the user's IP. The settings panel
-  says so rather than implying otherwise.
+- **LAN only.** Every public origin is blocked.
+- **Allow all external content.** Any public origin may load. This is for
+  dashboards whose widget set is not practical to enumerate.
+- **Allow specific content.** The user lists exact origins. Paths, credentials
+  and wildcards are rejected, so a rule cannot silently widen.
+
+In both external modes the traffic goes over the normal network or VPN, never
+through the WireGuard tunnel. The proxy resolves external names itself and
+dials only public addresses; a name that resolves to loopback, a private range
+or CGNAT is refused. Top-level navigation stays private-only, and external
+origins are for subresources such as fonts, icons and widgets. Allowed origins
+still see the request and the user's IP.
 
 If the dashboard fetches its widgets on the server side, the browser never
 contacts those services and the switch is irrelevant.

@@ -67,8 +67,8 @@ Out of scope:
 - HTTP and HTTPS requests are forced through the localhost proxy.
 - Loopback destinations are blocked so a page cannot reach the app's own
   control socket or proxy.
-- External content is opt-in, exact-origin and subresource-only. Top-level
-  navigation is always private.
+- External content is opt-in, subresource-only and either exact-origin or an
+  explicit allow-all mode. Top-level navigation is always private.
 - External names are resolved by the proxy and dialed only when the result is
   a public address. Loopback, private, link-local and CGNAT results are
   refused.
@@ -97,8 +97,8 @@ so.
 - [x] Verify Chromium background networking and service hooks are disabled.
 - [x] Verify the dashboard cannot navigate to a public page.
 - [x] Verify loopback and public destinations are refused by the proxy.
-- [x] Verify an allowed external origin loads directly and an unlisted origin
-      gets a 403.
+- [x] Verify an allowed external origin loads directly and, in specific-origin
+      mode, an unlisted origin gets a 403.
 - [x] Verify top-level navigation to an external origin is blocked even when
       that origin is allowed for subresources.
 - [x] Verify no TUN device is created and no elevated privileges are used.

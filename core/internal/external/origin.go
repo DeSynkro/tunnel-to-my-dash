@@ -11,7 +11,35 @@ import (
 	"strings"
 )
 
-var ErrInvalidOrigin = errors.New("invalid external origin")
+var (
+	ErrInvalidOrigin = errors.New("invalid external origin")
+	ErrInvalidMode   = errors.New("invalid external mode")
+)
+
+const (
+	ModeOff     = "off"
+	ModeAll     = "all"
+	ModeOrigins = "origins"
+)
+
+// NormalizeMode validates the per-profile external-content mode. An empty
+// mode comes from older data: external on meant an exact-origin list.
+func NormalizeMode(mode string, allowExternal bool) (string, error) {
+	mode = strings.ToLower(strings.TrimSpace(mode))
+	if mode == "" {
+		if !allowExternal {
+			return ModeOff, nil
+		}
+		return ModeOrigins, nil
+	}
+
+	switch mode {
+	case ModeOff, ModeAll, ModeOrigins:
+		return mode, nil
+	default:
+		return "", fmt.Errorf("%w: %q", ErrInvalidMode, mode)
+	}
+}
 
 // Origin is a canonical http or https origin: scheme, host and port.
 type Origin struct {

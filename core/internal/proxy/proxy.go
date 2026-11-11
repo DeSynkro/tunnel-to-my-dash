@@ -217,7 +217,7 @@ func (LANPolicy) Route(_ string, host, port string) (Route, error) {
 // ExternalPolicy routes private addresses through the tunnel and exact,
 // configured public origins directly. Everything else is refused.
 type ExternalPolicy struct {
-	Allow   bool
+	Mode    string
 	Origins []external.Origin
 }
 
@@ -225,15 +225,20 @@ func (p ExternalPolicy) Route(scheme, host, port string) (Route, error) {
 	if ip := net.ParseIP(host); ip != nil && lan.IsLAN(ip) {
 		return RouteTunnel, nil
 	}
-	if !p.Allow {
+
+	switch p.Mode {
+	case external.ModeAll:
+		return RouteDirect, nil
+	case external.ModeOrigins:
+		for _, origin := range p.Origins {
+			if origin.Match(scheme, host, port) {
+				return RouteDirect, nil
+			}
+		}
+		return RouteDirect, errors.New("destination is not an allowed external origin")
+	default:
 		return RouteDirect, errors.New("external content is off")
 	}
-	for _, origin := range p.Origins {
-		if origin.Match(scheme, host, port) {
-			return RouteDirect, nil
-		}
-	}
-	return RouteDirect, errors.New("destination is not an allowed external origin")
 }
 
 // DirectDialer resolves external names itself and only connects to public

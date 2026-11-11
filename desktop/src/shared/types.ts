@@ -1,8 +1,11 @@
+export type ExternalMode = "off" | "all" | "origins";
+
 export interface ProfileSummary {
   id: string;
   name: string;
   dashboard_url: string;
   allow_external: boolean;
+  external_mode?: ExternalMode;
   external_origins?: string[];
 }
 
@@ -11,6 +14,7 @@ export interface ProfileInput {
   tunnel_config?: string;
   dashboard_url: string;
   allow_external: boolean;
+  external_mode?: ExternalMode;
   external_origins?: string[];
 }
 

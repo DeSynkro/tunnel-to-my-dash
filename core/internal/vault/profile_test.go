@@ -277,3 +277,34 @@ func TestProfileRejectsInvalidExternalOrigin(t *testing.T) {
 		t.Fatalf("AddProfile error = %v, want ErrInvalidProfile", err)
 	}
 }
+
+func TestEffectiveExternalMode(t *testing.T) {
+	tests := []struct {
+		name string
+		p    Profile
+		want string
+	}{
+		{"legacy off", Profile{}, "off"},
+		{"legacy on", Profile{AllowExternal: true}, "origins"},
+		{"explicit all", Profile{ExternalMode: "all"}, "all"},
+		{"explicit wins over legacy", Profile{AllowExternal: true, ExternalMode: "off"}, "off"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.p.EffectiveExternalMode(); got != tt.want {
+				t.Fatalf("mode = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestProfileRejectsInvalidExternalMode(t *testing.T) {
+	s, _ := newKeyFileVault(t)
+
+	profile := newProfile(t, "Home")
+	profile.ExternalMode = "sometimes"
+	if _, err := s.AddProfile(profile); !errors.Is(err, ErrInvalidProfile) {
+		t.Fatalf("AddProfile error = %v, want ErrInvalidProfile", err)
+	}
+}

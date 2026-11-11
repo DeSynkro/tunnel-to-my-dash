@@ -10,6 +10,7 @@ import (
 type ConnectOptions struct {
 	Tunnel          config.Tunnel
 	AllowExternal   bool
+	ExternalMode    string
 	ExternalOrigins []string
 }
 
@@ -38,6 +39,7 @@ func (c *AppConnector) Connect(opts ConnectOptions) (string, error) {
 
 	instance, err := app.Start(opts.Tunnel, app.Options{
 		AllowExternal:   opts.AllowExternal,
+		ExternalMode:    opts.ExternalMode,
 		ExternalOrigins: opts.ExternalOrigins,
 	})
 	if err != nil {

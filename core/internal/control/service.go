@@ -15,6 +15,7 @@ type ProfileInput struct {
 	TunnelConfig    string   `json:"tunnel_config,omitempty"`
 	DashboardURL    string   `json:"dashboard_url"`
 	AllowExternal   bool     `json:"allow_external"`
+	ExternalMode    string   `json:"external_mode,omitempty"`
 	ExternalOrigins []string `json:"external_origins,omitempty"`
 }
 
@@ -23,6 +24,7 @@ type ProfileSummary struct {
 	Name            string   `json:"name"`
 	DashboardURL    string   `json:"dashboard_url"`
 	AllowExternal   bool     `json:"allow_external"`
+	ExternalMode    string   `json:"external_mode,omitempty"`
 	ExternalOrigins []string `json:"external_origins,omitempty"`
 }
 
@@ -146,6 +148,10 @@ func (s *Service) addProfile(input ProfileInput) (ProfileSummary, error) {
 		return ProfileSummary{}, err
 	}
 
+	mode, err := normalizeMode(input.ExternalMode, input.AllowExternal)
+	if err != nil {
+		return ProfileSummary{}, err
+	}
 	origins, err := normalizeOrigins(input.ExternalOrigins)
 	if err != nil {
 		return ProfileSummary{}, err
@@ -154,7 +160,8 @@ func (s *Service) addProfile(input ProfileInput) (ProfileSummary, error) {
 		Name:            input.Name,
 		TunnelConfig:    input.TunnelConfig,
 		DashboardURL:    input.DashboardURL,
-		AllowExternal:   input.AllowExternal,
+		AllowExternal:   mode != external.ModeOff,
+		ExternalMode:    mode,
 		ExternalOrigins: origins,
 	})
 	if err != nil {
@@ -172,6 +179,10 @@ func (s *Service) updateProfile(id string, input ProfileInput) (ProfileSummary, 
 	if !ok {
 		return ProfileSummary{}, vault.ErrProfileNotFound
 	}
+	mode, err := normalizeMode(input.ExternalMode, input.AllowExternal)
+	if err != nil {
+		return ProfileSummary{}, err
+	}
 	origins, err := normalizeOrigins(input.ExternalOrigins)
 	if err != nil {
 		return ProfileSummary{}, err
@@ -185,7 +196,8 @@ func (s *Service) updateProfile(id string, input ProfileInput) (ProfileSummary, 
 	if input.TunnelConfig != "" {
 		profile.TunnelConfig = input.TunnelConfig
 	}
-	profile.AllowExternal = input.AllowExternal
+	profile.AllowExternal = mode != external.ModeOff
+	profile.ExternalMode = mode
 	profile.ExternalOrigins = origins
 
 	if err := s.store.UpdateProfile(profile); err != nil {
@@ -232,6 +244,7 @@ func (s *Service) connect(id string) (string, string, error) {
 	proxy, err := s.connector.Connect(ConnectOptions{
 		Tunnel:          tunnelCfg,
 		AllowExternal:   profile.AllowExternal,
+		ExternalMode:    profile.EffectiveExternalMode(),
 		ExternalOrigins: profile.ExternalOrigins,
 	})
 	if err != nil {
@@ -279,6 +292,14 @@ func (s *Service) close() {
 	}
 }
 
+func normalizeMode(mode string, allowExternal bool) (string, error) {
+	normalized, err := external.NormalizeMode(mode, allowExternal)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", vault.ErrInvalidProfile, err)
+	}
+	return normalized, nil
+}
+
 func normalizeOrigins(raw []string) ([]string, error) {
 	origins, err := external.ParseAll(raw)
 	if err != nil {
@@ -293,6 +314,7 @@ func summarize(p vault.Profile) ProfileSummary {
 		Name:            p.Name,
 		DashboardURL:    p.DashboardURL,
 		AllowExternal:   p.AllowExternal,
+		ExternalMode:    p.EffectiveExternalMode(),
 		ExternalOrigins: append([]string(nil), p.ExternalOrigins...),
 	}
 }

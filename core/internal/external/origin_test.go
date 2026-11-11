@@ -15,6 +15,36 @@ func parseIP(t *testing.T, raw string) net.IP {
 	return ip
 }
 
+func TestNormalizeMode(t *testing.T) {
+	tests := []struct {
+		name          string
+		mode          string
+		allowExternal bool
+		want          string
+		wantErr       bool
+	}{
+		{"off", "off", false, ModeOff, false},
+		{"all", "all", true, ModeAll, false},
+		{"origins", "origins", true, ModeOrigins, false},
+		{"uppercase", " ALL ", true, ModeAll, false},
+		{"legacy off", "", false, ModeOff, false},
+		{"legacy origins", "", true, ModeOrigins, false},
+		{"invalid", "everything", true, "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NormalizeMode(tt.mode, tt.allowExternal)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("error = %v, wantErr = %v", err, tt.wantErr)
+			}
+			if got != tt.want {
+				t.Fatalf("mode = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestParse(t *testing.T) {
 	tests := []struct {
 		name string

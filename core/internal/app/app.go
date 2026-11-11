@@ -13,6 +13,7 @@ import (
 // Options controls which non-LAN origins, if any, may bypass the tunnel.
 type Options struct {
 	AllowExternal   bool
+	ExternalMode    string
 	ExternalOrigins []string
 }
 
@@ -24,6 +25,10 @@ type App struct {
 }
 
 func Start(cfg config.Tunnel, opts Options) (*App, error) {
+	mode, err := external.NormalizeMode(opts.ExternalMode, opts.AllowExternal)
+	if err != nil {
+		return nil, err
+	}
 	origins, err := external.ParseAll(opts.ExternalOrigins)
 	if err != nil {
 		return nil, err
@@ -43,7 +48,7 @@ func Start(cfg config.Tunnel, opts Options) (*App, error) {
 	}
 
 	policy := proxy.ExternalPolicy{
-		Allow:   opts.AllowExternal,
+		Mode:    mode,
 		Origins: origins,
 	}
 	server := proxy.New(device, proxy.DirectDialer{}, policy)

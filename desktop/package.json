@@ -46,7 +46,7 @@
       "category": "Network",
       "icon": "build/icon.png",
       "syncDesktopName": true,
-      "synopsis": "Your LAN, without turning off your VPN.",
+      "synopsis": "Keep your VPN. Reach your LAN.",
       "description": "Open your home dashboard through an app-local WireGuard tunnel. LAN only, no telemetry."
     }
   }

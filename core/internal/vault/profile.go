@@ -22,7 +22,20 @@ type Profile struct {
 	TunnelConfig    string   `json:"tunnel_config"`
 	DashboardURL    string   `json:"dashboard_url"`
 	AllowExternal   bool     `json:"allow_external"`
+	ExternalMode    string   `json:"external_mode,omitempty"`
 	ExternalOrigins []string `json:"external_origins,omitempty"`
+}
+
+// EffectiveExternalMode keeps older profiles working: before external_mode
+// existed, allow_external with an origin list meant exact-origin mode.
+func (p Profile) EffectiveExternalMode() string {
+	if p.ExternalMode != "" {
+		return p.ExternalMode
+	}
+	if p.AllowExternal {
+		return external.ModeOrigins
+	}
+	return external.ModeOff
 }
 
 type Data struct {
@@ -40,6 +53,9 @@ func (p Profile) Validate() error {
 	}
 	if err := (config.App{DashboardURL: p.DashboardURL}).Validate(); err != nil {
 		return fmt.Errorf("%w: dashboard: %v", ErrInvalidProfile, err)
+	}
+	if _, err := external.NormalizeMode(p.ExternalMode, p.AllowExternal); err != nil {
+		return fmt.Errorf("%w: external mode: %v", ErrInvalidProfile, err)
 	}
 	if _, err := external.ParseAll(p.ExternalOrigins); err != nil {
 		return fmt.Errorf("%w: external origin: %v", ErrInvalidProfile, err)

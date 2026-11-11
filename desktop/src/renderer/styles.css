@@ -609,11 +609,6 @@ button.danger:hover:not(:disabled) {
   margin: 0;
 }
 
-.profile-state {
-  color: var(--muted);
-  font-size: 12px;
-}
-
 .profile-url {
   margin: 4px 0 0;
   color: var(--muted);
@@ -663,52 +658,24 @@ button.danger:hover:not(:disabled) {
   margin: 4px 0 16px;
 }
 
-.settings-profiles {
-  display: grid;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.settings-profile {
-  display: grid;
-  gap: 14px;
-  padding: 20px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
-}
-
-.settings-profile .actions {
-  align-items: center;
-}
-
-.settings-profile-note {
-  color: var(--accent);
-}
-
-.settings-external {
-  display: grid;
-  gap: 8px;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg);
-}
-
-.settings-external .check {
-  font-weight: 500;
-}
-
-.settings-origins {
-  margin-top: 4px;
-}
-
-.settings-origins textarea {
-  min-height: 76px;
-}
-
 .settings-block .panel-form {
   margin-top: 16px;
+}
+
+.external-options .check {
+  margin-top: 10px;
+}
+
+.external-options .check:first-of-type {
+  margin-top: 0;
+}
+
+.external-options .hint {
+  margin: 2px 0 0 24px;
+}
+
+.external-options .field {
+  margin-top: 12px;
 }
 
 .footnote {

@@ -121,9 +121,8 @@ function startToolbarPoll(): void {
     const x = point.x - bounds.x;
     const y = point.y - bounds.y;
     const inside = x >= 0 && x < bounds.width && y >= 0 && y < bounds.height;
-    const toolbarFocused = dashboardToolbar.webContents.isFocused();
-    const hotZone = toolbarVisible ? toolbarHeight + 4 : 8;
-    const overHotZone = inside && (y <= hotZone || toolbarFocused);
+    const hotZone = toolbarVisible ? toolbarHeight + 4 : 4;
+    const overHotZone = inside && y <= hotZone;
     const now = Date.now();
 
     if (overHotZone) {
@@ -218,16 +217,20 @@ function sendNavState(): void {
 const navigation: NavigationActions = {
   back: () => {
     dashboardView?.webContents.navigationHistory.goBack();
+    dashboardView?.webContents.focus();
   },
   forward: () => {
     dashboardView?.webContents.navigationHistory.goForward();
+    dashboardView?.webContents.focus();
   },
   reload: () => {
     dashboardView?.webContents.reload();
+    dashboardView?.webContents.focus();
   },
   home: () => {
     if (dashboardView) {
       void dashboardView.webContents.loadURL(dashboardHomeURL);
+      dashboardView.webContents.focus();
     }
   },
   backToApp: () => {
@@ -756,8 +759,8 @@ async function runSettingsSmoke(window: BrowserWindow): Promise<void> {
     console.log(
       `[smoke] settings profiles=${summary.profiles} lock=${JSON.stringify(summary.lockState)}`,
     );
-    if (summary.profiles < 1) {
-      throw new Error("no profile editor in settings");
+    if (summary.profiles !== 0) {
+      throw new Error("profile editing is still in settings");
     }
 
     await window.webContents.executeJavaScript(
@@ -776,87 +779,6 @@ async function runSettingsSmoke(window: BrowserWindow): Promise<void> {
       throw new Error("mismatched passwords were not rejected");
     }
     console.log("[smoke] settings confirm mismatch rejected");
-
-    const seeded = await control?.status();
-    const originalName = seeded?.profiles[0]?.name;
-    if (!originalName) {
-      throw new Error("the seeded profile is missing");
-    }
-
-    await window.webContents.executeJavaScript(
-      `(() => {
-        const input = document.querySelector(".settings-profile-name");
-        if (input) input.value = "Home edited";
-        document.querySelector(".settings-profile-save")?.click();
-      })()`,
-      true,
-    );
-    if (!(await waitForProfileName("Home edited", 5000))) {
-      throw new Error("profile rename was not saved");
-    }
-    if (!(await waitForProfileSaveIdle(window, 3000))) {
-      throw new Error("the profile save button stayed busy");
-    }
-    console.log("[smoke] settings profile rename saved");
-
-    await window.webContents.executeJavaScript(
-      `(() => {
-        const input = document.querySelector(".settings-profile-name");
-        if (input) input.value = ${JSON.stringify(originalName)};
-        document.querySelector(".settings-profile-save")?.click();
-      })()`,
-      true,
-    );
-    if (!(await waitForProfileName(originalName, 5000))) {
-      throw new Error("profile rename was not restored");
-    }
-    if (!(await waitForProfileSaveIdle(window, 3000))) {
-      throw new Error("the profile save button stayed busy after restoring the name");
-    }
-
-    await window.webContents.executeJavaScript(
-      `(() => {
-        const check = document.querySelector(".settings-profile-external");
-        if (check) {
-          check.checked = true;
-          check.dispatchEvent(new Event("change"));
-        }
-        const origins = document.querySelector(".settings-profile-origins");
-        if (origins) {
-          origins.value = "https://fonts.googleapis.com\\nhttps://cdn.jsdelivr.net";
-        }
-        document.querySelector(".settings-profile-save")?.click();
-      })()`,
-      true,
-    );
-    if (!(await waitForExternalState(true, 2, 5000))) {
-      throw new Error("external origins were not saved");
-    }
-    if (!(await waitForProfileSaveIdle(window, 3000))) {
-      throw new Error("the profile save button stayed busy after saving external origins");
-    }
-    console.log("[smoke] settings external origins saved");
-
-    await window.webContents.executeJavaScript(
-      `(() => {
-        const check = document.querySelector(".settings-profile-external");
-        if (check) {
-          check.checked = false;
-          check.dispatchEvent(new Event("change"));
-        }
-        const origins = document.querySelector(".settings-profile-origins");
-        if (origins) origins.value = "";
-        document.querySelector(".settings-profile-save")?.click();
-      })()`,
-      true,
-    );
-    if (!(await waitForExternalState(false, 0, 5000))) {
-      throw new Error("external content did not turn off");
-    }
-    if (!(await waitForProfileSaveIdle(window, 3000))) {
-      throw new Error("the profile save button stayed busy after turning external content off");
-    }
-    console.log("[smoke] settings external off");
 
     await window.webContents.executeJavaScript(
       `(() => {
@@ -940,12 +862,153 @@ async function runSettingsSmoke(window: BrowserWindow): Promise<void> {
     }
     console.log("[smoke] settings lock off");
 
+    await window.webContents.executeJavaScript(
+      'document.getElementById("settings-back")?.click()',
+      true,
+    );
+    if (!(await waitForScreen(window, "main", 3000))) {
+      throw new Error("could not return to the dashboard list");
+    }
+
+    const seeded = await control?.status();
+    const originalName = seeded?.profiles[0]?.name;
+    if (!originalName) {
+      throw new Error("the seeded profile is missing");
+    }
+
+    if (!(await openProfileEditor(window))) {
+      throw new Error("the profile editor did not open");
+    }
+    await window.webContents.executeJavaScript(
+      `(() => {
+        const input = document.getElementById("profile-name");
+        if (input) input.value = "Home edited";
+        document.getElementById("profile-save")?.click();
+      })()`,
+      true,
+    );
+    if (!(await waitForProfileName("Home edited", 5000))) {
+      throw new Error("profile rename was not saved");
+    }
+    if (!(await waitForProfileSaveIdle(window, 3000))) {
+      throw new Error("the profile save button stayed busy");
+    }
+    if (!(await waitForScreen(window, "main", 3000))) {
+      throw new Error("the profile editor did not return to the dashboard list");
+    }
+    console.log("[smoke] profile rename saved");
+
+    if (!(await openProfileEditor(window))) {
+      throw new Error("the profile editor did not reopen");
+    }
+    await window.webContents.executeJavaScript(
+      `(() => {
+        const input = document.getElementById("profile-name");
+        if (input) input.value = ${JSON.stringify(originalName)};
+        document.getElementById("profile-save")?.click();
+      })()`,
+      true,
+    );
+    if (!(await waitForProfileName(originalName, 5000))) {
+      throw new Error("profile rename was not restored");
+    }
+    if (!(await waitForProfileSaveIdle(window, 3000))) {
+      throw new Error("the profile save button stayed busy after restoring the name");
+    }
+
+    if (!(await openProfileEditor(window))) {
+      throw new Error("the profile editor did not reopen");
+    }
+    await window.webContents.executeJavaScript(
+      `(() => {
+        const node = document.getElementById("profile-external-all");
+        if (node) {
+          node.checked = true;
+          node.dispatchEvent(new Event("change"));
+        }
+        document.getElementById("profile-save")?.click();
+      })()`,
+      true,
+    );
+    if (!(await waitForExternalState("all", null, 5000))) {
+      throw new Error("allow-all external content was not saved");
+    }
+    if (!(await waitForProfileSaveIdle(window, 3000))) {
+      throw new Error("the profile save button stayed busy after saving allow-all");
+    }
+    if (!(await waitForScreen(window, "main", 3000))) {
+      throw new Error("the profile editor did not return after saving allow-all");
+    }
+    console.log("[smoke] profile external all saved");
+
+    if (!(await openProfileEditor(window))) {
+      throw new Error("the profile editor did not reopen");
+    }
+    await window.webContents.executeJavaScript(
+      `(() => {
+        const originsRadio = document.getElementById("profile-external-origins");
+        if (originsRadio) {
+          originsRadio.checked = true;
+          originsRadio.dispatchEvent(new Event("change"));
+        }
+        const origins = document.getElementById("profile-origins");
+        if (origins) {
+          origins.value = ["https://fonts.googleapis.com", "https://cdn.jsdelivr.net"].join(String.fromCharCode(10));
+        }
+        document.getElementById("profile-save")?.click();
+      })()`,
+      true,
+    );
+    if (!(await waitForExternalState("origins", 2, 5000))) {
+      throw new Error("specific external origins were not saved");
+    }
+    if (!(await waitForProfileSaveIdle(window, 3000))) {
+      throw new Error("the profile save button stayed busy after saving origins");
+    }
+    if (!(await waitForScreen(window, "main", 3000))) {
+      throw new Error("the profile editor did not return after saving origins");
+    }
+    console.log("[smoke] profile external origins saved");
+
+    if (!(await openProfileEditor(window))) {
+      throw new Error("the profile editor did not reopen");
+    }
+    await window.webContents.executeJavaScript(
+      `(() => {
+        const node = document.getElementById("profile-external-off");
+        if (node) {
+          node.checked = true;
+          node.dispatchEvent(new Event("change"));
+        }
+        document.getElementById("profile-save")?.click();
+      })()`,
+      true,
+    );
+    if (!(await waitForExternalState("off", null, 5000))) {
+      throw new Error("external content did not turn off");
+    }
+    if (!(await waitForProfileSaveIdle(window, 3000))) {
+      throw new Error("the profile save button stayed busy after turning external off");
+    }
+    if (!(await waitForScreen(window, "main", 3000))) {
+      throw new Error("the profile editor did not return after turning external off");
+    }
+    console.log("[smoke] profile external off");
+
     app.quit();
   } catch (error) {
     console.error(`[smoke] settings failed: ${errorMessage(error)}`);
     process.exitCode = 1;
     app.quit();
   }
+}
+
+async function openProfileEditor(window: BrowserWindow): Promise<boolean> {
+  await window.webContents.executeJavaScript(
+    'document.querySelector(".profile-edit")?.click()',
+    true,
+  );
+  return waitForScreen(window, "profile", 3000);
 }
 
 async function waitForScreen(
@@ -981,24 +1044,24 @@ async function waitForProfileSaveIdle(
 ): Promise<boolean> {
   return waitForCondition(async () => {
     const idle = (await window.webContents.executeJavaScript(
-      '(() => { const button = document.querySelector(".settings-profile-save"); return !!button && !button.disabled; })()',
+      '(() => { const button = document.getElementById("profile-save"); return !!button && !button.disabled; })()',
     )) as boolean;
     return idle;
   }, timeoutMs);
 }
 
 async function waitForExternalState(
-  allow: boolean,
-  originCount: number,
+  mode: string,
+  originCount: number | null,
   timeoutMs: number,
 ): Promise<boolean> {
   return waitForCondition(async () => {
     const state = await control?.status();
     const profile = state?.profiles[0];
-    return (
-      profile?.allow_external === allow &&
-      (profile.external_origins?.length ?? 0) === originCount
-    );
+    const modeMatches = profile?.external_mode === mode;
+    const countMatches =
+      originCount === null || (profile?.external_origins?.length ?? 0) === originCount;
+    return modeMatches && countMatches;
   }, timeoutMs);
 }
 

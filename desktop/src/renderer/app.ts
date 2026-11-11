@@ -1,5 +1,6 @@
 import type {
   ConfigFile,
+  ExternalMode,
   ProfileInput,
   ProfileSummary,
   Status,
@@ -28,6 +29,7 @@ const screens = {
   setup: element<HTMLElement>("screen-setup"),
   lock: element<HTMLElement>("screen-lock"),
   main: element<HTMLElement>("screen-main"),
+  profile: element<HTMLElement>("screen-profile"),
   settings: element<HTMLElement>("screen-settings"),
 };
 
@@ -77,7 +79,20 @@ const settingsToggle = element<HTMLButtonElement>("settings-toggle");
 const settingsBack = element<HTMLButtonElement>("settings-back");
 const securityDot = element<HTMLElement>("security-dot");
 const tunnelDot = element<HTMLElement>("tunnel-dot");
-const settingsProfiles = element<HTMLElement>("settings-profiles");
+
+const profileForm = element<HTMLFormElement>("profile-form");
+const profileName = element<HTMLInputElement>("profile-name");
+const profileURL = element<HTMLInputElement>("profile-url");
+const profileExternalOff = element<HTMLInputElement>("profile-external-off");
+const profileExternalAll = element<HTMLInputElement>("profile-external-all");
+const profileExternalOrigins = element<HTMLInputElement>("profile-external-origins");
+const profileOriginsField = element<HTMLElement>("profile-origins-field");
+const profileOrigins = element<HTMLTextAreaElement>("profile-origins");
+const profileError = element<HTMLElement>("profile-error");
+const profileSave = element<HTMLButtonElement>("profile-save");
+const profileBack = element<HTMLButtonElement>("profile-back");
+const profileCancel = element<HTMLButtonElement>("profile-cancel");
+
 const settingsLockState = element<HTMLElement>("settings-lock-state");
 const settingsPasswordForm = element<HTMLFormElement>("settings-password-form");
 const settingsOldPasswordField = element<HTMLElement>("settings-old-password-field");
@@ -93,6 +108,7 @@ const settingsPasswordRemove = element<HTMLButtonElement>("settings-password-rem
 let status: Status | null = null;
 let addFormOpen = false;
 let settingsOpen = false;
+let editingProfileID: string | null = null;
 
 function api(): TtmdBridge {
   if (!bridge) {
@@ -107,12 +123,13 @@ function showScreen(name: keyof typeof screens): void {
   }
   document.body.dataset.screen = name;
 
-  const appLayout = name === "main" || name === "settings";
+  const appLayout = name === "main" || name === "profile" || name === "settings";
+  const dashboardsActive = name === "main" || name === "profile";
   rail.hidden = !appLayout;
   document.body.classList.toggle("layout-app", appLayout);
-  navDashboards.classList.toggle("active", name === "main");
+  navDashboards.classList.toggle("active", dashboardsActive);
   settingsToggle.classList.toggle("active", name === "settings");
-  if (name === "main") {
+  if (dashboardsActive) {
     navDashboards.setAttribute("aria-current", "page");
   } else {
     navDashboards.removeAttribute("aria-current");
@@ -202,12 +219,15 @@ async function refresh(): Promise<void> {
     }
     if (status.locked) {
       settingsOpen = false;
+      editingProfileID = null;
       showScreen("lock");
       lockPassword.focus();
       return;
     }
     if (settingsOpen) {
       showSettings();
+    } else if (editingProfileID && status.profiles.some((p) => p.id === editingProfileID)) {
+      showProfile(editingProfileID);
     } else {
       showMain();
     }
@@ -222,6 +242,7 @@ function showMain(): void {
   }
 
   settingsOpen = false;
+  editingProfileID = null;
   showScreen("main");
   lockButton.hidden = !status.password_protected;
 
@@ -262,28 +283,18 @@ function profileCard(profile: ProfileSummary): HTMLElement {
   const head = document.createElement("div");
   head.className = "profile-head";
 
+  const active = status?.active_profile === profile.id;
   const dot = document.createElement("span");
   dot.className = "status-dot";
-  dot.classList.toggle("on", status?.active_profile === profile.id);
+  dot.classList.toggle("on", active);
+  if (active) {
+    dot.title = "Last used profile";
+  }
   head.append(dot);
 
   const title = document.createElement("h3");
   title.textContent = profile.name;
   head.append(title);
-
-  if (status?.active_profile === profile.id) {
-    const state = document.createElement("span");
-    state.className = "profile-state";
-    state.textContent = "Active";
-    head.append(state);
-  }
-
-  if (profile.allow_external) {
-    const state = document.createElement("span");
-    state.className = "profile-state";
-    state.textContent = "External";
-    head.append(state);
-  }
 
   const url = document.createElement("p");
   url.className = "profile-url";
@@ -306,18 +317,11 @@ function profileCard(profile: ProfileSummary): HTMLElement {
   });
   actions.append(connect);
 
-  if (status?.active_profile !== profile.id) {
-    const activate = makeButton("Make active", "ghost");
-    activate.addEventListener("click", async () => {
-      try {
-        await api().activateProfile(profile.id);
-        await refresh();
-      } catch (error) {
-        mainNote.textContent = message(error);
-      }
-    });
-    actions.append(activate);
-  }
+  const edit = makeButton("Edit", "ghost profile-edit");
+  edit.addEventListener("click", () => {
+    showProfile(profile.id);
+  });
+  actions.append(edit);
 
   const remove = makeButton("Delete", "ghost danger");
   remove.addEventListener("click", async () => {
@@ -342,6 +346,7 @@ function showSettings(): void {
     return;
   }
   settingsOpen = true;
+  editingProfileID = null;
   renderSettings();
   renderRail();
   showScreen("settings");
@@ -351,10 +356,6 @@ function renderSettings(): void {
   if (!status) {
     return;
   }
-
-  settingsProfiles.replaceChildren(
-    ...status.profiles.map((profile) => settingsProfileCard(profile)),
-  );
 
   settingsLockState.textContent = status.password_protected
     ? "App lock is on. The vault needs your password after a restart."
@@ -372,129 +373,84 @@ function renderSettings(): void {
   settingsPasswordHint.textContent = "";
 }
 
-function settingsProfileCard(profile: ProfileSummary): HTMLElement {
-  const card = document.createElement("article");
-  card.className = "settings-profile";
+function showProfile(profileID: string): void {
+  const profile = status?.profiles.find((p) => p.id === profileID);
+  if (!status || !profile) {
+    return;
+  }
 
-  const nameField = document.createElement("label");
-  nameField.className = "field";
-  const nameLabel = document.createElement("span");
-  nameLabel.textContent = "Profile name";
-  const nameInput = document.createElement("input");
-  nameInput.type = "text";
-  nameInput.maxLength = 64;
-  nameInput.value = profile.name;
-  nameInput.className = "settings-profile-name";
-  nameField.append(nameLabel, nameInput);
+  editingProfileID = profileID;
+  settingsOpen = false;
 
-  const urlField = document.createElement("label");
-  urlField.className = "field";
-  const urlLabel = document.createElement("span");
-  urlLabel.textContent = "Dashboard URL";
-  const urlInput = document.createElement("input");
-  urlInput.type = "url";
-  urlInput.value = profile.dashboard_url;
-  urlInput.className = "settings-profile-url";
-  urlField.append(urlLabel, urlInput);
+  profileName.value = profile.name;
+  profileURL.value = profile.dashboard_url;
+  const mode: ExternalMode =
+    profile.external_mode ?? (profile.allow_external ? "origins" : "off");
+  profileExternalOff.checked = mode === "off";
+  profileExternalAll.checked = mode === "all";
+  profileExternalOrigins.checked = mode === "origins";
+  profileOrigins.value = (profile.external_origins ?? []).join("\n");
+  updateProfileOriginsVisibility();
+  setFormError(profileError, "");
 
-  const externalBlock = document.createElement("div");
-  externalBlock.className = "settings-external";
+  renderRail();
+  showScreen("profile");
+}
 
-  const externalLabel = document.createElement("label");
-  externalLabel.className = "check";
-  externalLabel.title =
-    "Off by default. External requests use your normal network or VPN, not the LAN tunnel.";
-  const externalInput = document.createElement("input");
-  externalInput.type = "checkbox";
-  externalInput.className = "settings-profile-external";
-  externalInput.checked = profile.allow_external;
-  const externalText = document.createElement("span");
-  externalText.textContent = "Allow external content";
-  externalLabel.append(externalInput, externalText);
+function updateProfileOriginsVisibility(): void {
+  profileOriginsField.hidden = !profileExternalOrigins.checked;
+}
 
-  const externalHint = document.createElement("p");
-  externalHint.className = "hint";
-  externalHint.textContent =
-    "Loads only the exact origins below. Everything else stays blocked.";
+async function submitProfile(event: SubmitEvent): Promise<void> {
+  event.preventDefault();
+  if (!editingProfileID) {
+    showMain();
+    return;
+  }
 
-  const originsField = document.createElement("label");
-  originsField.className = "field settings-origins";
-  originsField.hidden = !profile.allow_external;
-  const originsLabel = document.createElement("span");
-  originsLabel.textContent = "Allowed external origins";
-  const originsInput = document.createElement("textarea");
-  originsInput.rows = 3;
-  originsInput.spellcheck = false;
-  originsInput.className = "settings-profile-origins";
-  originsInput.placeholder = "https://fonts.googleapis.com\nhttps://cdn.jsdelivr.net";
-  originsInput.value = (profile.external_origins ?? []).join("\n");
-  const originsHint = document.createElement("span");
-  originsHint.className = "hint";
-  originsHint.textContent = "One origin per line. Paths and wildcards are not allowed.";
-  originsField.append(originsLabel, originsInput, originsHint);
+  setFormError(profileError, "");
+  const name = profileName.value.trim();
+  const url = profileURL.value.trim();
+  const mode: ExternalMode = profileExternalAll.checked
+    ? "all"
+    : profileExternalOrigins.checked
+      ? "origins"
+      : "off";
+  const origins = profileOrigins.value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
 
-  externalInput.addEventListener("change", () => {
-    originsField.hidden = !externalInput.checked;
-  });
+  if (!name) {
+    setFormError(profileError, "Give the profile a name");
+    return;
+  }
+  if (!url) {
+    setFormError(profileError, "Enter the dashboard URL");
+    return;
+  }
+  if (mode === "origins" && origins.length === 0) {
+    setFormError(profileError, "Add at least one origin, or choose Allow all");
+    return;
+  }
 
-  externalBlock.append(externalLabel, externalHint, originsField);
-
-  const formError = document.createElement("p");
-  formError.className = "form-error";
-  formError.hidden = true;
-
-  const actions = document.createElement("div");
-  actions.className = "actions";
-  const save = makeButton("Save profile", "settings-profile-save");
-  const note = document.createElement("span");
-  note.className = "hint settings-profile-note";
-  note.hidden = true;
-  actions.append(save, note);
-
-  save.addEventListener("click", async () => {
-    const name = nameInput.value.trim();
-    const url = urlInput.value.trim();
-    setFormError(formError, "");
-    note.hidden = true;
-
-    if (!name) {
-      setFormError(formError, "Give the profile a name");
-      return;
-    }
-    if (!url) {
-      setFormError(formError, "Enter the dashboard URL");
-      return;
-    }
-
-    const externalOrigins = originsInput.value
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
-
-    setBusy(save, true, "Saving…");
-    try {
-      const updated = await api().updateProfile(profile.id, {
-        name,
-        dashboard_url: url,
-        allow_external: externalInput.checked,
-        external_origins: externalOrigins,
-      });
-      profile.name = updated.name;
-      profile.dashboard_url = updated.dashboard_url;
-      profile.allow_external = updated.allow_external;
-      profile.external_origins = updated.external_origins;
-      status = await api().getStatus();
-      note.textContent = "Saved.";
-      note.hidden = false;
-    } catch (error) {
-      setFormError(formError, message(error));
-    } finally {
-      setBusy(save, false);
-    }
-  });
-
-  card.append(nameField, urlField, externalBlock, formError, actions);
-  return card;
+  setBusy(profileSave, true, "Saving…");
+  try {
+    await api().updateProfile(editingProfileID, {
+      name,
+      dashboard_url: url,
+      allow_external: mode !== "off",
+      external_mode: mode,
+      external_origins: origins,
+    });
+    status = await api().getStatus();
+    editingProfileID = null;
+    showMain();
+  } catch (error) {
+    setFormError(profileError, message(error));
+  } finally {
+    setBusy(profileSave, false);
+  }
 }
 
 async function submitSetup(event: SubmitEvent): Promise<void> {
@@ -791,6 +747,22 @@ addForm.addEventListener("submit", (event) => {
 navDashboards.addEventListener("click", () => {
   showMain();
 });
+
+profileForm.addEventListener("submit", (event) => {
+  void submitProfile(event);
+});
+
+profileBack.addEventListener("click", () => {
+  showMain();
+});
+
+profileCancel.addEventListener("click", () => {
+  showMain();
+});
+
+profileExternalOff.addEventListener("change", updateProfileOriginsVisibility);
+profileExternalAll.addEventListener("change", updateProfileOriginsVisibility);
+profileExternalOrigins.addEventListener("change", updateProfileOriginsVisibility);
 
 settingsToggle.addEventListener("click", () => {
   showSettings();

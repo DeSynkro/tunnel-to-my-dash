@@ -17,20 +17,30 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
   links, instead of leaving them dead.
 - Let users choose whether dashboard links open in the same window or in a
   new window. Same-window is the current default.
+- Per-profile credential quick-paste: an encrypted list of service names,
+  URLs, usernames and passwords in the vault, with copy buttons from the
+  dashboard toolbar. Clear the clipboard after 30 seconds and do not add
+  autofill until the security model is settled.
+- Reachability dot: probe the profile's dashboard host and port through the
+  tunnel and show a green or red dot with no label. Decide whether the probe
+  runs on demand or once when the main screen opens; it briefly starts the
+  userspace tunnel.
 
 ## Done
 
 - Interface pass: app-scale rail layout, ink neutral palette, off-white
   primary actions, sentence-case labels, 4px spacing and a route-line
   signature. The in-app wordmark and route mark are in place.
-- Auto-hiding dashboard toolbar: it hides after the pointer leaves the top
-  edge and reappears after a short hover. The dashboard view fills the window
-  and the bar overlays it.
-- Per-profile external-content switch with an exact-origin panel. Allowed
-  origins use the normal network or VPN, never the tunnel; everything else
-  stays blocked.
-- Settings screen: rename profiles, change dashboard URLs, change the app
-  password, and turn the app lock on or off.
+- Settings are app-only: app lock and application information. Profile
+  editing moved to its own screen with an Edit action next to Open dashboard
+  and Delete.
+- Per-profile external content has three modes: LAN only, allow all external
+  content, or exact origins. External traffic uses the normal network or VPN,
+  never the tunnel; top-level navigation stays private.
+- The tagline is now "Keep your VPN. Reach your LAN."
+- Auto-hiding dashboard toolbar: it now hides on pointer leave rather than
+  waiting for the window to lose focus, and reveals after a short top-edge
+  hover.
 - Confirm-password field in first-run setup and in password changes.
 - Dashboard toolbar with back, forward, reload, home and App, plus the
   current host label. The bar is 36px high.
@@ -41,8 +51,11 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 
 ## Later
 
-- Profile switcher UI.
+- Profile switcher UI while a dashboard is open.
 - Jellyfin playback test inside the app.
 - Friendly tunnel error pages and reconnect.
+- Evaluate an ad/tracker blocker. uBlock Origin's MV2 build does not load in
+  current Chromium; possible routes are an MV3 blocker or a filter-list proxy.
+  Keep it off by default and do not phone home for filter updates.
 - GPG-signed release artifacts.
 - Automated network audit in CI.
