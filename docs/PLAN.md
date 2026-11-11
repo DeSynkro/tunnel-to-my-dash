@@ -375,7 +375,7 @@ Argon2id-derived key; keyfile mode stores it in `vault.key` with `0600`.
 3. Keyfile mode and password changes
    - [x] Create and open a vault with a `0600` key file.
    - [x] Reject a key file with group or other permissions.
-   - [ ] Change the password and convert password ↔ keyfile.
+   - [x] Change the password and convert password ↔ keyfile.
    - Commit: `Add vault keyfile mode and password changes`
 
 4. Export and import

@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -148,30 +149,12 @@ func (s *Store) Unlock(password string) error {
 	if now.Before(s.lockedUntil) {
 		return ErrLockedOut
 	}
-	if s.meta.KDF == nil {
-		return fmt.Errorf("%w: missing KDF parameters", ErrCorrupt)
-	}
 
-	salt, err := unb64(s.meta.KDF.Salt)
+	keyBytes, err := s.unwrapKey(password)
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrCorrupt, err)
-	}
-	wrapped, err := unb64(s.meta.WrappedKey)
-	if err != nil {
-		return fmt.Errorf("%w: %v", ErrCorrupt, err)
-	}
-	wrapNonce, err := unb64(s.meta.WrapNonce)
-	if err != nil {
-		return fmt.Errorf("%w: %v", ErrCorrupt, err)
-	}
-
-	params := kdfParams{
-		Time:    s.meta.KDF.Time,
-		Memory:  s.meta.KDF.Memory,
-		Threads: s.meta.KDF.Threads,
-	}
-	keyBytes, err := openSealed(deriveKey(password, salt, params), wrapNonce, wrapped, wrapAAD)
-	if err != nil {
+		if errors.Is(err, ErrCorrupt) {
+			return err
+		}
 		s.recordFailure()
 		return ErrWrongPassword
 	}
@@ -189,6 +172,103 @@ func (s *Store) Unlock(password string) error {
 	s.failures = 0
 	s.lockedUntil = time.Time{}
 	s.unlocked = true
+	return nil
+}
+
+func (s *Store) unwrapKey(password string) ([]byte, error) {
+	if s.meta.KDF == nil {
+		return nil, fmt.Errorf("%w: missing KDF parameters", ErrCorrupt)
+	}
+
+	salt, err := unb64(s.meta.KDF.Salt)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrCorrupt, err)
+	}
+	wrapped, err := unb64(s.meta.WrappedKey)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrCorrupt, err)
+	}
+	wrapNonce, err := unb64(s.meta.WrapNonce)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrCorrupt, err)
+	}
+
+	params := kdfParams{
+		Time:    s.meta.KDF.Time,
+		Memory:  s.meta.KDF.Memory,
+		Threads: s.meta.KDF.Threads,
+	}
+	key, err := openSealed(deriveKey(password, salt, params), wrapNonce, wrapped, wrapAAD)
+	if err != nil {
+		return nil, ErrWrongPassword
+	}
+	return key, nil
+}
+
+func (s *Store) PasswordProtected() bool {
+	return s.meta.Mode == modePassword
+}
+
+func (s *Store) ChangePassword(oldPassword, newPassword string) error {
+	if !s.unlocked {
+		return ErrLocked
+	}
+
+	oldMeta := s.meta
+	oldMode := s.meta.Mode
+
+	if oldMode == modePassword {
+		if err := s.checkPassword(oldPassword); err != nil {
+			return err
+		}
+	}
+
+	if newPassword == "" {
+		if oldMode == modeKeyFile {
+			return nil
+		}
+		if err := s.writeKeyFile(); err != nil {
+			return err
+		}
+		s.meta.Mode = modeKeyFile
+		s.meta.KDF = nil
+		s.meta.WrappedKey = ""
+		s.meta.WrapNonce = ""
+		if err := s.save(); err != nil {
+			_ = os.Remove(s.keyPath)
+			s.meta = oldMeta
+			return err
+		}
+	} else {
+		s.meta.Mode = modePassword
+		if err := s.setPassword(newPassword); err != nil {
+			s.meta = oldMeta
+			return err
+		}
+		if err := s.save(); err != nil {
+			s.meta = oldMeta
+			return err
+		}
+		if oldMode == modeKeyFile {
+			if err := os.Remove(s.keyPath); err != nil && !os.IsNotExist(err) {
+				return fmt.Errorf("remove key file: %w", err)
+			}
+		}
+	}
+
+	s.failures = 0
+	s.lockedUntil = time.Time{}
+	return nil
+}
+
+func (s *Store) checkPassword(password string) error {
+	keyBytes, err := s.unwrapKey(password)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(keyBytes, s.key[:]) {
+		return ErrWrongPassword
+	}
 	return nil
 }
 
