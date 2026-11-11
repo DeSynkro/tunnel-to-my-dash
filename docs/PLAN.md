@@ -438,7 +438,7 @@ content is a later phase.
 
 - [x] 1. Core control server with a fake connector in tests.
    Commit: `Add the core control server`
-2. `serve` command and Unix socket lifecycle.
+- [x] 2. `serve` command and Unix socket lifecycle.
    Commit: `Add the core serve command`
 3. Desktop scaffold: TypeScript, esbuild, Electron, build and start scripts.
    Commit: `Add the desktop app skeleton`
