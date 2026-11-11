@@ -404,10 +404,9 @@ content is a later phase.
   WireGuard config, name the profile, set the dashboard URL.
 - Lock: unlock with the password; keyfile vaults open directly.
 - Main: profile list, connect/disconnect, lock, add profile.
-- Dashboard: a separate sandboxed child window with its own session and
-  proxy. Closing it disconnects the tunnel.
-- v1 uses a child window rather than a single-window `WebContentsView` and
-  toolbar. The single-window version is a later refinement.
+- Dashboard: a sandboxed `BaseWindow` with a 36px toolbar (App, back,
+  forward, reload, Home and host label) above a `WebContentsView`. Closing it
+  disconnects the tunnel.
 
 ### Architecture
 
@@ -461,8 +460,9 @@ content is a later phase.
 - [x] `make check` passes and the desktop code type-checks.
 - [x] No unexpected outbound traffic beyond the WireGuard endpoint.
 
-Desktop pass complete. Remaining: the deferred external-content toggle, Jellyfin
-and OpenCode checks, and friendly tunnel error pages.
+Desktop pass complete. Jellyfin and OpenCode were checked in the Phase 5
+network pass. Remaining: the deferred external-content toggle and friendly
+tunnel error pages.
 
 ## Phase 4 — Linux AppImage
 
@@ -477,3 +477,20 @@ and OpenCode checks, and friendly tunnel error pages.
 - [ ] Automated network audit in CI
 
 Artifact: `desktop/release/Tunnel-to-My-Dash-0.1.0-x86_64.AppImage`.
+
+## Phase 5 — Real-world network pass
+
+Goal: prove the everyday case against the real services, with the normal VPN
+still connected.
+
+- [x] Jellyfin on `192.168.0.3:8096`: HTTP 200, redirected to `/web/`,
+      title `Jellyfin`.
+- [x] OpenCode on `192.168.0.3:4096`: HTTP 200.
+- [x] Laptop dashboard on `192.168.0.4:3000`: HTTP 200, 102646 bytes.
+- [x] ProtonVPN active throughout; no TUN device, root or route changes.
+- [ ] Jellyfin playback inside Chromium, including transcoding.
+- [ ] Home Wi-Fi and remote-network behaviour, including NAT loopback.
+- [ ] Tunnel failure behaviour and reconnect.
+
+All checks above ran through `ttmd-core run` and its localhost proxy as an
+ordinary user. The remaining items need UI-level or different-network tests.
