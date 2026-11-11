@@ -1,0 +1,145 @@
+:root {
+  color-scheme: dark;
+  --bg: #0e1012;
+  --panel: #15191c;
+  --border: #2a3035;
+  --text: #e7e4df;
+  --muted: #8f979e;
+  --faint: #646c73;
+  --accent: #9fc3ae;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell {
+  width: min(720px, calc(100vw - 64px));
+  margin: 0 auto;
+  padding: 56px 0 40px;
+}
+
+.masthead {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.mark {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid #3a4147;
+  background: var(--panel);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+h1 {
+  margin: 0 0 3px;
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.tagline {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.panel {
+  margin-top: 44px;
+  padding: 28px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+h2 {
+  margin: 0 0 12px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.body {
+  max-width: 56ch;
+  margin: 0;
+  color: #a6adb3;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin: 28px 0 0;
+  padding-top: 20px;
+  border-top: 1px solid #242a2f;
+}
+
+dt {
+  color: var(--faint);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+dd {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+
+footer {
+  margin-top: 30px;
+  color: var(--faint);
+  font-size: 12px;
+}
+
+@media (max-width: 620px) {
+  .shell {
+    width: calc(100vw - 32px);
+    padding-top: 32px;
+  }
+
+  .panel {
+    padding: 22px;
+  }
+
+  .facts {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}

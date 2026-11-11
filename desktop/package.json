@@ -1,0 +1,22 @@
+{
+  "name": "tunnel-to-my-dash-desktop",
+  "productName": "Tunnel to My Dash",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop shell for Tunnel to My Dash",
+  "author": "DeSynkro",
+  "license": "GPL-3.0-only",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run build",
+    "start": "npm run build && ELECTRON_CACHE=../.cache/electron electron ."
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "electron": "45.3.0",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  }
+}

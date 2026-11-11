@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; font-src 'self'"
+    />
+    <title>Tunnel to My Dash</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="masthead">
+        <div class="mark" aria-hidden="true">TD</div>
+        <div>
+          <h1>Tunnel to My Dash</h1>
+          <p class="tagline">Your LAN, without turning off your VPN.</p>
+        </div>
+      </header>
+
+      <section class="panel">
+        <p class="eyebrow">Desktop shell</p>
+        <h2>The core connects here</h2>
+        <p class="body">
+          The Go core and its control socket are in place. The setup flow,
+          vault unlock and dashboard window are the next step.
+        </p>
+        <dl class="facts">
+          <div>
+            <dt>Status</dt>
+            <dd>Shell</dd>
+          </div>
+          <div>
+            <dt>Mode</dt>
+            <dd>LAN only</dd>
+          </div>
+          <div>
+            <dt>Version</dt>
+            <dd data-version>dev</dd>
+          </div>
+        </dl>
+      </section>
+
+      <footer>No account. No cloud. No telemetry.</footer>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>

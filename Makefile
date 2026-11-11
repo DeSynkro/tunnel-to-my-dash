@@ -14,7 +14,7 @@ export ELECTRON_CACHE := $(CACHE)/electron
 export ELECTRON_BUILDER_CACHE := $(CACHE)/electron-builder
 export PATH := $(ROOT)/.tools/go/bin:$(PATH)
 
-.PHONY: help dirs env toolchain fmt test core check clean
+.PHONY: help dirs env toolchain fmt test core check desktop-deps desktop-check desktop desktop-start clean
 
 help: ## List available targets
 	@awk 'BEGIN {FS = ":.*## "; printf "Targets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-10s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -50,6 +50,17 @@ check: test ## Format check, vet, tests and no-TUN guard
 	@if grep -R --include='*.go' -n 'CreateTUN' core; then \
 		echo "error: CreateTUN is not allowed"; exit 1; \
 	fi
+
+desktop-deps: ## Install desktop dependencies
+	@cd desktop && npm install
+
+desktop-check: ## Type-check and build the desktop shell
+	@cd desktop && npm run check
+
+desktop: desktop-check ## Build the desktop shell
+
+desktop-start: desktop-check ## Run the desktop shell
+	@cd desktop && npm start
 
 clean: ## Remove build output and local caches
 	@rm -rf "$(ROOT)/build" "$(ROOT)/dist" "$(CACHE)" "$(TMP)"

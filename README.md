@@ -8,7 +8,7 @@ It does not create a system VPN, ask for root, or change your routing table.
 Your normal VPN keeps running.
 
 Status: early development. The tunnel, LAN-only proxy and encrypted vault
-core are working. The desktop UI comes next.
+core are working. The desktop shell is being built.
 
 ## Why
 
@@ -49,17 +49,19 @@ More detail in [docs/DESIGN.md](docs/DESIGN.md).
     docs/       design, roadmap, plan and security notes
     scripts/    build and toolchain helpers
 
-The `core/` and `desktop/` directories land with the first code milestone.
-
 ## Development
 
-Requirements: Linux, Node.js 24+ and Go. The Go toolchain will be downloaded
-into `.tools/` (gitignored) so the build does not depend on a system install.
+Requirements: Linux, Node.js 24+ and Go. The Go toolchain is downloaded into
+`.tools/` (gitignored) so the build does not depend on a system install.
+Electron and npm dependencies stay in `desktop/node_modules` and `.cache/`.
 
 Build caches and temporary files stay inside the project:
 
     make help
     make env
+    make desktop-deps
+    make desktop-check
+    make desktop-start
     make clean
 
 Never commit a real WireGuard config or vault. Put local test files in

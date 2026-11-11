@@ -440,7 +440,7 @@ content is a later phase.
    Commit: `Add the core control server`
 - [x] 2. `serve` command and Unix socket lifecycle.
    Commit: `Add the core serve command`
-3. Desktop scaffold: TypeScript, esbuild, Electron, build and start scripts.
+- [x] 3. Desktop scaffold: TypeScript, esbuild, Electron, build and start scripts.
    Commit: `Add the desktop app skeleton`
 4. Setup, lock and profile UI through the preload bridge.
    Commit: `Add the desktop setup and lock screens`
