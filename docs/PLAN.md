@@ -379,8 +379,8 @@ Argon2id-derived key; keyfile mode stores it in `vault.key` with `0600`.
    - Commit: `Add vault keyfile mode and password changes`
 
 4. Export and import
-   - [ ] Export the payload with a separate Argon2id password.
-   - [ ] Import with the right password; reject a wrong one.
+   - [x] Export the payload with a separate Argon2id password.
+   - [x] Import with the right password; reject a wrong one.
    - Commit: `Add vault export and import`
 
 ### Acceptance
