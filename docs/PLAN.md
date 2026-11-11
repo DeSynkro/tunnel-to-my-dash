@@ -45,8 +45,8 @@ scripts/
 
 **Steps**
 
-- [ ] Write `.go-version` containing `go1.27.4`.
-- [ ] Write `scripts/toolchain.sh`:
+- [x] Write `.go-version` containing `go1.27.4`.
+- [x] Write `scripts/toolchain.sh`:
   - Reads the version from `.go-version`.
   - Detects `x86_64` or `aarch64`.
   - Downloads `go1.27.4.linux-<arch>.tar.gz` from `https://go.dev/dl/`.
@@ -55,10 +55,10 @@ scripts/
     - arm64: `3392582988a273a87ab5043ee1b2c9c17a2c3c00580bf9326c47a2e0aaaeac92`
   - Extracts to `.tools/go`, replacing any previous copy.
   - Prints `go version go1.27.4 linux/<arch>`.
-- [ ] Add to `Makefile`: `GO := $(ROOT)/.tools/go/bin/go`, `.tools/go/bin` on
+- [x] Add to `Makefile`: `GO := $(ROOT)/.tools/go/bin/go`, `.tools/go/bin` on
       `PATH`, a `toolchain` target, and `fmt`, `test`, `core` targets.
-- [ ] Run `make toolchain`.
-- [ ] Run `./.tools/go/bin/go version`.
+- [x] Run `make toolchain`.
+- [x] Run `./.tools/go/bin/go version`.
 
 **Check:** output is `go version go1.27.4 linux/amd64`.
 

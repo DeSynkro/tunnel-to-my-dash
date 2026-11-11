@@ -8,8 +8,8 @@ Later phases do not start until the current one works.
 - [x] Git repository, license and `.gitignore`
 - [x] README, design, security notes
 - [x] Project-local build environment (`.cache/`, `.tmp/`)
-- [ ] Pin the Go toolchain under `.tools/`
-- [ ] First commit
+- [x] Pin the Go toolchain under `.tools/`
+- [x] First commit
 
 Done when `make env` works, the docs are committed, and no secrets or build
 artifacts are tracked.

@@ -3,6 +3,7 @@ SHELL := /bin/bash
 ROOT := $(CURDIR)
 CACHE := $(ROOT)/.cache
 TMP := $(ROOT)/.tmp
+GO := $(ROOT)/.tools/go/bin/go
 
 export TMPDIR := $(TMP)
 export GOCACHE := $(CACHE)/go-build
@@ -11,8 +12,9 @@ export GOPATH := $(CACHE)/go
 export npm_config_cache := $(CACHE)/npm
 export ELECTRON_CACHE := $(CACHE)/electron
 export ELECTRON_BUILDER_CACHE := $(CACHE)/electron-builder
+export PATH := $(ROOT)/.tools/go/bin:$(PATH)
 
-.PHONY: help dirs env clean
+.PHONY: help dirs env toolchain fmt test core clean
 
 help: ## List available targets
 	@awk 'BEGIN {FS = ":.*## "; printf "Targets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-10s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -23,6 +25,22 @@ dirs:
 env: dirs ## Show the project-local build environment
 	@printf 'GOCACHE=%s\nGOMODCACHE=%s\nGOPATH=%s\nTMPDIR=%s\nnpm_config_cache=%s\n' \
 		"$(GOCACHE)" "$(GOMODCACHE)" "$(GOPATH)" "$(TMPDIR)" "$(npm_config_cache)"
+
+toolchain: ## Install the pinned Go toolchain into .tools/
+	@scripts/toolchain.sh
+
+fmt: ## Format Go code
+	@test -d core || { echo "core/ not created yet"; exit 1; }
+	@cd core && $(GO) fmt ./...
+
+test: ## Run Go tests
+	@test -d core || { echo "core/ not created yet"; exit 1; }
+	@cd core && $(GO) test ./...
+
+core: ## Build the core CLI
+	@test -d core || { echo "core/ not created yet"; exit 1; }
+	@mkdir -p build
+	@cd core && $(GO) build -trimpath -o ../build/ttmd-core ./cmd/ttmd-core
 
 clean: ## Remove build output and local caches
 	@rm -rf "$(ROOT)/build" "$(ROOT)/dist" "$(CACHE)" "$(TMP)"
