@@ -20,8 +20,9 @@ No UI yet. A command-line core that proves the hard part.
 
 - [x] Go module and `ttmd-core` entry point
 - [x] LAN address classifier
-- [ ] WireGuard config parser with private-range overrides
+- [x] WireGuard config parser
 - [ ] Userspace WireGuard device and TCP dialer
+- [ ] Route only private ranges through the tunnel
 - [ ] Localhost HTTP/CONNECT proxy
 - [ ] End-to-end test through a userspace tunnel
 - [ ] Manual `curl` check against a real endpoint

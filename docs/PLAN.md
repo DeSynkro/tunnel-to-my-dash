@@ -156,12 +156,12 @@ design.
 
 **Steps**
 
-- [ ] Tests: round-trip a generated config; missing private key; bad base64;
+- [x] Tests: round-trip a generated config; missing private key; bad base64;
       missing endpoint; two peers; bad URL scheme; public dashboard IP.
-- [ ] Run `make test`; expect failure.
-- [ ] Add the `wgctrl` dependency and implement the parser.
-- [ ] Run `make test`; expect pass.
-- [ ] Confirm private keys never appear in error strings.
+- [x] Run `make test`; expect failure.
+- [x] Add the `wgctrl` dependency and implement the parser.
+- [x] Run `make test`; expect pass.
+- [x] Confirm private keys never appear in error strings.
 
 **Commit:** `Parse WireGuard and app configuration`
 
