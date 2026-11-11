@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<title>Tunnel to My Dash iOS icon</title>
+<defs>
+  <linearGradient id="bg" x1=".15" y1="0" x2=".85" y2="1">
+    <stop offset="0" stop-color="#122325"/>
+    <stop offset=".55" stop-color="#0C1A1C"/>
+    <stop offset="1" stop-color="#071113"/>
+  </linearGradient>
+  <radialGradient id="halo" cx=".5" cy=".6" r=".5">
+    <stop offset="0" stop-color="#F0A35A" stop-opacity=".22"/>
+    <stop offset=".6" stop-color="#F0A35A" stop-opacity=".05"/>
+    <stop offset="1" stop-color="#F0A35A" stop-opacity="0"/>
+  </radialGradient>
+</defs>
+<rect width="1024" height="1024" fill="url(#bg)"/>
+<rect width="1024" height="1024" fill="url(#halo)"/>
+<g transform="translate(209.75,202.00) scale(1.9375) translate(-100,-100)">
+  
+<defs>
+  <linearGradient id="fbhouse" x1="256" y1="100" x2="256" y2="420" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#F8F2E7"/>
+    <stop offset=".55" stop-color="#F0E5D4"/>
+    <stop offset="1" stop-color="#E6D7C1"/>
+  </linearGradient>
+  <linearGradient id="fbdoor" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#081214"/>
+    <stop offset="1" stop-color="#241B12"/>
+  </linearGradient>
+  <linearGradient id="fbroofLine" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#FFC46E"/>
+    <stop offset=".55" stop-color="#F0A35A"/>
+    <stop offset="1" stop-color="#E88738"/>
+  </linearGradient>
+  <linearGradient id="fbring" x1=".1" y1=".1" x2=".85" y2=".9">
+    <stop offset="0" stop-color="#FFD08A"/>
+    <stop offset=".5" stop-color="#F0A35A"/>
+    <stop offset="1" stop-color="#DE7C3C"/>
+  </linearGradient>
+  <radialGradient id="fbglow" cx=".5" cy=".66" r=".55">
+    <stop offset="0" stop-color="#F0A35A" stop-opacity=".75"/>
+    <stop offset=".4" stop-color="#F0A35A" stop-opacity=".28"/>
+    <stop offset="1" stop-color="#F0A35A" stop-opacity="0"/>
+  </radialGradient>
+  <clipPath id="fbbodyclip"><rect x="116" y="260" width="280" height="160"/></clipPath>
+  <clipPath id="fbdoorclip"><path d="M146,420 L146,330 A110,110 0 0 1 366,330 L366,420 Z"/></clipPath>
+</defs>
+<!-- one continuous house silhouette: roof and walls share one gradient -->
+<path d="M100,260 L256,100 L412,260 L396,260 L396,420 L116,420 L116,260 Z" fill="url(#fbhouse)"/>
+<!-- warm light on the facade -->
+<g clip-path="url(#fbbodyclip)">
+  <ellipse cx="256" cy="360" rx="190" ry="130" fill="#F0A35A" opacity=".075"/>
+</g>
+<!-- roof outline -->
+<path d="M100,260 L256,100 L412,260" fill="none" stroke="url(#fbroofLine)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+<!-- tunnel -->
+<path d="M146,420 L146,330 A110,110 0 0 1 366,330 L366,420 Z" fill="url(#fbdoor)"/>
+<g clip-path="url(#fbdoorclip)">
+  <ellipse cx="256" cy="380" rx="100" ry="70" fill="url(#fbglow)"/>
+  <path d="M164,412 L164,330 A92,92 0 0 1 348,330 L348,412" fill="none" stroke="url(#fbring)" stroke-width="9" opacity=".95"/>
+  <path d="M182,404 L182,330 A74,74 0 0 1 330,330 L330,404" fill="none" stroke="url(#fbring)" stroke-width="7" opacity=".82"/>
+  
+<path d="M200,396 L200,330 A56,56 0 0 1 312,330 L312,396" fill="none" stroke="#F0A35A" stroke-width="6" opacity=".68"/>
+<path d="M218,388 L218,330 A38,38 0 0 1 294,330 L294,388" fill="none" stroke="#F0A35A" stroke-width="5" opacity=".52"/>
+  <circle cx="256" cy="324" r="9" fill="#FFD9A8"/>
+</g>
+<path d="M146,420 L146,330 A110,110 0 0 1 366,330 L366,420" fill="none" stroke="url(#fbring)" stroke-width="10" opacity=".95"/>
+
+</g>
+</svg>

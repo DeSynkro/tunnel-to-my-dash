@@ -283,6 +283,45 @@ Android later uses Kotlin, Jetpack Compose and the system WebView. The same Go
 core runs in-process through gomobile. Windows later reuses the Electron shell
 and the Go core.
 
+## Brand and interface palette
+
+The identity is the house-and-tunnel mark: a cream house on a dark teal tile,
+with an amber tunnel glow. The logo set in `logo/` is the source of truth;
+derived PNGs are committed so a build does not depend on an SVG rasteriser.
+
+- The masthead and lock screen use `icon-small.svg` as their mark (28px and
+  22px). The HTML wordmark and tagline stay; the wide wordmark SVG is for the
+  README banner.
+- A 512px PNG rendered from `icon.svg` replaces `desktop/build/icon.png`. It
+  is the window icon and the AppImage `.desktop` icon.
+- `logo/banner.svg` sits at the top of the README.
+- The main window, dashboard toolbar and lock overlay share one palette.
+
+Palette choice B, "warm ink": the cool blue-grey base moves to the logo's dark
+teal, text becomes warm off-white, and the mint accent becomes the logo's
+amber. Amber is a highlight only (focus rings, links, active dots), never a
+large fill. Primary buttons use the logo cream. Danger stays salmon. Layout,
+spacing and type are unchanged.
+
+| Token | Before | After |
+| --- | --- | --- |
+| background | `#0b0d12` | `#0a1011` |
+| surface | `#11141b` | `#0f1618` |
+| raised surface | `#171b23` | `#151d1f` |
+| text | `#e9ebef` | `#ece7dd` |
+| secondary | `#a2a8b3` | `#a9a49a` |
+| accent | `#7fd1b9` | `#f0a35a` |
+| primary button | `#e9ebef` | `#efe7d6` |
+
+Non-goals: no light theme, no typography change, no tray or launch-at-login
+work, and no Android icon work yet. `icon-light.svg` and `icon-ios.svg` stay
+unused for now.
+
+Verification: text keeps AA contrast on its surfaces, the mark stays legible at
+22-28px, screenshots cover the main menu, settings, both toolbar modes and the
+lock overlay, and the packaged AppImage passes the full, settings, toolbar,
+fixed, refocus, lock and lock-back flows.
+
 ## Decisions
 
 **Userspace WireGuard instead of a system tunnel.** A system tunnel takes the

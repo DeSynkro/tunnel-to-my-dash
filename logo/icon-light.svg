@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<title>Tunnel to My Dash app icon, light</title>
+<defs>
+  <linearGradient id="bg" x1=".15" y1="0" x2=".85" y2="1">
+    <stop offset="0" stop-color="#F6EFE4"/>
+    <stop offset=".55" stop-color="#EFE5D6"/>
+    <stop offset="1" stop-color="#E3D5C2"/>
+  </linearGradient>
+  <radialGradient id="halo" cx=".5" cy=".62" r=".5">
+    <stop offset="0" stop-color="#FFFFFF" stop-opacity=".5"/>
+    <stop offset=".55" stop-color="#FFFFFF" stop-opacity=".1"/>
+    <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+  </radialGradient>
+  <clipPath id="tileClip"><path d="M232,0 H792 C919.6,0 1024,104.4 1024,232 V792 C1024,919.6 919.6,1024 792,1024 H232 C104.4,1024 0,919.6 0,792 V232 C0,104.4 104.4,0 232,0 Z"/></clipPath>
+</defs>
+<path d="M232,0 H792 C919.6,0 1024,104.4 1024,232 V792 C1024,919.6 919.6,1024 792,1024 H232 C104.4,1024 0,919.6 0,792 V232 C0,104.4 104.4,0 232,0 Z" fill="url(#bg)"/>
+<g clip-path="url(#tileClip)">
+  <rect width="1024" height="1024" fill="url(#halo)"/>
+  <g transform="translate(190.25,182.00) scale(2.0625) translate(-100,-100)">
+    
+<defs>
+  <linearGradient id="ahouse" x1="256" y1="100" x2="256" y2="420" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#1A3032"/>
+    <stop offset=".55" stop-color="#102022"/>
+    <stop offset="1" stop-color="#0A1517"/>
+  </linearGradient>
+  <linearGradient id="adoor" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#F7F0E4"/>
+    <stop offset="1" stop-color="#E6D8C4"/>
+  </linearGradient>
+  <linearGradient id="aroofLine" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#FFC46E"/>
+    <stop offset=".55" stop-color="#E8914B"/>
+    <stop offset="1" stop-color="#E88738"/>
+  </linearGradient>
+  <linearGradient id="aring" x1=".1" y1=".1" x2=".85" y2=".9">
+    <stop offset="0" stop-color="#FFD08A"/>
+    <stop offset=".5" stop-color="#DE7C3C"/>
+    <stop offset="1" stop-color="#B85F2B"/>
+  </linearGradient>
+  <radialGradient id="aglow" cx=".5" cy=".66" r=".55">
+    <stop offset="0" stop-color="#F0A35A" stop-opacity=".30"/>
+    <stop offset=".4" stop-color="#F0A35A" stop-opacity=".28"/>
+    <stop offset="1" stop-color="#F0A35A" stop-opacity="0"/>
+  </radialGradient>
+  <clipPath id="abodyclip"><rect x="116" y="260" width="280" height="160"/></clipPath>
+  <clipPath id="adoorclip"><path d="M146,420 L146,330 A110,110 0 0 1 366,330 L366,420 Z"/></clipPath>
+</defs>
+<!-- one continuous house silhouette: roof and walls share one gradient -->
+<path d="M100,260 L256,100 L412,260 L396,260 L396,420 L116,420 L116,260 Z" fill="url(#ahouse)"/>
+<!-- warm light on the facade -->
+<g clip-path="url(#abodyclip)">
+  <ellipse cx="256" cy="360" rx="190" ry="130" fill="#F0A35A" opacity=".12"/>
+</g>
+<!-- roof outline -->
+<path d="M100,260 L256,100 L412,260" fill="none" stroke="url(#aroofLine)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+<!-- tunnel -->
+<path d="M146,420 L146,330 A110,110 0 0 1 366,330 L366,420 Z" fill="url(#adoor)"/>
+<g clip-path="url(#adoorclip)">
+  <ellipse cx="256" cy="380" rx="100" ry="70" fill="url(#aglow)"/>
+  <path d="M164,412 L164,330 A92,92 0 0 1 348,330 L348,412" fill="none" stroke="url(#aring)" stroke-width="9" opacity=".95"/>
+  <path d="M182,404 L182,330 A74,74 0 0 1 330,330 L330,404" fill="none" stroke="url(#aring)" stroke-width="7" opacity=".82"/>
+  
+<path d="M200,396 L200,330 A56,56 0 0 1 312,330 L312,396" fill="none" stroke="#DE7C3C" stroke-width="6" opacity=".68"/>
+<path d="M218,388 L218,330 A38,38 0 0 1 294,330 L294,388" fill="none" stroke="#DE7C3C" stroke-width="5" opacity=".52"/>
+  <circle cx="256" cy="324" r="9" fill="#C86428"/>
+</g>
+<path d="M146,420 L146,330 A110,110 0 0 1 366,330 L366,420" fill="none" stroke="url(#aring)" stroke-width="10" opacity=".95"/>
+
+  </g>
+</g>
+<path d="M233.95,3 H790.05 C917.07,3 1021,106.93 1021,233.95 V790.05 C1021,917.07 917.07,1021 790.05,1021 H233.95 C106.93,1021 3,917.07 3,790.05 V233.95 C3,106.93 106.93,3 233.95,3 Z" fill="none" stroke="#0B1719" stroke-width="2" opacity=".16"/>
+</svg>

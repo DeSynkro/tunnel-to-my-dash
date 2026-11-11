@@ -88,3 +88,8 @@ await copyFile(path.join(root, "src/renderer/toolbar.html"), path.join(dist, "re
 await copyFile(path.join(root, "src/renderer/toolbar.css"), path.join(dist, "renderer/toolbar.css"));
 await copyFile(path.join(root, "src/renderer/lock.html"), path.join(dist, "renderer/lock.html"));
 await copyFile(path.join(root, "src/renderer/lock.css"), path.join(dist, "renderer/lock.css"));
+await copyFile(
+  path.join(root, "src/renderer/brand-mark.svg"),
+  path.join(dist, "renderer/brand-mark.svg"),
+);
+await copyFile(path.join(root, "build/icon.png"), path.join(dist, "icon.png"));
