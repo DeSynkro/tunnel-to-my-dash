@@ -27,7 +27,8 @@ the app's own traffic uses the tunnel.
   root or system VPN slot is needed.
 - A localhost HTTP proxy feeds the app's browser view through that tunnel.
 - The browser view is Chromium (via Electron), with a small auto-hiding
-  toolbar and in-place navigation. By default it can only reach private
+  toolbar and in-place navigation. The toolbar reserves its own row when
+  visible, so it never covers the page. By default it can only reach private
   addresses; public pages are blocked.
 - Secrets live in an encrypted vault. The app lock is optional; the same
   password unlocks the vault.
@@ -96,8 +97,8 @@ one. The app does not phone home for updates.
   origins, or an exact-origin list; wildcards are not supported.
 - The dashboard opens in its own window with a toolbar; links stay in the same
   view. A same-window/new-window setting is planned.
-- Auto-hide is still unreliable under Wayland; it currently hides when the
-  window loses focus rather than on pointer leave. The fix is in the backlog.
+- Auto-hide can be turned off in Settings if you prefer the toolbar always
+  visible.
 - Launch at login, start minimized and close to tray are deferred until the
   tray icon and distribution artwork exist.
 - Windows and Android packaging come after the Linux AppImage.

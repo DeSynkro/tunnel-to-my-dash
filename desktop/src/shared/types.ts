@@ -2,6 +2,12 @@ export type ExternalMode = "off" | "all" | "origins";
 
 export interface AppSettings {
   open_last_dashboard: boolean;
+  auto_hide_toolbar: boolean;
+}
+
+export interface PointerPayload {
+  y: number;
+  out: boolean;
 }
 
 export interface SecuritySettings {

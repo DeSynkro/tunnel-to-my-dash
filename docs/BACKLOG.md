@@ -10,12 +10,7 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 - Move the navigation bar into the main app window and embed the dashboard in
   the shell instead of a separate dashboard window. This is a larger UI
   refactor and belongs with the unslop pass.
-- Auto-hide is still broken in a real session: it only hides when the window
-  loses focus. The X11 pointer poll passes in the smoke pass, but global
-  cursor polling is unreliable under Wayland, so the toolbar's own focus is
-  currently the only thing that hides it. Replace the poll with pointer events
-  sent from the dashboard and toolbar preloads, and retest on a real Wayland
-  session.
+
 
 ## App behaviour
 
@@ -39,6 +34,10 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
   signature. The in-app wordmark and route mark are in place.
 - Behavior settings in plaintext `settings.json`: open the last dashboard
   after launch and after every unlock.
+- Auto-hide is event-driven now: the dashboard and toolbar preloads report the
+  pointer, so it no longer depends on global cursor polling or window focus.
+  The Behavior setting can turn it off, and the toolbar reserves its own row so
+  it never covers dashboard content.
 - Dashboard window X quits the whole app; the Main menu button returns to the
   main menu. The toolbar has Main menu and a labeled Lock button on the right.
 - Padlock lock overlay: it covers the dashboard with a blurred snapshot of

@@ -4,6 +4,7 @@ import type { AppSettings } from "../shared/types";
 
 const defaults: AppSettings = {
   open_last_dashboard: false,
+  auto_hide_toolbar: true,
 };
 
 export class SettingsStore {
@@ -53,5 +54,6 @@ function normalize(value: unknown): AppSettings {
       : {};
   return {
     open_last_dashboard: raw.open_last_dashboard === true,
+    auto_hide_toolbar: raw.auto_hide_toolbar !== false,
   };
 }

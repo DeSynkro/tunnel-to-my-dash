@@ -3,16 +3,16 @@ import {
   app,
   BaseWindow,
   BrowserWindow,
+  ipcMain,
   Menu,
   powerMonitor,
-  screen,
   session,
   WebContentsView,
   type WebPreferences,
 } from "electron";
 import path from "node:path";
 import { IPC } from "../shared/ipc";
-import type { ConnectResult } from "../shared/types";
+import type { ConnectResult, PointerPayload } from "../shared/types";
 import { ControlClient } from "./control-client";
 import { CoreProcess } from "./core-process";
 import { resolveDataRoot } from "./data-dir";
@@ -76,6 +76,7 @@ let dashboardPartition = "";
 let dashboardPasswordProtected = false;
 let dashboardLocked = false;
 let dashboardClosingToMain = false;
+let dashboardAutoHide = true;
 let suppressAutoOpenOnce = false;
 
 const toolbarHeight = 36;
@@ -84,18 +85,41 @@ const toolbarHideDelay = 900;
 const toolbarPollInterval = 150;
 
 let toolbarVisible = true;
+let toolbarPointerOver = false;
+let toolbarPageNearTop = false;
 let toolbarHoveredAt = 0;
 let toolbarLeftAt = 0;
 let toolbarInitialUntil = 0;
 let toolbarPoll: ReturnType<typeof setInterval> | null = null;
 let idleMonitor: ReturnType<typeof setInterval> | null = null;
 
+function layoutDashboard(): void {
+  if (!dashboardWindow) {
+    return;
+  }
+  const { width, height } = dashboardWindow.getContentBounds();
+  const offset = dashboardToolbar?.getVisible() ? toolbarHeight : 0;
+  dashboardToolbar?.setBounds({ x: 0, y: 0, width, height: toolbarHeight });
+  dashboardView?.setBounds({
+    x: 0,
+    y: offset,
+    width,
+    height: Math.max(0, height - offset),
+  });
+  dashboardLock?.setBounds({ x: 0, y: 0, width, height });
+}
+
 function setToolbarVisible(visible: boolean): void {
   if (!dashboardToolbar || toolbarVisible === visible) {
     return;
   }
   toolbarVisible = visible;
+  if (!visible) {
+    toolbarPointerOver = false;
+    toolbarHoveredAt = 0;
+  }
   dashboardToolbar.setVisible(visible);
+  layoutDashboard();
 }
 
 function stopToolbarPoll(): void {
@@ -103,10 +127,34 @@ function stopToolbarPoll(): void {
     clearInterval(toolbarPoll);
     toolbarPoll = null;
   }
+  toolbarPointerOver = false;
+  toolbarPageNearTop = false;
   toolbarHoveredAt = 0;
   toolbarLeftAt = 0;
   toolbarInitialUntil = 0;
 }
+
+function handleViewPointer(payload: PointerPayload): void {
+  toolbarPageNearTop = !payload.out && payload.y <= 4;
+}
+
+function handleToolbarPointer(payload: PointerPayload): void {
+  toolbarPointerOver = !payload.out;
+}
+
+ipcMain.on(IPC.pointerView, (event, payload: PointerPayload) => {
+  if (event.sender !== dashboardView?.webContents) {
+    return;
+  }
+  handleViewPointer(payload);
+});
+
+ipcMain.on(IPC.pointerToolbar, (event, payload: PointerPayload) => {
+  if (event.sender !== dashboardToolbar?.webContents) {
+    return;
+  }
+  handleToolbarPointer(payload);
+});
 
 function startIdleMonitor(): void {
   stopIdleMonitor();
@@ -167,8 +215,11 @@ async function checkIdle(): Promise<void> {
 function startToolbarPoll(): void {
   stopToolbarPoll();
   toolbarVisible = true;
+  toolbarPointerOver = false;
+  toolbarPageNearTop = false;
   toolbarInitialUntil = Date.now() + 1500;
   dashboardToolbar?.setVisible(true);
+  layoutDashboard();
 
   toolbarPoll = setInterval(() => {
     if (!dashboardWindow || !dashboardToolbar) {
@@ -177,48 +228,46 @@ function startToolbarPoll(): void {
 
     if (!dashboardWindow.isFocused()) {
       setToolbarVisible(false);
+      toolbarPointerOver = false;
       toolbarHoveredAt = 0;
       toolbarLeftAt = 0;
       return;
     }
 
-    const bounds = dashboardWindow.getContentBounds();
-    const point = screen.getCursorScreenPoint();
-    const x = point.x - bounds.x;
-    const y = point.y - bounds.y;
-    const inside = x >= 0 && x < bounds.width && y >= 0 && y < bounds.height;
-    const hotZone = toolbarVisible ? toolbarHeight + 4 : 4;
-    const overHotZone = inside && y <= hotZone;
     const now = Date.now();
 
-    if (overHotZone) {
-      toolbarLeftAt = 0;
-      if (!toolbarVisible) {
-        if (toolbarHoveredAt === 0) {
-          toolbarHoveredAt = now;
-        }
-        if (now - toolbarHoveredAt >= toolbarRevealDelay) {
-          toolbarHoveredAt = 0;
-          setToolbarVisible(true);
-        }
+    if (toolbarVisible) {
+      if (toolbarPointerOver) {
+        toolbarLeftAt = 0;
+        return;
+      }
+      if (now < toolbarInitialUntil) {
+        toolbarLeftAt = 0;
+        return;
+      }
+      if (toolbarLeftAt === 0) {
+        toolbarLeftAt = now;
+      }
+      if (now - toolbarLeftAt >= toolbarHideDelay) {
+        toolbarLeftAt = 0;
+        setToolbarVisible(false);
       }
       return;
     }
 
-    toolbarHoveredAt = 0;
-    if (!toolbarVisible) {
-      return;
-    }
-    if (now < toolbarInitialUntil) {
-      toolbarLeftAt = 0;
-      return;
-    }
-    if (toolbarLeftAt === 0) {
-      toolbarLeftAt = now;
-    }
-    if (now - toolbarLeftAt >= toolbarHideDelay) {
-      toolbarLeftAt = 0;
-      setToolbarVisible(false);
+    toolbarLeftAt = 0;
+    if (toolbarPageNearTop) {
+      if (toolbarHoveredAt === 0) {
+        toolbarHoveredAt = now;
+      }
+      if (now - toolbarHoveredAt >= toolbarRevealDelay) {
+        toolbarHoveredAt = 0;
+        // The cursor is in the top edge, which the revealed bar now covers.
+        toolbarPointerOver = true;
+        setToolbarVisible(true);
+      }
+    } else {
+      toolbarHoveredAt = 0;
     }
   }, toolbarPollInterval);
 }
@@ -257,6 +306,7 @@ async function startCore(): Promise<void> {
 function dashboardWebPreferences(partition: string): WebPreferences {
   return {
     partition,
+    preload: path.join(__dirname, "view-preload.js"),
     contextIsolation: true,
     sandbox: true,
     nodeIntegration: false,
@@ -376,8 +426,14 @@ async function unlockDashboard(password: string): Promise<void> {
   dashboardLock?.setVisible(false);
   dashboardView?.webContents.setAudioMuted(false);
   dashboardView?.setVisible(true);
-  dashboardToolbar?.setVisible(true);
-  startToolbarPoll();
+
+  if (dashboardAutoHide) {
+    startToolbarPoll();
+  } else {
+    toolbarVisible = true;
+    dashboardToolbar?.setVisible(true);
+    layoutDashboard();
+  }
 
   if (dashboardView) {
     try {
@@ -457,22 +513,22 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   window.contentView.addChildView(toolbar);
   window.contentView.addChildView(lock);
 
-  const layout = (): void => {
-    const { width, height } = window.getContentBounds();
-    toolbar.setBounds({ x: 0, y: 0, width, height: toolbarHeight });
-    view.setBounds({ x: 0, y: 0, width, height });
-    lock.setBounds({ x: 0, y: 0, width, height });
-  };
-  window.on("resize", layout);
-  layout();
-
   dashboardWindow = window;
   dashboardView = view;
   dashboardToolbar = toolbar;
   dashboardLock = lock;
   dashboardHomeURL = result.dashboard_url;
+  dashboardAutoHide = settingsStore.get().auto_hide_toolbar;
+  window.on("resize", layoutDashboard);
 
-  startToolbarPoll();
+  if (dashboardAutoHide) {
+    startToolbarPoll();
+  } else {
+    toolbarVisible = true;
+    toolbar.setVisible(true);
+    layoutDashboard();
+  }
+
   void toolbar.webContents.loadFile(path.join(__dirname, "renderer/toolbar.html"));
   void lock.webContents.loadFile(path.join(__dirname, "renderer/lock.html"));
   toolbar.webContents.on("did-finish-load", sendNavState);
@@ -593,7 +649,8 @@ function createWindow(): void {
     process.env.TTMD_SMOKE === "closequit" ||
     process.env.TTMD_SMOKE === "lock" ||
     process.env.TTMD_SMOKE === "lockback" ||
-    process.env.TTMD_SMOKE === "idlelock"
+    process.env.TTMD_SMOKE === "idlelock" ||
+    process.env.TTMD_SMOKE === "toolbarfixed"
   ) {
     mainWindow.webContents.once("did-finish-load", () => {
       if (mainWindow) {
@@ -614,6 +671,7 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
   const lockSmoke = process.env.TTMD_SMOKE === "lock";
   const lockBackSmoke = process.env.TTMD_SMOKE === "lockback";
   const idleLockSmoke = process.env.TTMD_SMOKE === "idlelock";
+  const toolbarFixedSmoke = process.env.TTMD_SMOKE === "toolbarfixed";
   const deadline =
     Date.now() +
     (full ||
@@ -624,7 +682,8 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
     closeQuitSmoke ||
     lockSmoke ||
     lockBackSmoke ||
-    idleLockSmoke
+    idleLockSmoke ||
+    toolbarFixedSmoke
       ? 60_000
       : 12_000);
   let submitted = false;
@@ -653,6 +712,11 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
 
   if (idleLockSmoke) {
     await runIdleLockSmoke(window);
+    return;
+  }
+
+  if (toolbarFixedSmoke) {
+    await runToolbarFixedSmoke(window);
     return;
   }
 
@@ -1172,6 +1236,39 @@ async function runIdleLockSmoke(window: BrowserWindow): Promise<void> {
   }
 }
 
+async function runToolbarFixedSmoke(window: BrowserWindow): Promise<void> {
+  try {
+    console.log("[smoke] toolbarfixed start");
+    if (!(await waitForScreen(window, "main", 5000))) {
+      throw new Error("the dashboard list did not load");
+    }
+    if (!(await waitForProfileButton(window, 3000))) {
+      throw new Error("the profile card did not render");
+    }
+    await window.webContents.executeJavaScript(
+      'document.querySelector(".profile-actions button")?.click()',
+      true,
+    );
+    if (!(await waitForDashboard(5000)) || !(await waitForDashboardLoad(30_000))) {
+      throw new Error("the dashboard did not open");
+    }
+
+    await delay(2000);
+    const visible = dashboardToolbar?.getVisible() ?? false;
+    const viewY = dashboardView?.getBounds().y;
+    console.log(`[smoke] toolbarfixed visible=${visible} viewY=${viewY}`);
+    if (!visible || viewY !== toolbarHeight) {
+      throw new Error("the fixed toolbar did not stay visible");
+    }
+
+    app.quit();
+  } catch (error) {
+    console.error(`[smoke] toolbarfixed failed: ${errorMessage(error)}`);
+    process.exitCode = 1;
+    app.quit();
+  }
+}
+
 async function waitForLockView(visible: boolean, timeoutMs: number): Promise<boolean> {
   return waitForCondition(async () => dashboardLock?.getVisible() === visible, timeoutMs);
 }
@@ -1195,6 +1292,11 @@ async function runToolbarSmoke(window: BrowserWindow): Promise<void> {
     );
     let last = dashboardToolbar?.getVisible() ?? false;
     console.log(`[smoke] toolbar visible=${last}`);
+    const initialViewY = dashboardView?.getBounds().y;
+    console.log(`[smoke] toolbar view y=${initialViewY}`);
+    if (initialViewY !== (last ? toolbarHeight : 0)) {
+      throw new Error("the toolbar does not reserve its own row");
+    }
     let sawHidden = !last;
     let sawShownAgain = false;
 
@@ -1207,6 +1309,10 @@ async function runToolbarSmoke(window: BrowserWindow): Promise<void> {
       }
       last = current;
       console.log(`[smoke] toolbar visible=${current}`);
+      const viewY = dashboardView?.getBounds().y;
+      if (viewY !== (current ? toolbarHeight : 0)) {
+        throw new Error("the dashboard view does not follow the toolbar row");
+      }
       if (!current) {
         sawHidden = true;
       } else if (sawHidden) {
@@ -1338,6 +1444,33 @@ async function runSettingsSmoke(window: BrowserWindow): Promise<void> {
       throw new Error("open-last-dashboard setting was not restored");
     }
     console.log("[smoke] settings open-last saved");
+
+    const autoHideBefore = settingsStore.get().auto_hide_toolbar;
+    await window.webContents.executeJavaScript(
+      'document.getElementById("settings-auto-hide")?.click()',
+      true,
+    );
+    if (
+      !(await waitForCondition(
+        async () => settingsStore.get().auto_hide_toolbar === !autoHideBefore,
+        3000,
+      ))
+    ) {
+      throw new Error("auto-hide setting was not saved");
+    }
+    await window.webContents.executeJavaScript(
+      'document.getElementById("settings-auto-hide")?.click()',
+      true,
+    );
+    if (
+      !(await waitForCondition(
+        async () => settingsStore.get().auto_hide_toolbar === autoHideBefore,
+        3000,
+      ))
+    ) {
+      throw new Error("auto-hide setting was not restored");
+    }
+    console.log("[smoke] settings auto-hide saved");
 
     await window.webContents.executeJavaScript(
       `(() => {

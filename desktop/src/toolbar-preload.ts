@@ -19,3 +19,15 @@ const api: NavigationBridge = {
 };
 
 contextBridge.exposeInMainWorld("ttmdNav", api);
+
+window.addEventListener("mousemove", () => {
+  ipcRenderer.send(IPC.pointerToolbar, { y: 0, out: false });
+});
+
+window.addEventListener("mouseenter", () => {
+  ipcRenderer.send(IPC.pointerToolbar, { y: 0, out: false });
+});
+
+window.addEventListener("mouseleave", () => {
+  ipcRenderer.send(IPC.pointerToolbar, { y: 0, out: true });
+});

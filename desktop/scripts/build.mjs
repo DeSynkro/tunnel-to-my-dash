@@ -57,6 +57,16 @@ await build({
 
 await build({
   ...shared,
+  entryPoints: [path.join(root, "src/view-preload.ts")],
+  outfile: path.join(dist, "view-preload.js"),
+  platform: "node",
+  format: "cjs",
+  target: "node22",
+  external: ["electron"],
+});
+
+await build({
+  ...shared,
   entryPoints: [path.join(root, "src/renderer/app.ts")],
   outfile: path.join(dist, "renderer/app.js"),
   platform: "browser",

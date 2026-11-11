@@ -96,6 +96,7 @@ const profileBack = element<HTMLButtonElement>("profile-back");
 const profileCancel = element<HTMLButtonElement>("profile-cancel");
 
 const settingsOpenLast = element<HTMLInputElement>("settings-open-last");
+const settingsAutoHide = element<HTMLInputElement>("settings-auto-hide");
 const settingsBehaviorError = element<HTMLElement>("settings-behavior-error");
 const settingsForceLan = element<HTMLInputElement>("settings-force-lan");
 const settingsIdleLock = element<HTMLInputElement>("settings-idle-lock");
@@ -124,7 +125,10 @@ const reachability: Record<string, boolean> = {};
 let reachabilityChecking: string | null = null;
 let autoChecked = false;
 let suppressAutoOpenOnce = false;
-let appSettings: AppSettings = { open_last_dashboard: false };
+let appSettings: AppSettings = {
+  open_last_dashboard: false,
+  auto_hide_toolbar: true,
+};
 
 function api(): TtmdBridge {
   if (!bridge) {
@@ -451,6 +455,7 @@ function renderSettings(): void {
     : "Turn on app lock";
 
   settingsOpenLast.checked = appSettings.open_last_dashboard;
+  settingsAutoHide.checked = appSettings.auto_hide_toolbar;
   setFormError(settingsBehaviorError, "");
   renderSecuritySettings();
 
@@ -963,6 +968,21 @@ settingsOpenLast.addEventListener("change", async () => {
   }
 });
 
+settingsAutoHide.addEventListener("change", async () => {
+  const desired = settingsAutoHide.checked;
+  setFormError(settingsBehaviorError, "");
+  settingsAutoHide.disabled = true;
+  try {
+    appSettings = await api().updateSettings({ auto_hide_toolbar: desired });
+    settingsAutoHide.checked = appSettings.auto_hide_toolbar;
+  } catch (error) {
+    settingsAutoHide.checked = appSettings.auto_hide_toolbar;
+    setFormError(settingsBehaviorError, message(error));
+  } finally {
+    settingsAutoHide.disabled = false;
+  }
+});
+
 settingsBack.addEventListener("click", () => {
   showMain();
 });
@@ -1000,7 +1020,7 @@ async function init(): Promise<void> {
   try {
     appSettings = await api().getSettings();
   } catch {
-    appSettings = { open_last_dashboard: false };
+    appSettings = { open_last_dashboard: false, auto_hide_toolbar: true };
   }
   await refresh(true);
 }

@@ -165,5 +165,11 @@ function settingsPatch(value: unknown): Partial<AppSettings> {
     }
     patch.open_last_dashboard = raw.open_last_dashboard;
   }
+  if ("auto_hide_toolbar" in raw) {
+    if (typeof raw.auto_hide_toolbar !== "boolean") {
+      throw new Error("Invalid settings");
+    }
+    patch.auto_hide_toolbar = raw.auto_hide_toolbar;
+  }
   return patch;
 }

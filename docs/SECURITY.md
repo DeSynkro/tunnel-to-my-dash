@@ -58,8 +58,8 @@ Out of scope:
 ## Settings storage
 
 - `settings.json` is plaintext and holds behavior only, such as whether to
-  open the last dashboard after launch. It is written `0600` and is safe to
-  copy between machines.
+  open the last dashboard after launch or auto-hide the toolbar. It is written
+  `0600` and is safe to copy between machines.
 - Security policy lives in the vault: Force LAN-only, idle lock and the idle
   minutes value. It is tamper-evident and travels with the vault.
 - Force LAN-only is enforced by the core at connect time, not only by the UI.
@@ -69,7 +69,9 @@ Out of scope:
 ## Browser hardening
 
 - Dashboard content runs in a separate Electron session with no Node
-  integration, no preload bridge and no file access.
+  integration and no file access. Its only preload is a minimal sandboxed
+  script that reports pointer position for toolbar auto-hide; it exposes no
+  API to the page.
 - Context isolation and the Chromium sandbox stay enabled.
 - Remote debugging is disabled in release builds.
 - New windows and popups are denied.

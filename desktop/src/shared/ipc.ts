@@ -17,6 +17,8 @@ export const IPC = {
   chooseConfig: "ttmd:choose-config",
   statusChanged: "ttmd:status-changed",
   suppressAutoOpen: "ttmd:suppress-auto-open",
+  pointerView: "ttmd:pointer-view",
+  pointerToolbar: "ttmd:pointer-toolbar",
   navBack: "ttmd:nav-back",
   navForward: "ttmd:nav-forward",
   navReload: "ttmd:nav-reload",

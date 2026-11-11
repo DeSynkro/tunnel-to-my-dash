@@ -68,11 +68,13 @@ The desktop app has four parts:
 - **Dashboard view.** A separate `BaseWindow` with a sandboxed
   `WebContentsView` and its own Chromium session and proxy. It loads the
   configured LAN URL and nothing else as a top-level page. A 36px navigation
-  bar overlays the view. The window X quits the app; the Main menu button
-  returns to the main menu. A padlock shows an opaque lock overlay over a
-  blurred snapshot of the page, hides the live page, disconnects the tunnel and
-  reconnects the same dashboard after unlock. Back to main menu from that
-  overlay suppresses auto-open once so the next unlock lands on the main menu.
+  bar sits in its own row. The view starts below it while the bar is visible
+  and fills the window when the bar hides, so the bar never covers dashboard
+  content. The window X quits the app; the Main menu button returns to the main
+  menu. A padlock shows an opaque lock overlay over a blurred snapshot of the
+  page, hides the live page, disconnects the tunnel and reconnects the same
+  dashboard after unlock. Back to main menu from that overlay suppresses
+  auto-open once so the next unlock lands on the main menu.
   Embedding the dashboard in the main shell is a later refinement.
 - **Go core.** A userspace WireGuard device, a TCP/IP stack, a localhost HTTP
   proxy, the vault, and a small control API on a `0600` Unix socket. It runs
@@ -195,7 +197,8 @@ Behavior settings live in plaintext `settings.json` beside the portable data so
 they are easy to inspect and copy. Security policy lives in the encrypted
 vault so it is tamper-evident and travels with the secrets:
 
-- `settings.json`: open the last dashboard after launch.
+- `settings.json`: open the last dashboard after launch and auto-hide the
+  dashboard toolbar.
 - Vault: Force LAN-only, lock after idle and the idle minutes value.
 
 The app lock remains a vault mode. Idle lock is only offered when an app
