@@ -28,7 +28,6 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
   dashboard toolbar. Clear the clipboard after 30 seconds and do not add
   autofill until the security model is settled.
 
-
 ## Done
 
 - Reachability dot: the active profile is probed automatically once at
@@ -38,16 +37,24 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 - Interface pass: app-scale rail layout, ink neutral palette, off-white
   primary actions, sentence-case labels, 4px spacing and a route-line
   signature. The in-app wordmark and route mark are in place.
-- Settings are app-only: app lock and application information. Profile
-  editing moved to its own screen with an Edit action next to Open dashboard
-  and Delete.
+- Behavior settings in plaintext `settings.json`: open the last dashboard
+  after launch and after every unlock.
+- Dashboard window X quits the whole app; the App button returns to the
+  dashboard list. The toolbar now has App and a padlock on the right.
+- Padlock lock overlay: it covers the dashboard, disconnects the tunnel and
+  reloads the same dashboard after unlock. The X quits while locked.
+- Vault security settings: Force LAN-only for all profiles and lock after
+  idle with a minutes value. Idle lock pauses while the dashboard is audible.
+  Force LAN-only greys out profile external options and overrides them in the
+  backend. Profile cards show the effective external-content mode.
+- Settings is a two-column layout: Behavior and Application on the left,
+  App lock and Security on the right, with the vault/settings.json note.
+- Profile editing moved to its own screen with an Edit action next to Open
+  dashboard and Delete.
 - Per-profile external content has three modes: LAN only, allow all external
   content, or exact origins. External traffic uses the normal network or VPN,
   never the tunnel; top-level navigation stays private.
 - The tagline is now "Keep your VPN. Reach your LAN."
-- Auto-hiding dashboard toolbar: it now hides on pointer leave rather than
-  waiting for the window to lose focus, and reveals after a short top-edge
-  hover.
 - Confirm-password field in first-run setup and in password changes.
 - Dashboard toolbar with back, forward, reload, home and App, plus the
   current host label. The bar is 36px high.
@@ -58,6 +65,14 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 
 ## Later
 
+- Launch at login on Linux. An autostart `.desktop` is easy to write, but the
+  AppImage path can move and the file lives outside the portable folder, so it
+  is deferred.
+- Start minimized and close to tray. These need a tray icon and menu; defer
+  until the distribution artwork work.
+- Decide lock-on-leave semantics: App button versus minimize/background.
+- Advanced tunnel details panel: endpoint, proxy, handshake age and last
+  probe result.
 - Profile switcher UI while a dashboard is open.
 - Jellyfin playback test inside the app.
 - Friendly tunnel error pages and reconnect.

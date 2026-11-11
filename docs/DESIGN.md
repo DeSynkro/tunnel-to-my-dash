@@ -68,14 +68,17 @@ The desktop app has four parts:
 - **Dashboard view.** A separate `BaseWindow` with a sandboxed
   `WebContentsView` and its own Chromium session and proxy. It loads the
   configured LAN URL and nothing else as a top-level page. A 36px navigation
-  bar overlays the view and hides when the pointer leaves the top edge.
+  bar overlays the view. The window X quits the app; the App button returns to
+  the dashboard list. A padlock shows an opaque lock overlay, hides the page,
+  disconnects the tunnel and reconnects the same dashboard after unlock.
   Embedding the dashboard in the main shell is a later refinement.
 - **Go core.** A userspace WireGuard device, a TCP/IP stack, a localhost HTTP
   proxy, the vault, and a small control API on a `0600` Unix socket. It runs
   as an ordinary user.
-- **Data directory.** Config, vault, and the Chromium profile. On Linux it
-  lives beside the AppImage when that location is writable; otherwise in the
-  normal per-user config directory.
+- **Data directory.** `settings.json` for behavior, `core/` for the vault and
+  security policy, and `electron/` for the Chromium profile. On Linux it lives
+  beside the AppImage when that location is writable; otherwise in the normal
+  per-user config directory.
 
 Startup sequence:
 
@@ -83,7 +86,9 @@ Startup sequence:
 2. Start the core, the WireGuard device and the localhost proxy.
 3. Point the dashboard session at the proxy and load the configured URL.
    The first request triggers the WireGuard handshake.
-4. On dashboard close, lock, or crash, stop the core and drop the tunnel.
+4. If Open last dashboard after launch is on, open the last active dashboard
+   after the first unlock and after every later unlock.
+5. On dashboard close, lock, or crash, stop the core and drop the tunnel.
 
 ### Interface
 
@@ -91,12 +96,13 @@ The shell uses one ink neutral ramp, a mint accent for live status and focus,
 and off-white primary actions. Addresses, versions and route labels use the
 system mono. On the main, profile and settings screens a 200px rail carries
 the Dashboards and Settings entries, the app-lock state and the version.
-Setup is an asymmetric split; lock is a compact card. The active profile is
-probed once at startup; the profile status dot is also a button for a manual
-re-check. It dials the dashboard host and port through the tunnel and turns
-green or red, with no label. The route mark and route line are
-the repeating signature detail. Short labels are sentence case, and spacing
-stays on a 4px scale.
+Setup is an asymmetric split; lock is a compact card. Settings is a two-column
+layout with Behavior and Application on the left and App lock and Security on
+the right. The active profile is probed once at startup; the profile status
+dot is also a button for a manual re-check. It dials the dashboard host and
+port through the tunnel and turns green or red, with no label. The route mark
+and route line are the repeating signature detail. Short labels are sentence
+case, and spacing stays on a 4px scale.
 
 ## The tunnel
 
@@ -175,6 +181,24 @@ dials only public addresses; a name that resolves to loopback, a private range
 or CGNAT is refused. Top-level navigation stays private-only, and external
 origins are for subresources such as fonts, icons and widgets. Allowed origins
 still see the request and the user's IP.
+
+The app-wide **Force LAN-only for all profiles** setting overrides every
+profile's mode. It is stored in the vault, unchecked by default, and leaves the
+profile choices intact. While it is on, the profile editor greys out the
+external section and the profile cards report `LAN only (app override)`.
+
+## Settings storage
+
+Behavior settings live in plaintext `settings.json` beside the portable data so
+they are easy to inspect and copy. Security policy lives in the encrypted
+vault so it is tamper-evident and travels with the secrets:
+
+- `settings.json`: open the last dashboard after launch.
+- Vault: Force LAN-only, lock after idle and the idle minutes value.
+
+The app lock remains a vault mode. Idle lock is only offered when an app
+password is set; keyfile vaults have no lock screen. The idle timer pauses
+while the dashboard is audible, so media playback is not interrupted.
 
 If the dashboard fetches its widgets on the server side, the browser never
 contacts those services and the switch is irrelevant.

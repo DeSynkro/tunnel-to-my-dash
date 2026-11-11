@@ -55,6 +55,17 @@ Out of scope:
 - Real configs and vaults belong in `local/`, which is gitignored. A secret
   found in git history is treated as leaked and must be replaced.
 
+## Settings storage
+
+- `settings.json` is plaintext and holds behavior only, such as whether to
+  open the last dashboard after launch. It is written `0600` and is safe to
+  copy between machines.
+- Security policy lives in the vault: Force LAN-only, idle lock and the idle
+  minutes value. It is tamper-evident and travels with the vault.
+- Force LAN-only is enforced by the core at connect time, not only by the UI.
+- A missing or edited `settings.json` cannot widen network access; the
+  security policy and profile external origins remain in the vault.
+
 ## Browser hardening
 
 - Dashboard content runs in a separate Electron session with no Node
@@ -94,6 +105,12 @@ a defense against an attacker who can copy the files and run an offline
 password search. A weak password such as `123` is still weak, and the UI says
 so.
 
+The dashboard padlock shows an opaque local lock view, hides the dashboard
+view, mutes its audio and disconnects the tunnel. Unlocking reconnects and
+reloads the configured dashboard. The idle lock uses the same path and pauses
+while the dashboard is audible, so media playback is not cut off. Closing the
+dashboard window quits the app instead of leaving a hidden tunnel behind.
+
 ## Audit checklist
 
 - [x] Launch the app with no dashboard configured and capture outbound traffic.
@@ -106,6 +123,11 @@ so.
       mode, an unlisted origin gets a 403.
 - [x] Verify top-level navigation to an external origin is blocked even when
       that origin is allowed for subresources.
+- [x] Verify Force LAN-only overrides a profile's external-content mode in the
+      connector options.
+- [x] Verify the dashboard padlock disconnects the tunnel, hides the page and
+      reconnects after unlock.
+- [x] Verify idle lock triggers and reconnects after unlock.
 - [x] Verify no TUN device is created and no elevated privileges are used.
 - [x] Verify the AppImage runs with the Chromium sandbox enabled. The
       packaged build loaded the dashboard without `--no-sandbox`; only the

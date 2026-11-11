@@ -36,6 +36,11 @@ the app's own traffic uses the tunnel.
   normal network or VPN, never the tunnel.
 - The active profile is checked once at startup. Click its status dot to
   re-check; green is reachable, red is not.
+- The last dashboard can open automatically after launch and after every
+  unlock. Behavior settings live in `settings.json`; security policy lives in
+  the vault.
+- The dashboard toolbar has a padlock lock overlay. The window X quits the app;
+  the App button returns to the dashboard list.
 
 More detail in [docs/DESIGN.md](docs/DESIGN.md).
 
@@ -89,6 +94,10 @@ one. The app does not phone home for updates.
   origins, or an exact-origin list; wildcards are not supported.
 - The dashboard opens in its own window with a toolbar; links stay in the same
   view. A same-window/new-window setting is planned.
+- Auto-hide is still unreliable under Wayland; it currently hides when the
+  window loses focus rather than on pointer leave. The fix is in the backlog.
+- Launch at login, start minimized and close to tray are deferred until the
+  tray icon and distribution artwork exist.
 - Windows and Android packaging come after the Linux AppImage.
 - Jellyfin playback inside the app is still untested; Jellyfin, OpenCode and
   the laptop dashboard answered over HTTP through the tunnel.
