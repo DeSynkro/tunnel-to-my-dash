@@ -182,12 +182,14 @@ type Config struct {
     Endpoint      string
     Addresses     []net.IPNet
     MTU           int
+    ListenPort    uint16 // 0 picks a random port
 }
 
 type Device struct{ /* ... */ }
 
 func Start(cfg Config) (*Device, error)
 func (d *Device) DialContext(ctx context.Context, network, address string) (net.Conn, error)
+func (d *Device) Listen(network, address string) (net.Listener, error)
 func (d *Device) Close() error
 ```
 
@@ -196,15 +198,15 @@ adapter. No OS TUN device is opened. TCP dials come from `gonet`.
 
 **Steps**
 
-- [ ] Write a test pair helper: two devices on `127.0.0.1` linked to each
+- [x] Write a test pair helper: two devices on `127.0.0.1` linked to each
       other's UDP endpoint, addresses `10.66.0.1/24` and `10.66.0.2/24`.
-- [ ] Test: start a TCP echo listener on `10.66.0.1:8080`; dial it from the
+- [x] Test: start a TCP echo listener on `10.66.0.1:8080`; dial it from the
       other device; send `hello`; expect the echo. Retry the dial for up to
       five seconds while the handshake completes.
-- [ ] Run `make test`; expect failure.
-- [ ] Implement the netstack, adapter and device lifecycle.
-- [ ] Run `make test`; expect pass.
-- [ ] Test `Close` twice and after the peer disappears.
+- [x] Run `make test`; expect failure.
+- [x] Implement the netstack, adapter and device lifecycle.
+- [x] Run `make test`; expect pass.
+- [x] Test `Close` twice and after the peer disappears.
 
 **Commit:** `Add the userspace WireGuard device`
 
