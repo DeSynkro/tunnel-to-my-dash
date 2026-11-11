@@ -28,9 +28,9 @@ the app's own traffic uses the tunnel.
 - A localhost HTTP proxy feeds the app's browser view through that tunnel.
 - The browser view is Chromium (via Electron), with a small floating glass
   toolbar and in-place navigation. Auto-hide shrinks it to a centered peek
-  pill; hovering expands it with a short animation. The toolbar reserves its
-  own row, so it never covers the page. By default it can only reach private
-  addresses; public pages are blocked.
+  pill that overlays the dashboard; hovering expands it with a short
+  animation. Turn auto-hide off and the bar takes its own row instead. By
+  default it can only reach private addresses; public pages are blocked.
 - Secrets live in an encrypted vault. The app lock is optional; the same
   password unlocks the vault.
 - LAN-only by default. A per-profile external-content switch can allow all

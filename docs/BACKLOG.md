@@ -36,9 +36,9 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
   after launch and after every unlock.
 - Auto-hide is a centered, floating glass bar with a small peek pill. Hovering
   the pill animates the bar open, and moving away returns it to the pill. It
-  also returns when the dashboard window regains focus. The bar reserves its
-  own row and never covers dashboard content. The Behavior setting can turn
-  auto-hide off.
+  also returns when the dashboard window regains focus. With auto-hide on, the
+  pill and bar overlay the dashboard. Turning auto-hide off gives the bar its
+  own reserved row, so it covers nothing.
 - Dashboard window X quits the whole app; the Main menu button returns to the
   main menu. The toolbar has Main menu and a labeled Lock button on the right.
 - Padlock lock overlay: it covers the dashboard with a blurred snapshot of

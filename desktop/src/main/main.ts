@@ -134,8 +134,10 @@ function toolbarPeekRect(): ToolbarRect {
   };
 }
 
-function toolbarPageOffset(rect: ToolbarRect): number {
-  return rect.y + rect.height + (rect.height > peekHeight ? toolbarExpandedGap : 0);
+function dashboardPageOffset(): number {
+  return dashboardAutoHide
+    ? 0
+    : toolbarExpandedTop + toolbarHeight + toolbarExpandedGap;
 }
 
 function applyToolbarFrame(rect: ToolbarRect, radius: number): void {
@@ -145,7 +147,7 @@ function applyToolbarFrame(rect: ToolbarRect, radius: number): void {
   dashboardToolbar?.setBounds(rect);
   dashboardToolbar?.setBorderRadius(radius);
   const { width, height } = dashboardWindow.getContentBounds();
-  const offset = toolbarPageOffset(rect);
+  const offset = dashboardPageOffset();
   dashboardView?.setBounds({
     x: 0,
     y: offset,
@@ -173,8 +175,6 @@ function animateToolbar(expanded: boolean): void {
   const to = expanded ? toolbarExpandedRect() : toolbarPeekRect();
   const fromRadius = wasExpanded ? toolbarRadius : peekRadius;
   const toRadius = expanded ? toolbarRadius : peekRadius;
-  const fromOffset = toolbarPageOffset(from);
-  const toOffset = toolbarPageOffset(to);
   const start = Date.now();
 
   toolbarVisible = expanded;
@@ -205,8 +205,8 @@ function animateToolbar(expanded: boolean): void {
       height: Math.round(from.height + (to.height - from.height) * eased),
     };
     const radius = Math.round(fromRadius + (toRadius - fromRadius) * eased);
-    const offset = Math.round(fromOffset + (toOffset - fromOffset) * eased);
     const { width, height } = dashboardWindow.getContentBounds();
+    const offset = dashboardPageOffset();
 
     dashboardToolbar.setBounds(rect);
     dashboardToolbar.setBorderRadius(radius);
@@ -1421,9 +1421,8 @@ async function runRefocusSmoke(window: BrowserWindow): Promise<void> {
 
     const expanded = (dashboardToolbar?.getBounds().height ?? 0) === toolbarHeight;
     const viewY = dashboardView?.getBounds().y;
-    const expectedViewY = toolbarExpandedTop + toolbarHeight + toolbarExpandedGap;
     console.log(`[smoke] refocus expanded=${expanded} viewY=${viewY}`);
-    if (!expanded || viewY !== expectedViewY) {
+    if (!expanded || viewY !== 0) {
       throw new Error("the toolbar did not return on refocus");
     }
 
@@ -1456,14 +1455,13 @@ async function runToolbarSmoke(window: BrowserWindow): Promise<void> {
     console.log(
       `[smoke] toolbar window=${JSON.stringify(dashboardWindow?.getContentBounds())}`,
     );
-    const expandedViewY = toolbarExpandedTop + toolbarHeight + toolbarExpandedGap;
-    const peekViewY = peekTop + peekHeight;
+    const expectedViewY = 0;
     let last = (dashboardToolbar?.getBounds().height ?? 0) === toolbarHeight;
     console.log(`[smoke] toolbar expanded=${last}`);
     const initialViewY = dashboardView?.getBounds().y;
     console.log(`[smoke] toolbar view y=${initialViewY}`);
-    if (initialViewY !== (last ? expandedViewY : peekViewY)) {
-      throw new Error("the toolbar does not reserve its own row");
+    if (initialViewY !== expectedViewY) {
+      throw new Error("the auto-hide toolbar should overlay the dashboard");
     }
     let sawHidden = !last;
     let sawShownAgain = false;
@@ -1485,12 +1483,9 @@ async function runToolbarSmoke(window: BrowserWindow): Promise<void> {
       );
       const settledHeight = dashboardToolbar?.getBounds().height;
       const viewY = dashboardView?.getBounds().y;
-      if (
-        !settled ||
-        viewY !== (current ? expandedViewY : peekViewY)
-      ) {
+      if (!settled || viewY !== expectedViewY) {
         throw new Error(
-          `the dashboard view does not follow the toolbar row: height=${settledHeight} viewY=${viewY} expanded=${current}`,
+          `the dashboard view does not overlay the toolbar: height=${settledHeight} viewY=${viewY} expanded=${current}`,
         );
       }
       if (!current) {
