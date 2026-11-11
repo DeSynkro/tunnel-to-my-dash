@@ -36,6 +36,20 @@ export interface ConfigFile {
   text: string;
 }
 
+export interface NavState {
+  canGoBack: boolean;
+  canGoForward: boolean;
+  url: string;
+}
+
+export interface NavigationBridge {
+  back(): Promise<void>;
+  forward(): Promise<void>;
+  reload(): Promise<void>;
+  home(): Promise<void>;
+  onState(callback: (state: NavState) => void): () => void;
+}
+
 export interface TtmdBridge {
   getStatus(): Promise<Status>;
   createVault(password: string): Promise<Status>;

@@ -12,6 +12,11 @@ export const IPC = {
   disconnect: "ttmd:disconnect",
   chooseConfig: "ttmd:choose-config",
   statusChanged: "ttmd:status-changed",
+  navBack: "ttmd:nav-back",
+  navForward: "ttmd:nav-forward",
+  navReload: "ttmd:nav-reload",
+  navHome: "ttmd:nav-home",
+  navState: "ttmd:nav-state",
   quit: "ttmd:quit",
   version: "ttmd:version",
 } as const;

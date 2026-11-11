@@ -1,0 +1,98 @@
+:root {
+  color-scheme: dark;
+  --bg: #15191c;
+  --border: #2a3035;
+  --text: #e7e4df;
+  --muted: #a6adb3;
+  --faint: #646c73;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 44px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: #1d2226;
+  color: var(--text);
+}
+
+button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+svg {
+  width: 16px;
+  height: 16px;
+}
+
+#home {
+  width: auto;
+  gap: 6px;
+  padding: 0 10px;
+}
+
+#home span {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 5px;
+  background: var(--border);
+}
+
+.address {
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--faint);
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

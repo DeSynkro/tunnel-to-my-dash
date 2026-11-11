@@ -1,12 +1,20 @@
 import { randomBytes } from "node:crypto";
-import { app, BrowserWindow, Menu, session, type WebPreferences } from "electron";
+import {
+  app,
+  BaseWindow,
+  BrowserWindow,
+  Menu,
+  session,
+  WebContentsView,
+  type WebPreferences,
+} from "electron";
 import path from "node:path";
 import { IPC } from "../shared/ipc";
 import type { ConnectResult } from "../shared/types";
 import { ControlClient } from "./control-client";
 import { CoreProcess } from "./core-process";
 import { resolveDataRoot } from "./data-dir";
-import { registerIpc } from "./ipc";
+import { registerIpc, type NavigationActions } from "./ipc";
 import { isPrivateHttpUrl } from "./private-url";
 
 app.setName("Tunnel to My Dash");
@@ -55,8 +63,12 @@ let control: ControlClient | null = null;
 let coreError: string | null = null;
 let core: CoreProcess | null = null;
 let mainWindow: BrowserWindow | null = null;
-let dashboardWindow: BrowserWindow | null = null;
-const dashboardChildren = new Set<BrowserWindow>();
+let dashboardWindow: BaseWindow | null = null;
+let dashboardView: WebContentsView | null = null;
+let dashboardToolbar: WebContentsView | null = null;
+let dashboardHomeURL = "";
+
+const toolbarHeight = 44;
 
 function resolveCorePath(): string {
   if (process.env.TTMD_CORE) {
@@ -103,39 +115,34 @@ function dashboardWebPreferences(partition: string): WebPreferences {
   };
 }
 
-function secureDashboardWindow(window: BrowserWindow, partition: string): void {
-  window.setMenuBarVisibility(false);
-
-  window.webContents.setWindowOpenHandler(({ url }) => {
-    if (!isPrivateHttpUrl(url)) {
-      return { action: "deny" };
-    }
-    return {
-      action: "allow",
-      overrideBrowserWindowOptions: {
-        width: 1100,
-        height: 780,
-        minWidth: 800,
-        minHeight: 600,
-        autoHideMenuBar: true,
-        backgroundColor: "#0e1012",
-        webPreferences: dashboardWebPreferences(partition),
-      },
-    };
-  });
-
-  window.webContents.on("will-navigate", (event, url) => {
-    if (!url.startsWith("http://") && !url.startsWith("https://")) {
-      event.preventDefault();
-    }
-  });
-
-  window.webContents.on("did-create-window", (child) => {
-    dashboardChildren.add(child);
-    child.once("closed", () => dashboardChildren.delete(child));
-    secureDashboardWindow(child, partition);
+function sendNavState(): void {
+  if (!dashboardView || !dashboardToolbar) {
+    return;
+  }
+  const history = dashboardView.webContents.navigationHistory;
+  dashboardToolbar.webContents.send(IPC.navState, {
+    canGoBack: history.canGoBack(),
+    canGoForward: history.canGoForward(),
+    url: dashboardView.webContents.getURL(),
   });
 }
+
+const navigation: NavigationActions = {
+  back: () => {
+    dashboardView?.webContents.navigationHistory.goBack();
+  },
+  forward: () => {
+    dashboardView?.webContents.navigationHistory.goForward();
+  },
+  reload: () => {
+    dashboardView?.webContents.reload();
+  },
+  home: () => {
+    if (dashboardView) {
+      void dashboardView.webContents.loadURL(dashboardHomeURL);
+    }
+  },
+};
 
 async function openDashboard(profileID: string, result: ConnectResult): Promise<void> {
   if (dashboardWindow) {
@@ -156,21 +163,76 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   dashboardSession.setPermissionCheckHandler(() => false);
   dashboardSession.setSpellCheckerEnabled(false);
 
-  const window = new BrowserWindow({
+  const window = new BaseWindow({
     width: 1100,
     height: 780,
     minWidth: 800,
     minHeight: 600,
     title: "Tunnel to My Dash",
     backgroundColor: "#0e1012",
-    autoHideMenuBar: true,
+  });
+
+  const view = new WebContentsView({
     webPreferences: dashboardWebPreferences(partition),
   });
+  const toolbar = new WebContentsView({
+    webPreferences: {
+      preload: path.join(__dirname, "toolbar-preload.js"),
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
+      webSecurity: true,
+      spellcheck: false,
+      devTools: !app.isPackaged,
+    },
+  });
+
+  window.contentView.addChildView(view);
+  window.contentView.addChildView(toolbar);
+
+  const layout = (): void => {
+    const { width, height } = window.getContentBounds();
+    toolbar.setBounds({ x: 0, y: 0, width, height: toolbarHeight });
+    view.setBounds({
+      x: 0,
+      y: toolbarHeight,
+      width,
+      height: Math.max(0, height - toolbarHeight),
+    });
+  };
+  window.on("resize", layout);
+  layout();
+
   dashboardWindow = window;
-  secureDashboardWindow(window, partition);
+  dashboardView = view;
+  dashboardToolbar = toolbar;
+  dashboardHomeURL = result.dashboard_url;
+
+  void toolbar.webContents.loadFile(path.join(__dirname, "renderer/toolbar.html"));
+  toolbar.webContents.on("did-finish-load", sendNavState);
+
+  view.webContents.setWindowOpenHandler(({ url }) => {
+    if (isPrivateHttpUrl(url)) {
+      void view.webContents.loadURL(url);
+    }
+    return { action: "deny" };
+  });
+  view.webContents.on("will-navigate", (event, url) => {
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      event.preventDefault();
+    }
+  });
+  view.webContents.on("did-navigate", sendNavState);
+  view.webContents.on("did-navigate-in-page", sendNavState);
+  view.webContents.on("page-title-updated", (_event, title) => {
+    window.setTitle(title ? `${title} — Tunnel to My Dash` : "Tunnel to My Dash");
+  });
 
   window.on("closed", () => {
     dashboardWindow = null;
+    dashboardView = null;
+    dashboardToolbar = null;
+    dashboardHomeURL = "";
     if (control) {
       void control.disconnect().catch(() => undefined);
     }
@@ -183,7 +245,7 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   mainWindow?.hide();
 
   try {
-    await window.loadURL(result.dashboard_url);
+    await view.webContents.loadURL(result.dashboard_url);
   } catch (error) {
     console.error(`[dashboard] ${errorMessage(error)}`);
   }
@@ -302,8 +364,8 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
               app.quit();
               return;
             }
-            const state = dashboardWindow
-              ? ((await dashboardWindow.webContents.executeJavaScript(`({
+            const state = dashboardView
+              ? ((await dashboardView.webContents.executeJavaScript(`({
                   title: document.title,
                   bodyLength: (document.body?.innerText || "").length,
                   errorPage:
@@ -320,8 +382,9 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
             }
           }
 
-          if (full && dashboardWindow) {
-            const clicked = (await dashboardWindow.webContents.executeJavaScript(
+          if (full && dashboardView) {
+            const before = dashboardView.webContents.getURL();
+            const clicked = (await dashboardView.webContents.executeJavaScript(
               `(() => {
                 const link = document.querySelector('a[target="_blank"][href^="http://192.168."]');
                 if (!link) return false;
@@ -333,15 +396,26 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
 
             console.log(`[smoke] service link clicked=${clicked}`);
             if (clicked) {
-              const opened = await waitForServiceWindow(3000);
-              console.log(`[smoke] service window opened=${opened}`);
-              if (!opened) {
+              const navigated = await waitForDashboardURL(
+                (url) => url !== before && url.startsWith("http://192.168."),
+                5000,
+              );
+              console.log(
+                `[smoke] service link navigated=${navigated} url=${dashboardView.webContents.getURL()}`,
+              );
+              if (!navigated) {
                 process.exitCode = 1;
+              } else if (dashboardToolbar) {
+                await dashboardToolbar.webContents.executeJavaScript(
+                  "window.ttmdNav.back()",
+                  true,
+                );
+                const back = await waitForDashboardURL((url) => url === before, 5000);
+                console.log(`[smoke] toolbar back=${back}`);
+                if (!back) {
+                  process.exitCode = 1;
+                }
               }
-              for (const child of Array.from(dashboardChildren)) {
-                child.close();
-              }
-              await delay(200);
             }
           }
 
@@ -383,11 +457,11 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
 }
 
 async function waitForDashboardLoad(timeoutMs: number): Promise<boolean> {
-  const window = dashboardWindow;
-  if (!window) {
+  const view = dashboardView;
+  if (!view) {
     return false;
   }
-  if (!window.webContents.isLoading()) {
+  if (!view.webContents.isLoading()) {
     return true;
   }
 
@@ -403,20 +477,22 @@ async function waitForDashboardLoad(timeoutMs: number): Promise<boolean> {
     };
     const timer = setTimeout(() => finish(false), timeoutMs);
 
-    window.webContents.once("did-finish-load", () => finish(true));
-    window.webContents.on("did-fail-load", (_event, _code, _description, _url, isMainFrame) => {
+    view.webContents.once("did-finish-load", () => finish(true));
+    view.webContents.on("did-fail-load", (_event, _code, _description, _url, isMainFrame) => {
       if (isMainFrame) {
         finish(false);
       }
     });
-    window.once("closed", () => finish(false));
   });
 }
 
-async function waitForServiceWindow(timeoutMs: number): Promise<boolean> {
+async function waitForDashboardURL(
+  predicate: (url: string) => boolean,
+  timeoutMs: number,
+): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    if (dashboardChildren.size > 0) {
+    if (predicate(dashboardView?.webContents.getURL() ?? "")) {
       return true;
     }
     await delay(50);
@@ -491,6 +567,7 @@ app.whenReady().then(async () => {
     control,
     coreError,
     getWindow: () => mainWindow,
+    navigation,
     openDashboard,
   });
   createWindow();

@@ -5,10 +5,18 @@ import type { ControlClient } from "./control-client";
 import { IPC } from "../shared/ipc";
 import type { ConnectResult, ProfileInput } from "../shared/types";
 
+export interface NavigationActions {
+  back(): void;
+  forward(): void;
+  reload(): void;
+  home(): void;
+}
+
 export interface IpcOptions {
   control: ControlClient | null;
   coreError: string | null;
   getWindow: () => BrowserWindow | null;
+  navigation: NavigationActions;
   openDashboard: (profileID: string, result: ConnectResult) => Promise<void>;
 }
 
@@ -82,6 +90,11 @@ export function registerIpc(options: IpcOptions): void {
       text: await readFile(filePath, "utf8"),
     };
   });
+
+  ipcMain.handle(IPC.navBack, () => options.navigation.back());
+  ipcMain.handle(IPC.navForward, () => options.navigation.forward());
+  ipcMain.handle(IPC.navReload, () => options.navigation.reload());
+  ipcMain.handle(IPC.navHome, () => options.navigation.home());
 
   ipcMain.handle(IPC.quit, () => {
     app.quit();

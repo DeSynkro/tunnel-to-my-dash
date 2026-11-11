@@ -19,12 +19,15 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
   prevents typos and lockouts.
 - Offer a deliberate "open in normal browser" path for public dashboard
   links, instead of leaving them dead.
+- Let users choose whether dashboard links open in the same window or in a
+  new window. Same-window is the current default.
 
 ## Done
 
-- Dashboard service tiles: Homarr-style `target="_blank"` links now open
-  private http(s) URLs in a same-session child window. Public URLs stay
-  blocked.
+- Dashboard toolbar with back, forward, reload and home, plus the current
+  host label.
+- Homarr-style `target="_blank"` service links now navigate in the same
+  dashboard view for private http(s) URLs. Public URLs stay blocked.
 
 ## Later
 
