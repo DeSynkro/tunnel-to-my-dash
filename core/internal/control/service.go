@@ -30,6 +30,25 @@ type ProfileSummary struct {
 	ExternalOrigins []string `json:"external_origins,omitempty"`
 }
 
+type CredentialInput struct {
+	Name     string `json:"name"`
+	URL      string `json:"url,omitempty"`
+	Username string `json:"username,omitempty"`
+	Password string `json:"password"`
+}
+
+type CredentialSummary struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	URL      string `json:"url,omitempty"`
+	Username string `json:"username,omitempty"`
+}
+
+type CredentialSecret struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 type Status struct {
 	HasVault          bool                   `json:"has_vault"`
 	Locked            bool                   `json:"locked"`
@@ -218,6 +237,84 @@ func (s *Service) updateProfile(id string, input ProfileInput) (ProfileSummary, 
 	return summarize(profile), nil
 }
 
+func (s *Service) listCredentials(profileID string) ([]CredentialSummary, error) {
+	if err := s.requireUnlocked(); err != nil {
+		return nil, err
+	}
+	credentials, ok := s.store.Credentials(profileID)
+	if !ok {
+		return nil, vault.ErrProfileNotFound
+	}
+	out := make([]CredentialSummary, len(credentials))
+	for i, credential := range credentials {
+		out[i] = summarizeCredential(credential)
+	}
+	return out, nil
+}
+
+func (s *Service) addCredential(
+	profileID string,
+	input CredentialInput,
+) (CredentialSummary, error) {
+	if err := s.requireUnlocked(); err != nil {
+		return CredentialSummary{}, err
+	}
+	credential, err := s.store.AddCredential(profileID, vault.Credential{
+		Name:     input.Name,
+		URL:      input.URL,
+		Username: input.Username,
+		Password: input.Password,
+	})
+	if err != nil {
+		return CredentialSummary{}, err
+	}
+	return summarizeCredential(credential), nil
+}
+
+func (s *Service) updateCredential(
+	profileID, credentialID string,
+	input CredentialInput,
+) (CredentialSummary, error) {
+	if err := s.requireUnlocked(); err != nil {
+		return CredentialSummary{}, err
+	}
+	credential, err := s.store.UpdateCredential(profileID, vault.Credential{
+		ID:       credentialID,
+		Name:     input.Name,
+		URL:      input.URL,
+		Username: input.Username,
+		Password: input.Password,
+	})
+	if err != nil {
+		return CredentialSummary{}, err
+	}
+	return summarizeCredential(credential), nil
+}
+
+func (s *Service) deleteCredential(profileID, credentialID string) error {
+	if err := s.requireUnlocked(); err != nil {
+		return err
+	}
+	return s.store.DeleteCredential(profileID, credentialID)
+}
+
+func (s *Service) credentialSecret(profileID, credentialID string) (CredentialSecret, error) {
+	if err := s.requireUnlocked(); err != nil {
+		return CredentialSecret{}, err
+	}
+	credential, ok := s.store.Credential(profileID, credentialID)
+	if !ok {
+		if _, exists := s.store.Profile(profileID); !exists {
+			return CredentialSecret{}, vault.ErrProfileNotFound
+		}
+		return CredentialSecret{}, vault.ErrCredentialNotFound
+	}
+	return CredentialSecret{
+		Username: credential.Username,
+		Password: credential.Password,
+	}, nil
+}
+
 func (s *Service) deleteProfile(id string) error {
 	if err := s.requireUnlocked(); err != nil {
 		return err
@@ -385,5 +482,14 @@ func summarize(p vault.Profile) ProfileSummary {
 		AllowExternal:   p.AllowExternal,
 		ExternalMode:    p.EffectiveExternalMode(),
 		ExternalOrigins: append([]string(nil), p.ExternalOrigins...),
+	}
+}
+
+func summarizeCredential(c vault.Credential) CredentialSummary {
+	return CredentialSummary{
+		ID:       c.ID,
+		Name:     c.Name,
+		URL:      c.URL,
+		Username: c.Username,
 	}
 }

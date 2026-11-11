@@ -98,6 +98,11 @@ func (s *Service) routes() http.Handler {
 	mux.HandleFunc("DELETE /profiles/{id}", s.handleDeleteProfile)
 	mux.HandleFunc("POST /profiles/{id}/activate", s.handleActivateProfile)
 	mux.HandleFunc("POST /profiles/{id}/check", s.handleCheckProfile)
+	mux.HandleFunc("GET /profiles/{id}/credentials", s.handleListCredentials)
+	mux.HandleFunc("POST /profiles/{id}/credentials", s.handleAddCredential)
+	mux.HandleFunc("PUT /profiles/{id}/credentials/{credentialID}", s.handleUpdateCredential)
+	mux.HandleFunc("DELETE /profiles/{id}/credentials/{credentialID}", s.handleDeleteCredential)
+	mux.HandleFunc("GET /profiles/{id}/credentials/{credentialID}/secret", s.handleCredentialSecret)
 
 	mux.HandleFunc("POST /connect", s.handleConnect)
 	mux.HandleFunc("POST /disconnect", s.handleDisconnect)
@@ -250,6 +255,78 @@ func (s *Service) handleCheckProfile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"reachable": reachable})
 }
 
+func (s *Service) handleListCredentials(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	credentials, err := s.listCredentials(r.PathValue("id"))
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, credentials)
+}
+
+func (s *Service) handleAddCredential(w http.ResponseWriter, r *http.Request) {
+	var input CredentialInput
+	if !readJSON(w, r, &input) {
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	credential, err := s.addCredential(r.PathValue("id"), input)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, credential)
+}
+
+func (s *Service) handleUpdateCredential(w http.ResponseWriter, r *http.Request) {
+	var input CredentialInput
+	if !readJSON(w, r, &input) {
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	credential, err := s.updateCredential(
+		r.PathValue("id"),
+		r.PathValue("credentialID"),
+		input,
+	)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, credential)
+}
+
+func (s *Service) handleDeleteCredential(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	err := s.deleteCredential(r.PathValue("id"), r.PathValue("credentialID"))
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Service) handleCredentialSecret(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	secret, err := s.credentialSecret(
+		r.PathValue("id"),
+		r.PathValue("credentialID"),
+	)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, secret)
+}
+
 func (s *Service) handleConnect(w http.ResponseWriter, r *http.Request) {
 	var req connectRequest
 	if !readJSON(w, r, &req) {
@@ -302,11 +379,13 @@ func writeError(w http.ResponseWriter, err error) {
 		status = http.StatusTooManyRequests
 	case errors.Is(err, vault.ErrLocked):
 		status = http.StatusLocked
-	case errors.Is(err, vault.ErrProfileNotFound):
+	case errors.Is(err, vault.ErrProfileNotFound), errors.Is(err, vault.ErrCredentialNotFound):
 		status = http.StatusNotFound
-	case errors.Is(err, vault.ErrProfileExists), errors.Is(err, vault.ErrExists):
+	case errors.Is(err, vault.ErrProfileExists), errors.Is(err, vault.ErrCredentialExists),
+		errors.Is(err, vault.ErrExists):
 		status = http.StatusConflict
-	case errors.Is(err, vault.ErrInvalidProfile), errors.Is(err, vault.ErrInvalidSettings):
+	case errors.Is(err, vault.ErrInvalidProfile), errors.Is(err, vault.ErrInvalidSettings),
+		errors.Is(err, vault.ErrInvalidCredential):
 		status = http.StatusBadRequest
 	}
 	writeJSON(w, status, map[string]string{"error": err.Error()})

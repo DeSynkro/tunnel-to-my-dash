@@ -17,13 +17,14 @@ var (
 )
 
 type Profile struct {
-	ID              string   `json:"id"`
-	Name            string   `json:"name"`
-	TunnelConfig    string   `json:"tunnel_config"`
-	DashboardURL    string   `json:"dashboard_url"`
-	AllowExternal   bool     `json:"allow_external"`
-	ExternalMode    string   `json:"external_mode,omitempty"`
-	ExternalOrigins []string `json:"external_origins,omitempty"`
+	ID              string       `json:"id"`
+	Name            string       `json:"name"`
+	TunnelConfig    string       `json:"tunnel_config"`
+	DashboardURL    string       `json:"dashboard_url"`
+	AllowExternal   bool         `json:"allow_external"`
+	ExternalMode    string       `json:"external_mode,omitempty"`
+	ExternalOrigins []string     `json:"external_origins,omitempty"`
+	Credentials     []Credential `json:"credentials,omitempty"`
 }
 
 // EffectiveExternalMode keeps older profiles working: before external_mode
@@ -60,6 +61,11 @@ func (p Profile) Validate() error {
 	}
 	if _, err := external.ParseAll(p.ExternalOrigins); err != nil {
 		return fmt.Errorf("%w: external origin: %v", ErrInvalidProfile, err)
+	}
+	for _, credential := range p.Credentials {
+		if err := credential.Validate(); err != nil {
+			return fmt.Errorf("%w: saved password: %v", ErrInvalidProfile, err)
+		}
 	}
 	return nil
 }
@@ -108,7 +114,7 @@ func (s *Store) AddProfile(p Profile) (Profile, error) {
 
 	p.Name = strings.TrimSpace(p.Name)
 	if strings.TrimSpace(p.ID) == "" {
-		id, err := randomProfileID()
+		id, err := randomID()
 		if err != nil {
 			return Profile{}, err
 		}
@@ -192,7 +198,7 @@ func (s *Store) findProfile(id string) int {
 	return -1
 }
 
-func randomProfileID() (string, error) {
+func randomID() (string, error) {
 	b, err := randomBytes(8)
 	if err != nil {
 		return "", err
@@ -202,5 +208,6 @@ func randomProfileID() (string, error) {
 
 func cloneProfile(p Profile) Profile {
 	p.ExternalOrigins = append([]string(nil), p.ExternalOrigins...)
+	p.Credentials = append([]Credential(nil), p.Credentials...)
 	return p
 }
