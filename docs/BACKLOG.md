@@ -10,6 +10,12 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 - Move the navigation bar into the main app window and embed the dashboard in
   the shell instead of a separate dashboard window. This is a larger UI
   refactor and belongs with the unslop pass.
+- Auto-hide is still broken in a real session: it only hides when the window
+  loses focus. The X11 pointer poll passes in the smoke pass, but global
+  cursor polling is unreliable under Wayland, so the toolbar's own focus is
+  currently the only thing that hides it. Replace the poll with pointer events
+  sent from the dashboard and toolbar preloads, and retest on a real Wayland
+  session.
 
 ## App behaviour
 
@@ -21,13 +27,13 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
   URLs, usernames and passwords in the vault, with copy buttons from the
   dashboard toolbar. Clear the clipboard after 30 seconds and do not add
   autofill until the security model is settled.
-- Reachability dot: probe the profile's dashboard host and port through the
-  tunnel and show a green or red dot with no label. Decide whether the probe
-  runs on demand or once when the main screen opens; it briefly starts the
-  userspace tunnel.
+
 
 ## Done
 
+- Reachability dot: clicking the profile dot probes the dashboard host and
+  port through the tunnel and shows green or red with no label. The probe is
+  serialized with a real connection and closes immediately.
 - Interface pass: app-scale rail layout, ink neutral palette, off-white
   primary actions, sentence-case labels, 4px spacing and a route-line
   signature. The in-app wordmark and route mark are in place.

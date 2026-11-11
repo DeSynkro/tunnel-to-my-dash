@@ -13,6 +13,7 @@ const api: TtmdBridge = {
   updateProfile: (id, input) => ipcRenderer.invoke(IPC.updateProfile, id, input),
   deleteProfile: (id) => ipcRenderer.invoke(IPC.deleteProfile, id),
   activateProfile: (id) => ipcRenderer.invoke(IPC.activateProfile, id),
+  checkProfile: (id) => ipcRenderer.invoke(IPC.checkProfile, id),
   connect: (id) => ipcRenderer.invoke(IPC.connect, id),
   disconnect: () => ipcRenderer.invoke(IPC.disconnect),
   chooseConfig: () => ipcRenderer.invoke(IPC.chooseConfig),

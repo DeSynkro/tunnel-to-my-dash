@@ -8,6 +8,7 @@ export const IPC = {
   updateProfile: "ttmd:update-profile",
   deleteProfile: "ttmd:delete-profile",
   activateProfile: "ttmd:activate-profile",
+  checkProfile: "ttmd:check-profile",
   connect: "ttmd:connect",
   disconnect: "ttmd:disconnect",
   chooseConfig: "ttmd:choose-config",

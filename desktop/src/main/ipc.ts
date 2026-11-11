@@ -45,6 +45,7 @@ export function registerIpc(options: IpcOptions): void {
   );
   ipcMain.handle(IPC.deleteProfile, (_event, id: unknown) => control().deleteProfile(stringArg(id)));
   ipcMain.handle(IPC.activateProfile, (_event, id: unknown) => control().activateProfile(stringArg(id)));
+  ipcMain.handle(IPC.checkProfile, (_event, id: unknown) => control().checkProfile(stringArg(id)));
   ipcMain.handle(IPC.connect, async (_event, id: unknown) => {
     const profileID = stringArg(id);
     const result = await control().connect(profileID);

@@ -90,6 +90,7 @@ func (s *Service) routes() http.Handler {
 	mux.HandleFunc("PUT /profiles/{id}", s.handleUpdateProfile)
 	mux.HandleFunc("DELETE /profiles/{id}", s.handleDeleteProfile)
 	mux.HandleFunc("POST /profiles/{id}/activate", s.handleActivateProfile)
+	mux.HandleFunc("POST /profiles/{id}/check", s.handleCheckProfile)
 
 	mux.HandleFunc("POST /connect", s.handleConnect)
 	mux.HandleFunc("POST /disconnect", s.handleDisconnect)
@@ -205,6 +206,18 @@ func (s *Service) handleActivateProfile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeJSON(w, http.StatusOK, s.statusLocked())
+}
+
+func (s *Service) handleCheckProfile(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	reachable, err := s.checkProfile(r.PathValue("id"))
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"reachable": reachable})
 }
 
 func (s *Service) handleConnect(w http.ResponseWriter, r *http.Request) {

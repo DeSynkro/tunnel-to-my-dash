@@ -1,5 +1,11 @@
 import http from "node:http";
-import type { ConnectResult, ProfileInput, ProfileSummary, Status } from "../shared/types";
+import type {
+  CheckResult,
+  ConnectResult,
+  ProfileInput,
+  ProfileSummary,
+  Status,
+} from "../shared/types";
 
 export class ControlClient {
   constructor(private readonly socketPath: string) {}
@@ -41,6 +47,10 @@ export class ControlClient {
 
   activateProfile(id: string): Promise<Status> {
     return this.request("POST", `/profiles/${encodeURIComponent(id)}/activate`);
+  }
+
+  checkProfile(id: string): Promise<CheckResult> {
+    return this.request("POST", `/profiles/${encodeURIComponent(id)}/check`);
   }
 
   connect(id: string): Promise<ConnectResult> {

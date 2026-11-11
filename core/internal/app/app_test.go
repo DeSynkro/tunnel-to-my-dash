@@ -96,6 +96,23 @@ func TestEndToEnd(t *testing.T) {
 	if string(body) != "through" {
 		t.Fatalf("body = %q, want %q", body, "through")
 	}
+
+	directClient := &http.Client{
+		Transport: &http.Transport{DialContext: instance.DialContext},
+		Timeout:   10 * time.Second,
+	}
+	directResp, err := directClient.Get("http://10.66.0.1:8081/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer directResp.Body.Close()
+	directBody, err := io.ReadAll(directResp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if directResp.StatusCode != http.StatusOK || string(directBody) != "through" {
+		t.Fatalf("direct status = %d, body = %q", directResp.StatusCode, directBody)
+	}
 }
 
 func TestStartRejectsBadConfig(t *testing.T) {

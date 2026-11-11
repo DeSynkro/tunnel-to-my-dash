@@ -109,6 +109,8 @@ let status: Status | null = null;
 let addFormOpen = false;
 let settingsOpen = false;
 let editingProfileID: string | null = null;
+const reachability: Record<string, boolean> = {};
+let reachabilityChecking: string | null = null;
 
 function api(): TtmdBridge {
   if (!bridge) {
@@ -283,14 +285,27 @@ function profileCard(profile: ProfileSummary): HTMLElement {
   const head = document.createElement("div");
   head.className = "profile-head";
 
-  const active = status?.active_profile === profile.id;
+  const reachable = reachability[profile.id];
+  const dotButton = document.createElement("button");
+  dotButton.type = "button";
+  dotButton.className = "dot-button";
+  dotButton.title =
+    reachable === true
+      ? "Reachable"
+      : reachable === false
+        ? "Not reachable"
+        : "Check reachability";
+  dotButton.setAttribute("aria-label", `Check reachability for ${profile.name}`);
+  dotButton.disabled = reachabilityChecking !== null;
   const dot = document.createElement("span");
   dot.className = "status-dot";
-  dot.classList.toggle("on", active);
-  if (active) {
-    dot.title = "Last used profile";
-  }
-  head.append(dot);
+  dot.classList.toggle("on", reachable === true);
+  dot.classList.toggle("bad", reachable === false);
+  dotButton.append(dot);
+  dotButton.addEventListener("click", () => {
+    void checkReachability(profile.id);
+  });
+  head.append(dotButton);
 
   const title = document.createElement("h3");
   title.textContent = profile.name;
@@ -373,6 +388,31 @@ function renderSettings(): void {
   settingsPasswordHint.textContent = "";
 }
 
+async function checkReachability(profileID: string): Promise<void> {
+  if (reachabilityChecking) {
+    return;
+  }
+
+  reachabilityChecking = profileID;
+  if (document.body.dataset.screen === "main" && status) {
+    profileList.replaceChildren(...status.profiles.map((profile) => profileCard(profile)));
+  }
+
+  try {
+    const result = await api().checkProfile(profileID);
+    reachability[profileID] = result.reachable;
+  } catch (error) {
+    delete reachability[profileID];
+    mainNote.textContent = message(error);
+  } finally {
+    reachabilityChecking = null;
+  }
+
+  if (document.body.dataset.screen === "main" && status) {
+    profileList.replaceChildren(...status.profiles.map((profile) => profileCard(profile)));
+  }
+}
+
 function showProfile(profileID: string): void {
   const profile = status?.profiles.find((p) => p.id === profileID);
   if (!status || !profile) {
@@ -436,6 +476,7 @@ async function submitProfile(event: SubmitEvent): Promise<void> {
 
   setBusy(profileSave, true, "Saving…");
   try {
+    delete reachability[editingProfileID];
     await api().updateProfile(editingProfileID, {
       name,
       dashboard_url: url,

@@ -487,6 +487,18 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
             return;
           }
 
+          if (full) {
+            await window.webContents.executeJavaScript(
+              'document.querySelector(".dot-button")?.click()',
+              true,
+            );
+            const reachable = await waitForReachability(window, 10_000);
+            console.log(`[smoke] reachability checked=${reachable}`);
+            if (!reachable) {
+              process.exitCode = 1;
+            }
+          }
+
           await window.webContents.executeJavaScript(
             'document.querySelector(".profile-actions button")?.click()',
           );
@@ -1062,6 +1074,18 @@ async function waitForExternalState(
     const countMatches =
       originCount === null || (profile?.external_origins?.length ?? 0) === originCount;
     return modeMatches && countMatches;
+  }, timeoutMs);
+}
+
+async function waitForReachability(
+  window: BrowserWindow,
+  timeoutMs: number,
+): Promise<boolean> {
+  return waitForCondition(async () => {
+    const reachable = (await window.webContents.executeJavaScript(
+      '(() => { const dot = document.querySelector(".dot-button .status-dot"); return !!dot && dot.classList.contains("on"); })()',
+    )) as boolean;
+    return reachable;
   }, timeoutMs);
 }
 

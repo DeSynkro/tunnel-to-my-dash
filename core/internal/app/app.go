@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"net"
 	"sync"
 
@@ -67,6 +68,12 @@ func Start(cfg config.Tunnel, opts Options) (*App, error) {
 
 func (a *App) ProxyAddr() net.Addr {
 	return a.addr
+}
+
+// DialContext opens a TCP connection through the userspace tunnel. It is used
+// for reachability checks that should not go through the HTTP proxy.
+func (a *App) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	return a.tunnel.DialContext(ctx, network, address)
 }
 
 func (a *App) Close() error {

@@ -35,6 +35,10 @@ export interface ConnectResult {
   dashboard_url: string;
 }
 
+export interface CheckResult {
+  reachable: boolean;
+}
+
 export interface ConfigFile {
   name: string;
   text: string;
@@ -65,6 +69,7 @@ export interface TtmdBridge {
   updateProfile(id: string, input: ProfileInput): Promise<ProfileSummary>;
   deleteProfile(id: string): Promise<void>;
   activateProfile(id: string): Promise<Status>;
+  checkProfile(id: string): Promise<CheckResult>;
   connect(id: string): Promise<ConnectResult>;
   disconnect(): Promise<Status>;
   chooseConfig(): Promise<ConfigFile | null>;

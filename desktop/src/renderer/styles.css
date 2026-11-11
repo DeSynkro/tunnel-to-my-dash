@@ -266,6 +266,32 @@ h3 {
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
+.status-dot.bad {
+  background: var(--danger);
+  box-shadow: 0 0 0 3px rgba(209, 140, 134, 0.14);
+}
+
+.dot-button {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+}
+
+.dot-button:hover:not(:disabled) {
+  background: var(--surface-raised);
+}
+
+.dot-button:disabled {
+  opacity: 0.6;
+}
+
 /* Route signature */
 
 .route {

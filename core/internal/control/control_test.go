@@ -20,12 +20,15 @@ import (
 )
 
 type fakeConnector struct {
-	mu          sync.Mutex
-	connects    int
-	disconnects int
-	proxy       string
-	err         error
-	last        ConnectOptions
+	mu           sync.Mutex
+	connects     int
+	disconnects  int
+	probes       int
+	proxy        string
+	err          error
+	probeErr     error
+	probeAddress string
+	last         ConnectOptions
 }
 
 func (f *fakeConnector) Connect(opts ConnectOptions) (string, error) {
@@ -44,6 +47,18 @@ func (f *fakeConnector) Disconnect() error {
 	defer f.mu.Unlock()
 	f.disconnects++
 	return nil
+}
+
+func (f *fakeConnector) Probe(
+	opts ConnectOptions,
+	network, address string,
+	timeout time.Duration,
+) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.probes++
+	f.probeAddress = address
+	return f.probeErr
 }
 
 func startControl(t *testing.T, connector Connector) *http.Client {
@@ -228,6 +243,42 @@ func TestControlFlow(t *testing.T) {
 		t.Fatalf("status = %+v", status)
 	}
 
+	resp, data = call(t, client, http.MethodPost, "/profiles/"+profile.ID+"/check", nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("check status = %d: %s", resp.StatusCode, data)
+	}
+	var check map[string]bool
+	if err := json.Unmarshal(data, &check); err != nil {
+		t.Fatal(err)
+	}
+	if !check["reachable"] {
+		t.Fatalf("check response = %+v", check)
+	}
+	connector.mu.Lock()
+	probes := connector.probes
+	probeAddress := connector.probeAddress
+	connector.mu.Unlock()
+	if probes != 1 || probeAddress != "192.168.0.3:3000" {
+		t.Fatalf("probes = %d, address = %q", probes, probeAddress)
+	}
+
+	connector.mu.Lock()
+	connector.probeErr = errors.New("unreachable")
+	connector.mu.Unlock()
+	resp, data = call(t, client, http.MethodPost, "/profiles/"+profile.ID+"/check", nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("unreachable check status = %d: %s", resp.StatusCode, data)
+	}
+	if err := json.Unmarshal(data, &check); err != nil {
+		t.Fatal(err)
+	}
+	if check["reachable"] {
+		t.Fatalf("unreachable check response = %+v", check)
+	}
+	connector.mu.Lock()
+	connector.probeErr = nil
+	connector.mu.Unlock()
+
 	resp, data = call(t, client, http.MethodPost, "/connect", connectRequest{ProfileID: profile.ID})
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("connect status = %d: %s", resp.StatusCode, data)
@@ -369,6 +420,11 @@ func TestControlErrors(t *testing.T) {
 	resp, _ = call(t, client, http.MethodPost, "/connect", connectRequest{ProfileID: "missing"})
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("connect missing profile status = %d", resp.StatusCode)
+	}
+
+	resp, _ = call(t, client, http.MethodPost, "/profiles/missing/check", nil)
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("check missing profile status = %d", resp.StatusCode)
 	}
 
 	resp, _ = call(t, client, http.MethodPut, "/profiles/missing", ProfileInput{Name: "x"})

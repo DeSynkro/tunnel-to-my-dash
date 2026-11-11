@@ -2,8 +2,11 @@ package control
 
 import (
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/desynkro/tunnel-to-my-dash/core/internal/config"
 	"github.com/desynkro/tunnel-to-my-dash/core/internal/external"
@@ -259,6 +262,56 @@ func (s *Service) connect(id string) (string, string, error) {
 	s.proxy = proxy
 	s.dashboardURL = profile.DashboardURL
 	return proxy, profile.DashboardURL, nil
+}
+
+func (s *Service) checkProfile(id string) (bool, error) {
+	if err := s.requireUnlocked(); err != nil {
+		return false, err
+	}
+
+	profile, ok := s.store.Profile(id)
+	if !ok {
+		return false, vault.ErrProfileNotFound
+	}
+	tunnelCfg, err := config.ParseTunnel(profile.TunnelConfig)
+	if err != nil {
+		return false, fmt.Errorf("tunnel config: %w", err)
+	}
+	address, err := dashboardAddress(profile.DashboardURL)
+	if err != nil {
+		return false, fmt.Errorf("dashboard URL: %w", err)
+	}
+
+	err = s.connector.Probe(ConnectOptions{
+		Tunnel:          tunnelCfg,
+		AllowExternal:   profile.AllowExternal,
+		ExternalMode:    profile.EffectiveExternalMode(),
+		ExternalOrigins: profile.ExternalOrigins,
+	}, "tcp", address, 5*time.Second)
+	if err != nil {
+		return false, nil
+	}
+	return true, nil
+}
+
+func dashboardAddress(raw string) (string, error) {
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return "", err
+	}
+	host := parsed.Hostname()
+	if host == "" {
+		return "", fmt.Errorf("dashboard URL has no host")
+	}
+	port := parsed.Port()
+	if port == "" {
+		if parsed.Scheme == "https" {
+			port = "443"
+		} else {
+			port = "80"
+		}
+	}
+	return net.JoinHostPort(host, port), nil
 }
 
 func (s *Service) disconnect() error {
