@@ -110,6 +110,8 @@ Build caches and temporary files stay inside the project:
 Never commit a real WireGuard config or vault. Put local test files in
 `local/`, which is ignored.
 
+Ideas and deferred work live in [docs/BACKLOG.md](docs/BACKLOG.md).
+
 ## License
 
 GPL-3.0. See [LICENSE](LICENSE).
