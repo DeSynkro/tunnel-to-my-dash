@@ -1,6 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { app, BrowserWindow, Menu, session } from "electron";
 import path from "node:path";
+import { IPC } from "../shared/ipc";
+import type { ConnectResult } from "../shared/types";
 import { ControlClient } from "./control-client";
 import { CoreProcess } from "./core-process";
 import { resolveDataRoot } from "./data-dir";
@@ -41,6 +43,7 @@ let control: ControlClient | null = null;
 let coreError: string | null = null;
 let core: CoreProcess | null = null;
 let mainWindow: BrowserWindow | null = null;
+let dashboardWindow: BrowserWindow | null = null;
 
 function resolveCorePath(): string {
   if (process.env.TTMD_CORE) {
@@ -70,6 +73,66 @@ async function startCore(): Promise<void> {
     coreError = errorMessage(error);
     control = null;
     console.error(`[core] ${coreError}`);
+  }
+}
+
+async function openDashboard(profileID: string, result: ConnectResult): Promise<void> {
+  if (dashboardWindow) {
+    dashboardWindow.focus();
+    return;
+  }
+
+  const partition = `persist:profile-${profileID}`;
+  const dashboardSession = session.fromPartition(partition);
+  await dashboardSession.setProxy({
+    proxyRules: `http=${result.proxy};https=${result.proxy}`,
+    proxyBypassRules: "<-loopback>",
+  });
+  dashboardSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
+    callback(false);
+  });
+  dashboardSession.setPermissionCheckHandler(() => false);
+
+  const window = new BrowserWindow({
+    width: 1100,
+    height: 780,
+    minWidth: 800,
+    minHeight: 600,
+    title: "Tunnel to My Dash",
+    backgroundColor: "#0e1012",
+    autoHideMenuBar: true,
+    webPreferences: {
+      partition,
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      spellcheck: false,
+      devTools: !app.isPackaged,
+    },
+  });
+  dashboardWindow = window;
+
+  window.setMenuBarVisibility(false);
+  window.webContents.setWindowOpenHandler(() => ({ action: "deny" as const }));
+  window.on("closed", () => {
+    dashboardWindow = null;
+    if (control) {
+      void control.disconnect().catch(() => undefined);
+    }
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.webContents.send(IPC.statusChanged);
+    }
+  });
+
+  mainWindow?.hide();
+
+  try {
+    await window.loadURL(result.dashboard_url);
+  } catch (error) {
+    console.error(`[dashboard] ${errorMessage(error)}`);
   }
 }
 
@@ -123,8 +186,10 @@ function createWindow(): void {
 }
 
 async function runSmoke(window: BrowserWindow): Promise<void> {
-  const deadline = Date.now() + 10_000;
+  const deadline = Date.now() + 12_000;
   let submitted = false;
+  let dashboardTried = false;
+  let dashboardClosed = false;
 
   while (Date.now() < deadline) {
     try {
@@ -141,12 +206,38 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
       }
 
       if (state.screen === "main") {
-        console.log(`[smoke] screen=main profiles=${state.profiles}`);
-        if (state.profiles < 1) {
-          process.exitCode = 1;
+        if (!dashboardTried) {
+          console.log(`[smoke] screen=main profiles=${state.profiles}`);
+          if (state.profiles < 1) {
+            process.exitCode = 1;
+            app.quit();
+            return;
+          }
+
+          await window.webContents.executeJavaScript(
+            'document.querySelector(".profile-actions button")?.click()',
+          );
+          dashboardTried = true;
+
+          if (!(await waitForDashboard(5000))) {
+            console.error("[smoke] dashboard window did not open");
+            process.exitCode = 1;
+            app.quit();
+            return;
+          }
+
+          console.log("[smoke] dashboard opened");
+          dashboardWindow?.close();
+          dashboardClosed = true;
+          await delay(200);
+          continue;
         }
-        app.quit();
-        return;
+
+        if (dashboardClosed) {
+          console.log(`[smoke] screen=main after dashboard profiles=${state.profiles}`);
+          app.quit();
+          return;
+        }
       }
 
       if (submitted && state.error) {
@@ -171,6 +262,17 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
   console.error("[smoke] the UI did not settle in time");
   process.exitCode = 1;
   app.quit();
+}
+
+async function waitForDashboard(timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (dashboardWindow) {
+      return true;
+    }
+    await delay(50);
+  }
+  return false;
 }
 
 async function submitSmokeSetup(window: BrowserWindow): Promise<void> {
@@ -224,7 +326,12 @@ app.whenReady().then(async () => {
   session.defaultSession.setPermissionCheckHandler(() => false);
 
   await startCore();
-  registerIpc({ control, coreError, getWindow: () => mainWindow });
+  registerIpc({
+    control,
+    coreError,
+    getWindow: () => mainWindow,
+    openDashboard,
+  });
   createWindow();
 
   app.on("activate", () => {

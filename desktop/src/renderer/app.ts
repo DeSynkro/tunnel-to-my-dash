@@ -186,7 +186,7 @@ function showMain(): void {
   if (status.connected && status.proxy) {
     mainNote.textContent = `Tunnel is up on ${status.proxy}.`;
   } else {
-    mainNote.textContent = "The dashboard window is the next step.";
+    mainNote.textContent = "Open a dashboard to start the tunnel.";
   }
 
   securityState.textContent = status.password_protected
@@ -219,16 +219,13 @@ function profileCard(profile: ProfileSummary): HTMLElement {
   const actions = document.createElement("div");
   actions.className = "profile-actions";
 
-  const connect = makeButton("Connect");
+  const connect = makeButton("Open dashboard");
   connect.addEventListener("click", async () => {
-    setBusy(connect, true, "Connecting…");
+    setBusy(connect, true, "Opening…");
     try {
-      const result = await api().connect(profile.id);
-      await refresh();
-      mainNote.textContent = `Tunnel is up on ${result.proxy}. The dashboard window is the next step.`;
+      await api().connect(profile.id);
     } catch (error) {
       mainNote.textContent = message(error);
-    } finally {
       setBusy(connect, false);
     }
   });
@@ -452,6 +449,9 @@ errorRetry.addEventListener("click", () => {
 });
 
 if (bridge) {
+  bridge.onStatusChanged(() => {
+    void refresh();
+  });
   void refresh();
 } else {
   showError("The desktop bridge did not load.");

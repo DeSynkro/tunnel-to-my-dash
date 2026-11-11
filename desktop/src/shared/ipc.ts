@@ -11,6 +11,7 @@ export const IPC = {
   connect: "ttmd:connect",
   disconnect: "ttmd:disconnect",
   chooseConfig: "ttmd:choose-config",
+  statusChanged: "ttmd:status-changed",
   quit: "ttmd:quit",
   version: "ttmd:version",
 } as const;

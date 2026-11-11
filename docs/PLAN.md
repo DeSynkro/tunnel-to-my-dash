@@ -444,7 +444,7 @@ content is a later phase.
    Commit: `Add the desktop app skeleton`
 - [x] 4. Setup, lock and profile UI through the preload bridge.
    Commit: `Add the desktop setup and lock screens`
-5. Dashboard child window with a session partition and proxy.
+- [x] 5. Dashboard child window with a session partition and proxy.
    Commit: `Open the dashboard through the tunnel`
 6. Hardening, no-phone-home switches and a real endpoint pass.
    Commit: `Harden the desktop shell`

@@ -49,6 +49,7 @@ export interface TtmdBridge {
   connect(id: string): Promise<ConnectResult>;
   disconnect(): Promise<Status>;
   chooseConfig(): Promise<ConfigFile | null>;
+  onStatusChanged(callback: () => void): () => void;
   quit(): Promise<void>;
   version(): Promise<string>;
 }

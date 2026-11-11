@@ -3,12 +3,13 @@ import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import type { ControlClient } from "./control-client";
 import { IPC } from "../shared/ipc";
-import type { ProfileInput } from "../shared/types";
+import type { ConnectResult, ProfileInput } from "../shared/types";
 
 export interface IpcOptions {
   control: ControlClient | null;
   coreError: string | null;
   getWindow: () => BrowserWindow | null;
+  openDashboard: (profileID: string, result: ConnectResult) => Promise<void>;
 }
 
 export function registerIpc(options: IpcOptions): void {
@@ -35,7 +36,21 @@ export function registerIpc(options: IpcOptions): void {
   );
   ipcMain.handle(IPC.deleteProfile, (_event, id: unknown) => control().deleteProfile(stringArg(id)));
   ipcMain.handle(IPC.activateProfile, (_event, id: unknown) => control().activateProfile(stringArg(id)));
-  ipcMain.handle(IPC.connect, (_event, id: unknown) => control().connect(stringArg(id)));
+  ipcMain.handle(IPC.connect, async (_event, id: unknown) => {
+    const profileID = stringArg(id);
+    const result = await control().connect(profileID);
+    try {
+      await options.openDashboard(profileID, result);
+    } catch (error) {
+      try {
+        await control().disconnect();
+      } catch {
+        // The original error is the useful one.
+      }
+      throw error;
+    }
+    return result;
+  });
   ipcMain.handle(IPC.disconnect, () => control().disconnect());
 
   ipcMain.handle(IPC.chooseConfig, async () => {
