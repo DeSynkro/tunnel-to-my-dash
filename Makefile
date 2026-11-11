@@ -14,7 +14,7 @@ export ELECTRON_CACHE := $(CACHE)/electron
 export ELECTRON_BUILDER_CACHE := $(CACHE)/electron-builder
 export PATH := $(ROOT)/.tools/go/bin:$(PATH)
 
-.PHONY: help dirs env toolchain fmt test core check desktop-deps desktop-check desktop desktop-start clean
+.PHONY: help dirs env toolchain fmt test core check desktop-deps desktop-check desktop desktop-start appimage checksums release clean
 
 help: ## List available targets
 	@awk 'BEGIN {FS = ":.*## "; printf "Targets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-10s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -61,6 +61,16 @@ desktop: desktop-check ## Build the desktop shell
 
 desktop-start: desktop-check ## Run the desktop shell
 	@cd desktop && npm start
+
+appimage: core desktop-check ## Build the Linux AppImage
+	@cd desktop && ./node_modules/.bin/electron --version >/dev/null
+	@cd desktop && npm run dist
+
+checksums: ## Write SHA-256 checksums for the AppImage
+	@cd desktop/release && sha256sum *.AppImage > SHA256SUMS
+	@cat desktop/release/SHA256SUMS
+
+release: appimage checksums ## Build the AppImage and its checksums
 
 clean: ## Remove build output and local caches
 	@rm -rf "$(ROOT)/build" "$(ROOT)/dist" "$(CACHE)" "$(TMP)"

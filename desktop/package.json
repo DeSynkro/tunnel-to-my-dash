@@ -6,17 +6,48 @@
   "description": "Desktop shell for Tunnel to My Dash",
   "author": "DeSynkro",
   "license": "GPL-3.0-only",
+  "desktopName": "tunnel-to-my-dash.desktop",
   "main": "dist/main.js",
   "scripts": {
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm run build",
-    "start": "npm run build && ELECTRON_CACHE=../.cache/electron electron ."
+    "start": "npm run build && ELECTRON_CACHE=../.cache/electron electron .",
+    "dist": "npm run build && electron-builder --linux AppImage --x64"
   },
   "devDependencies": {
     "@types/node": "26.6.6",
     "electron": "45.3.0",
+    "electron-builder": "26.18.0",
     "esbuild": "0.28.2",
     "typescript": "7.0.2"
+  },
+  "build": {
+    "appId": "com.desynkro.tunnel-to-my-dash",
+    "productName": "Tunnel to My Dash",
+    "artifactName": "Tunnel-to-My-Dash-${version}-${arch}.${ext}",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../build/ttmd-core",
+        "to": "ttmd-core"
+      }
+    ],
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Network",
+      "icon": "build/icon.png",
+      "syncDesktopName": true,
+      "synopsis": "Your LAN, without turning off your VPN.",
+      "description": "Open your home dashboard through an app-local WireGuard tunnel. LAN only, no telemetry."
+    }
   }
 }

@@ -7,9 +7,9 @@ application and uses that tunnel for one thing: browsing your local network.
 It does not create a system VPN, ask for root, or change your routing table.
 Your normal VPN keeps running.
 
-Status: early development. The Linux desktop shell works: first-run setup,
-encrypted vault, profiles and the dashboard window. Packaging and mobile are
-next.
+Status: early development. The Linux AppImage builds and runs: first-run
+setup, encrypted vault, profiles, the dashboard window and portable data.
+Mobile and Windows are next.
 
 ## Why
 
@@ -53,6 +53,8 @@ More detail in [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Run it
 
+From a checkout:
+
     make core
     make desktop-deps
     make desktop-start
@@ -62,13 +64,31 @@ The first run asks for a WireGuard `.conf`, a dashboard URL such as
 vault, Electron profile and core data live under `local/dev-data`, which is
 ignored by git.
 
+## Run the AppImage
+
+Build it with `make appimage`, or use the artifact in `desktop/release`:
+
+    chmod +x desktop/release/Tunnel-to-My-Dash-*.AppImage
+    ./desktop/release/Tunnel-to-My-Dash-*.AppImage
+
+The app creates `tunnel-to-my-dash-data/` beside the AppImage and keeps the
+vault, the Chromium profile and the core socket there. Move the AppImage and
+that folder together. If the folder is not writable, it falls back to the
+normal per-user data directory.
+
+`make release` builds the AppImage and writes `SHA256SUMS` next to it. Updates
+are manual and telemetry-free: download a newer AppImage and replace the old
+one. The app does not phone home for updates.
+
 ## Current limits
 
 - LAN-only: external fonts and widgets are blocked until the internet toggle
   lands.
 - The dashboard opens in its own window. A single-window toolbar is planned.
-- AppImage, Windows and Android packaging come after the Linux shell.
+- Windows and Android packaging come after the Linux AppImage.
 - Jellyfin playback and OpenCode are next on the real-world test list.
+- Release artifacts have SHA-256 checksums; GPG signing will follow when a
+  release key exists.
 
 ## Development
 
@@ -83,6 +103,8 @@ Build caches and temporary files stay inside the project:
     make desktop-deps
     make desktop-check
     make desktop-start
+    make appimage
+    make release
     make clean
 
 Never commit a real WireGuard config or vault. Put local test files in
