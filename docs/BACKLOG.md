@@ -74,6 +74,24 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 - Homarr-style `target="_blank"` service links now navigate in the same
   dashboard view for private http(s) URLs. Public URLs stay blocked.
 
+## Saved-password follow-ups
+
+- Clear the clipboard on every vault lock, including the main-window Lock
+  button and idle lock, and serialize copy/clear so a late copy cannot outlive
+  a lock.
+- Require a trusted user gesture for login capture so a page script cannot
+  open save prompts; add negative tests.
+- Wait for a login success signal before offering to update an existing
+  password, so a typo cannot replace a good saved password.
+- Disambiguate multiple saved logins on the same origin and username;
+  normalize URLs and never auto-pick when more than one matches.
+- Tell the user when a save fails instead of only logging it.
+- Do not log the dashboard origin when saving a password.
+- Reject credential URLs with embedded userinfo and fix the validation test
+  so each case reaches its own check.
+- Add tests for clipboard clearing on lock and quit, the dialog's Not now
+  path, trusted-event gating and URL matching.
+
 ## Later
 
 - Launch at login on Linux. An autostart `.desktop` is easy to write, but the
