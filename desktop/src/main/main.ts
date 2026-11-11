@@ -1477,14 +1477,21 @@ async function runToolbarSmoke(window: BrowserWindow): Promise<void> {
       }
       last = current;
       console.log(`[smoke] toolbar expanded=${current}`);
-      await delay(250);
+      const settled = await waitForCondition(
+        async () =>
+          (dashboardToolbar?.getBounds().height ?? 0) ===
+          (current ? toolbarHeight : peekHeight),
+        2000,
+      );
       const settledHeight = dashboardToolbar?.getBounds().height;
       const viewY = dashboardView?.getBounds().y;
       if (
-        settledHeight !== (current ? toolbarHeight : peekHeight) ||
+        !settled ||
         viewY !== (current ? expandedViewY : peekViewY)
       ) {
-        throw new Error("the dashboard view does not follow the toolbar row");
+        throw new Error(
+          `the dashboard view does not follow the toolbar row: height=${settledHeight} viewY=${viewY} expanded=${current}`,
+        );
       }
       if (!current) {
         sawHidden = true;
