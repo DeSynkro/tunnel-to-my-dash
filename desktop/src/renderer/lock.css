@@ -23,8 +23,8 @@ body {
   inset: 0;
   z-index: 1;
   background:
-    radial-gradient(circle at 50% 45%, rgba(10, 16, 17, 0.12), rgba(10, 16, 17, 0.7)),
-    rgba(10, 16, 17, 0.25);
+    radial-gradient(circle at 50% 45%, rgba(14, 14, 14, 0.12), rgba(14, 14, 14, 0.7)),
+    rgba(14, 14, 14, 0.25);
 }
 
 .lock-shell {

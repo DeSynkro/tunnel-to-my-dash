@@ -1,6 +1,6 @@
 :root {
   color-scheme: dark;
-  --bg: #0a1011;
+  --bg: #0e0e0e;
   --text: #ece7dd;
   --muted: #a9a49a;
   --faint: #7b756c;
@@ -40,7 +40,7 @@ body {
   padding: 0 10px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: rgba(10, 16, 17, 0.94);
+  background: rgba(14, 14, 14, 0.94);
   box-shadow:
     0 14px 34px rgba(0, 0, 0, 0.42),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);

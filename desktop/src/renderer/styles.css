@@ -1,8 +1,8 @@
 :root {
   color-scheme: dark;
-  --bg: #0a1011;
-  --surface: #0f1618;
-  --surface-raised: #151d1f;
+  --bg: #0e0e0e;
+  --surface: #141414;
+  --surface-raised: #1a1a1a;
   --border: rgba(240, 229, 212, 0.09);
   --border-strong: rgba(240, 229, 212, 0.16);
   --text: #ece7dd;
@@ -11,6 +11,10 @@
   --faint: #7b756c;
   --accent: #f0a35a;
   --accent-soft: rgba(240, 163, 90, 0.14);
+  --ok: #3ddc84;
+  --ok-soft: rgba(61, 220, 132, 0.16);
+  --bad: #ff5c5c;
+  --bad-soft: rgba(255, 92, 92, 0.16);
   --danger: #d18c86;
   --danger-border: rgba(209, 140, 134, 0.32);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -261,13 +265,13 @@ h3 {
 }
 
 .status-dot.on {
-  background: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  background: var(--ok);
+  box-shadow: 0 0 0 3px var(--ok-soft);
 }
 
 .status-dot.bad {
-  background: var(--danger);
-  box-shadow: 0 0 0 3px rgba(209, 140, 134, 0.14);
+  background: var(--bad);
+  box-shadow: 0 0 0 3px var(--bad-soft);
 }
 
 .dot-button {

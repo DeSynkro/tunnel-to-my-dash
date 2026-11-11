@@ -28,7 +28,8 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 
 - Brand integration: the house mark in the masthead and lock screen, the
   window and AppImage icon rendered from the logo, the README banner, and the
-  warm ink + amber palette across the main screen, toolbar and lock overlay.
+  neutral graphite + amber palette with green/red status dots across the main
+  screen, toolbar and lock overlay.
 - Reachability dot: the active profile is probed automatically once at
   startup, and clicking the dot re-checks it. It dials the dashboard host and
   port through the tunnel and shows green or red with no label. The probe is

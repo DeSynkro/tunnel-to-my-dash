@@ -98,8 +98,8 @@ Startup sequence:
 
 ### Interface
 
-The shell uses one warm ink neutral ramp, an amber accent for live status and
-focus, and cream primary actions. Addresses, versions and route labels use the
+The shell uses one neutral graphite ramp, an amber accent for links and focus,
+vibrant green or red status dots, and cream primary actions. Addresses, versions and route labels use the
 system mono. On the main, profile and settings screens a 200px rail carries
 the Dashboards and Settings entries, the app-lock state and the version.
 Setup is an asymmetric split; lock is a compact card. Settings uses cards:
@@ -297,21 +297,25 @@ derived PNGs are committed so a build does not depend on an SVG rasteriser.
 - `logo/banner.svg` sits at the top of the README.
 - The main window, dashboard toolbar and lock overlay share one palette.
 
-Palette choice B, "warm ink": the cool blue-grey base moves to the logo's dark
-teal, text becomes warm off-white, and the mint accent becomes the logo's
-amber. Amber is a highlight only (focus rings, links, active dots), never a
-large fill. Primary buttons use the logo cream. Danger stays salmon. Layout,
-spacing and type are unchanged.
+Palette choice B: the base is a neutral graphite ramp with no colour cast,
+text is warm off-white, and the logo's amber is the accent. Amber is a
+highlight only (focus rings, links, route dots), never a large fill. Primary
+buttons use the logo cream. Status dots are the only saturated colour:
+vibrant green `#3ddc84` for reachable, connected and app-lock-on, vibrant red
+`#ff5c5c` for unreachable, and neutral grey for unknown or key-file mode.
+Danger stays salmon. Layout, spacing and type are unchanged.
 
 | Token | Before | After |
 | --- | --- | --- |
-| background | `#0b0d12` | `#0a1011` |
-| surface | `#11141b` | `#0f1618` |
-| raised surface | `#171b23` | `#151d1f` |
+| background | `#0b0d12` | `#0e0e0e` |
+| surface | `#11141b` | `#141414` |
+| raised surface | `#171b23` | `#1a1a1a` |
 | text | `#e9ebef` | `#ece7dd` |
 | secondary | `#a2a8b3` | `#a9a49a` |
 | accent | `#7fd1b9` | `#f0a35a` |
 | primary button | `#e9ebef` | `#efe7d6` |
+| status ok | `#7fd1b9` | `#3ddc84` |
+| status bad | `#d18c86` | `#ff5c5c` |
 
 Non-goals: no light theme, no typography change, no tray or launch-at-login
 work, and no Android icon work yet. `icon-light.svg` and `icon-ios.svg` stay
