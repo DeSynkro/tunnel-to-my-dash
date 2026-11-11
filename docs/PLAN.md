@@ -308,3 +308,85 @@ func (a *App) Close() error
   tunnel.
 - Public, loopback and multicast destinations are refused.
 - The process creates no TUN device and needs no elevated privileges.
+
+## Phase 2 — Vault and profiles
+
+Goal: an encrypted store for multiple profiles, unlocked by a password or a
+`0600` key file, with no OS keyring. No UI in this phase.
+
+### Files
+
+- `core/internal/vault/crypto.go` — random bytes, Argon2id, XChaCha20-Poly1305
+  and base64 helpers.
+- `core/internal/vault/vault.go` — metadata, create/open/unlock/lock and atomic
+  save.
+- `core/internal/vault/profile.go` — profile and data types, validation and
+  CRUD.
+- `core/internal/vault/export.go` — encrypted export and import.
+- Tests alongside each file.
+
+### Format
+
+`vault.json` holds plaintext metadata: version, mode, KDF parameters, salt,
+wrapped vault key, payload nonce and ciphertext. The encrypted payload is a
+`Data` document:
+
+```json
+{
+  "version": 1,
+  "active_profile": "...",
+  "profiles": [
+    {
+      "id": "...",
+      "name": "Home",
+      "tunnel_config": "...raw WireGuard config...",
+      "dashboard_url": "http://192.168.0.3:3000",
+      "allow_external": false,
+      "external_origins": []
+    }
+  ]
+}
+```
+
+The raw WireGuard text is stored encrypted and parsed on demand with
+`config.ParseTunnel`. The vault key is random. Password mode wraps it with an
+Argon2id-derived key; keyfile mode stores it in `vault.key` with `0600`.
+
+### Tasks
+
+1. Crypto and vault lifecycle
+   - Argon2id parameters: time 3, memory 64 MiB, threads 2, 32-byte key.
+   - Create a password vault, lock, reopen, reject a wrong password, accept
+     the right one.
+   - Tampered ciphertext fails cleanly.
+   - Atomic writes and `0600` permissions.
+   - Lockout after repeated failures with an increasing delay.
+   - Commit: `Add the encrypted vault core`
+
+2. Profiles
+   - `Profile` and `Data` with stable random IDs.
+   - Add, update, delete and set active; duplicate and missing IDs rejected.
+   - Validate name, tunnel text and dashboard URL.
+   - The first profile becomes active; deleting the active profile picks
+     another.
+   - Commit: `Add vault profiles`
+
+3. Keyfile mode and password changes
+   - Create and open a vault with a `0600` key file.
+   - Reject a key file with group or other permissions.
+   - Change the password and convert password ↔ keyfile.
+   - Commit: `Add vault keyfile mode and password changes`
+
+4. Export and import
+   - Export the payload with a separate Argon2id password.
+   - Import with the right password; reject a wrong one.
+   - Commit: `Add vault export and import`
+
+### Acceptance
+
+- `make check` passes.
+- A password vault round-trips profiles after lock and unlock.
+- Wrong passwords and tampered ciphertext are rejected.
+- Keyfile mode works with `0600` and rejects looser permissions.
+- Export and import round-trip without exposing keys.
+- No OS keyring, no plaintext private keys on disk.
