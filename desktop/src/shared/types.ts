@@ -47,6 +47,7 @@ export interface NavigationBridge {
   forward(): Promise<void>;
   reload(): Promise<void>;
   home(): Promise<void>;
+  backToApp(): Promise<void>;
   onState(callback: (state: NavState) => void): () => void;
 }
 

@@ -61,7 +61,7 @@ export/import, lockout and tamper checks.
 - [x] Sidecar lifecycle and local control socket
 - [x] Sandboxed dashboard window with proxy
 - [x] Dashboard service tiles open in-app for private http(s) URLs
-- [x] Navigation bar with back, forward, reload and home
+- [x] Navigation bar with back, forward, reload, home and App
 - [x] Navigation and permission restrictions
 - [x] Disable Chromium background networking, DNS and service hooks
 - [ ] Friendly error pages for endpoint and handshake failures

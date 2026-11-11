@@ -15,12 +15,16 @@ function element<T extends HTMLElement>(id: string): T {
 }
 
 const bridge = window.ttmdNav;
+const appButton = element<HTMLButtonElement>("app");
 const back = element<HTMLButtonElement>("back");
 const forward = element<HTMLButtonElement>("forward");
 const reload = element<HTMLButtonElement>("reload");
 const home = element<HTMLButtonElement>("home");
 const address = element<HTMLElement>("address");
 
+appButton.addEventListener("click", () => {
+  void bridge.backToApp();
+});
 back.addEventListener("click", () => {
   void bridge.back();
 });

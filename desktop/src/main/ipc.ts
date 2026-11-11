@@ -10,6 +10,7 @@ export interface NavigationActions {
   forward(): void;
   reload(): void;
   home(): void;
+  backToApp(): void;
 }
 
 export interface IpcOptions {
@@ -95,6 +96,7 @@ export function registerIpc(options: IpcOptions): void {
   ipcMain.handle(IPC.navForward, () => options.navigation.forward());
   ipcMain.handle(IPC.navReload, () => options.navigation.reload());
   ipcMain.handle(IPC.navHome, () => options.navigation.home());
+  ipcMain.handle(IPC.navBackToApp, () => options.navigation.backToApp());
 
   ipcMain.handle(IPC.quit, () => {
     app.quit();

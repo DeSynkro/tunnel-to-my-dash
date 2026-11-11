@@ -16,6 +16,7 @@ export const IPC = {
   navForward: "ttmd:nav-forward",
   navReload: "ttmd:nav-reload",
   navHome: "ttmd:nav-home",
+  navBackToApp: "ttmd:nav-back-to-app",
   navState: "ttmd:nav-state",
   quit: "ttmd:quit",
   version: "ttmd:version",

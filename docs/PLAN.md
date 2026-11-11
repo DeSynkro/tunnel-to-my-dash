@@ -455,8 +455,8 @@ content is a later phase.
 - [x] Lock and unlock work.
 - [x] Connect opens the dashboard while ProtonVPN is active.
 - [x] Closing the dashboard disconnects the tunnel.
-- [x] Dashboard toolbar with back, forward, reload and home; private LAN
-  links navigate in the same view and public URLs stay blocked.
+- [x] Dashboard toolbar with back, forward, reload, home and App; private
+  LAN links navigate in the same view and public URLs stay blocked.
 - [x] No Node in the shell renderer or dashboard; no permission prompts.
 - [x] `make check` passes and the desktop code type-checks.
 - [x] No unexpected outbound traffic beyond the WireGuard endpoint.

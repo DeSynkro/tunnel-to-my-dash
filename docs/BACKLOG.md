@@ -9,6 +9,12 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
   less like a utility template. This is the "unslop" pass.
 - Design a new logo and distribution artwork: AppImage icon, window icon and
   any store or README images.
+- Auto-hide the dashboard toolbar when the pointer is away from the top edge,
+  and reveal it on hover after a short delay. Needs cursor polling or a
+  hover strip that does not block clicks on the page.
+- Move the navigation bar into the main app window and embed the dashboard in
+  the shell instead of a separate dashboard window. This is a larger UI
+  refactor and belongs with the unslop pass.
 
 ## App behaviour
 
@@ -24,8 +30,10 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 
 ## Done
 
-- Dashboard toolbar with back, forward, reload and home, plus the current
-  host label.
+- Dashboard toolbar with back, forward, reload, home and App, plus the
+  current host label. The bar is 36px high.
+- Back-to-app button returns to the profile list; closing the dashboard
+  window does the same.
 - Homarr-style `target="_blank"` service links now navigate in the same
   dashboard view for private http(s) URLs. Public URLs stay blocked.
 

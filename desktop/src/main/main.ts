@@ -68,7 +68,7 @@ let dashboardView: WebContentsView | null = null;
 let dashboardToolbar: WebContentsView | null = null;
 let dashboardHomeURL = "";
 
-const toolbarHeight = 44;
+const toolbarHeight = 36;
 
 function resolveCorePath(): string {
   if (process.env.TTMD_CORE) {
@@ -141,6 +141,9 @@ const navigation: NavigationActions = {
     if (dashboardView) {
       void dashboardView.webContents.loadURL(dashboardHomeURL);
     }
+  },
+  backToApp: () => {
+    dashboardWindow?.close();
   },
 };
 
@@ -419,7 +422,19 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
             }
           }
 
-          dashboardWindow?.close();
+          if (full && dashboardToolbar) {
+            await dashboardToolbar.webContents.executeJavaScript(
+              'document.getElementById("app")?.click()',
+              true,
+            );
+            const closed = await waitForDashboardClosed(3000);
+            console.log(`[smoke] back-to-app=${closed}`);
+            if (!closed) {
+              process.exitCode = 1;
+            }
+          } else {
+            dashboardWindow?.close();
+          }
           dashboardClosed = true;
           await delay(200);
           continue;
@@ -493,6 +508,17 @@ async function waitForDashboardURL(
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (predicate(dashboardView?.webContents.getURL() ?? "")) {
+      return true;
+    }
+    await delay(50);
+  }
+  return false;
+}
+
+async function waitForDashboardClosed(timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (!dashboardWindow) {
       return true;
     }
     await delay(50);
