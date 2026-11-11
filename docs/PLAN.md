@@ -77,15 +77,15 @@ func run(args []string, stdout io.Writer) int
 
 **Steps**
 
-- [ ] Test: `run([]string{"-version"}, &buf)` returns `0` and prints
+- [x] Test: `run([]string{"-version"}, &buf)` returns `0` and prints
       `ttmd-core 0.0.0-dev`.
-- [ ] Run `make test`; expect a build failure because the package does not
+- [x] Run `make test`; expect a build failure because the package does not
       exist.
-- [ ] Create the module `github.com/desynkro/tunnel-to-my-dash/core` with Go
+- [x] Create the module `github.com/desynkro/tunnel-to-my-dash/core` with Go
       1.27.
-- [ ] Implement `main.go` with a `-version` flag and `os.Exit(run(...))`.
-- [ ] Run `make test`; expect pass.
-- [ ] Run `make core` and `./build/ttmd-core -version`.
+- [x] Implement `main.go` with a `-version` flag and `os.Exit(run(...))`.
+- [x] Run `make test`; expect pass.
+- [x] Run `make core` and `./build/ttmd-core -version`.
 
 **Commit:** `Add the core module and CLI entry point`
 

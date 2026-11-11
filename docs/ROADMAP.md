@@ -18,7 +18,7 @@ artifacts are tracked.
 
 No UI yet. A command-line core that proves the hard part.
 
-- [ ] Go module and `ttmd-core` entry point
+- [x] Go module and `ttmd-core` entry point
 - [ ] LAN address classifier
 - [ ] WireGuard config parser with private-range overrides
 - [ ] Userspace WireGuard device and TCP dialer
