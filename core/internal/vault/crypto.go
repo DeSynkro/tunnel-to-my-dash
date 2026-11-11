@@ -45,6 +45,13 @@ func deriveKey(password string, salt []byte, p kdfParams) []byte {
 	return argon2.IDKey([]byte(password), salt, p.Time, p.Memory, p.Threads, keySize)
 }
 
+func validKDF(p kdfParams) bool {
+	if p.Time == 0 || p.Threads == 0 || p.Memory < 8 {
+		return false
+	}
+	return p.Memory >= 8*uint32(p.Threads)
+}
+
 func seal(key, nonce, plaintext, aad []byte) ([]byte, error) {
 	aead, err := chacha20poly1305.NewX(key)
 	if err != nil {

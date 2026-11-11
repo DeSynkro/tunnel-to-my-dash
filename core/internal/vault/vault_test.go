@@ -196,6 +196,27 @@ func TestVaultDoesNotStorePlaintext(t *testing.T) {
 	}
 }
 
+func TestTamperedKDFParams(t *testing.T) {
+	_, path := createLocked(t, "correct horse battery staple")
+
+	var meta metadata
+	if err := readJSON(path, &meta); err != nil {
+		t.Fatal(err)
+	}
+	meta.KDF.Memory = 0
+	if err := writeJSONAtomic(path, meta, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	opened, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := opened.Unlock("correct horse battery staple"); !errors.Is(err, ErrCorrupt) {
+		t.Fatalf("error = %v, want ErrCorrupt", err)
+	}
+}
+
 func TestCreateRefusesExisting(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "vault.json")
 	if _, err := Create(path, "first"); err != nil {

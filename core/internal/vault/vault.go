@@ -198,6 +198,9 @@ func (s *Store) unwrapKey(password string) ([]byte, error) {
 		Memory:  s.meta.KDF.Memory,
 		Threads: s.meta.KDF.Threads,
 	}
+	if !validKDF(params) {
+		return nil, fmt.Errorf("%w: invalid KDF parameters", ErrCorrupt)
+	}
 	key, err := openSealed(deriveKey(password, salt, params), wrapNonce, wrapped, wrapAAD)
 	if err != nil {
 		return nil, ErrWrongPassword
