@@ -2,8 +2,9 @@ import { app, dialog, ipcMain, type BrowserWindow, type OpenDialogOptions } from
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import type { ControlClient } from "./control-client";
+import type { SettingsStore } from "./settings";
 import { IPC } from "../shared/ipc";
-import type { ConnectResult, ProfileInput } from "../shared/types";
+import type { AppSettings, ConnectResult, ProfileInput } from "../shared/types";
 
 export interface NavigationActions {
   back(): void;
@@ -18,6 +19,7 @@ export interface IpcOptions {
   coreError: string | null;
   getWindow: () => BrowserWindow | null;
   navigation: NavigationActions;
+  settings: SettingsStore;
   openDashboard: (profileID: string, result: ConnectResult) => Promise<void>;
 }
 
@@ -62,6 +64,11 @@ export function registerIpc(options: IpcOptions): void {
     return result;
   });
   ipcMain.handle(IPC.disconnect, () => control().disconnect());
+
+  ipcMain.handle(IPC.getSettings, () => options.settings.get());
+  ipcMain.handle(IPC.updateSettings, (_event, patch: unknown) =>
+    options.settings.update(settingsPatch(patch)),
+  );
 
   ipcMain.handle(IPC.chooseConfig, async () => {
     const window = options.getWindow();
@@ -111,4 +118,19 @@ function stringArg(value: unknown): string {
     throw new Error("Invalid request.");
   }
   return value;
+}
+
+function settingsPatch(value: unknown): Partial<AppSettings> {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Invalid settings");
+  }
+  const raw = value as Record<string, unknown>;
+  const patch: Partial<AppSettings> = {};
+  if ("open_last_dashboard" in raw) {
+    if (typeof raw.open_last_dashboard !== "boolean") {
+      throw new Error("Invalid settings");
+    }
+    patch.open_last_dashboard = raw.open_last_dashboard;
+  }
+  return patch;
 }

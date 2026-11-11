@@ -11,6 +11,8 @@ export const IPC = {
   checkProfile: "ttmd:check-profile",
   connect: "ttmd:connect",
   disconnect: "ttmd:disconnect",
+  getSettings: "ttmd:get-settings",
+  updateSettings: "ttmd:update-settings",
   chooseConfig: "ttmd:choose-config",
   statusChanged: "ttmd:status-changed",
   navBack: "ttmd:nav-back",

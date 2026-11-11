@@ -1,4 +1,5 @@
 import type {
+  AppSettings,
   ConfigFile,
   ExternalMode,
   ProfileInput,
@@ -93,6 +94,8 @@ const profileSave = element<HTMLButtonElement>("profile-save");
 const profileBack = element<HTMLButtonElement>("profile-back");
 const profileCancel = element<HTMLButtonElement>("profile-cancel");
 
+const settingsOpenLast = element<HTMLInputElement>("settings-open-last");
+const settingsBehaviorError = element<HTMLElement>("settings-behavior-error");
 const settingsLockState = element<HTMLElement>("settings-lock-state");
 const settingsPasswordForm = element<HTMLFormElement>("settings-password-form");
 const settingsOldPasswordField = element<HTMLElement>("settings-old-password-field");
@@ -112,6 +115,7 @@ let editingProfileID: string | null = null;
 const reachability: Record<string, boolean> = {};
 let reachabilityChecking: string | null = null;
 let autoChecked = false;
+let appSettings: AppSettings = { open_last_dashboard: false };
 
 function api(): TtmdBridge {
   if (!bridge) {
@@ -208,7 +212,7 @@ async function chooseConfig(
   }
 }
 
-async function refresh(): Promise<void> {
+async function refresh(autoOpen = false): Promise<void> {
   showScreen("loading");
   try {
     status = await api().getStatus();
@@ -232,14 +236,17 @@ async function refresh(): Promise<void> {
     } else if (editingProfileID && status.profiles.some((p) => p.id === editingProfileID)) {
       showProfile(editingProfileID);
     } else {
-      showMain();
+      showMain(autoOpen);
+      if (autoOpen) {
+        void autoOpenLastDashboard();
+      }
     }
   } catch (error) {
     showError(message(error));
   }
 }
 
-function showMain(): void {
+function showMain(autoOpen = false): void {
   if (!status) {
     return;
   }
@@ -264,9 +271,27 @@ function showMain(): void {
 
   renderRail();
 
-  if (!autoChecked && status.active_profile) {
+  const willAutoOpen = autoOpen && appSettings.open_last_dashboard;
+  if (!autoChecked && status.active_profile && !willAutoOpen) {
     autoChecked = true;
     void checkReachability(status.active_profile);
+  }
+}
+
+async function autoOpenLastDashboard(): Promise<void> {
+  if (!appSettings.open_last_dashboard || !status || status.locked) {
+    return;
+  }
+  const profileID = status.active_profile;
+  if (!profileID || !status.profiles.some((profile) => profile.id === profileID)) {
+    return;
+  }
+
+  try {
+    await api().connect(profileID);
+  } catch (error) {
+    mainNote.textContent = message(error);
+    void checkReachability(profileID);
   }
 }
 
@@ -327,14 +352,8 @@ function profileCard(profile: ProfileSummary): HTMLElement {
   actions.className = "profile-actions";
 
   const connect = makeButton("Open dashboard");
-  connect.addEventListener("click", async () => {
-    setBusy(connect, true, "Opening…");
-    try {
-      await api().connect(profile.id);
-    } catch (error) {
-      mainNote.textContent = message(error);
-      setBusy(connect, false);
-    }
+  connect.addEventListener("click", () => {
+    void openProfile(profile.id, connect);
   });
   actions.append(connect);
 
@@ -362,6 +381,20 @@ function profileCard(profile: ProfileSummary): HTMLElement {
   return card;
 }
 
+async function openProfile(profileID: string, button?: HTMLButtonElement): Promise<void> {
+  if (button) {
+    setBusy(button, true, "Opening…");
+  }
+  try {
+    await api().connect(profileID);
+  } catch (error) {
+    mainNote.textContent = message(error);
+    if (button) {
+      setBusy(button, false);
+    }
+  }
+}
+
 function showSettings(): void {
   if (!status || status.locked) {
     return;
@@ -386,6 +419,9 @@ function renderSettings(): void {
   settingsPasswordSubmit.textContent = status.password_protected
     ? "Change password"
     : "Turn on app lock";
+
+  settingsOpenLast.checked = appSettings.open_last_dashboard;
+  setFormError(settingsBehaviorError, "");
 
   settingsPasswordForm.reset();
   setFormError(settingsPasswordError, "");
@@ -624,7 +660,7 @@ async function submitUnlock(event: SubmitEvent): Promise<void> {
   try {
     await api().unlock(lockPassword.value);
     lockForm.reset();
-    await refresh();
+    await refresh(true);
   } catch (error) {
     setFormError(lockError, message(error));
   } finally {
@@ -815,6 +851,21 @@ settingsToggle.addEventListener("click", () => {
   showSettings();
 });
 
+settingsOpenLast.addEventListener("change", async () => {
+  const desired = settingsOpenLast.checked;
+  setFormError(settingsBehaviorError, "");
+  settingsOpenLast.disabled = true;
+  try {
+    appSettings = await api().updateSettings({ open_last_dashboard: desired });
+    settingsOpenLast.checked = appSettings.open_last_dashboard;
+  } catch (error) {
+    settingsOpenLast.checked = appSettings.open_last_dashboard;
+    setFormError(settingsBehaviorError, message(error));
+  } finally {
+    settingsOpenLast.disabled = false;
+  }
+});
+
 settingsBack.addEventListener("click", () => {
   showMain();
 });
@@ -848,6 +899,15 @@ errorRetry.addEventListener("click", () => {
   void refresh();
 });
 
+async function init(): Promise<void> {
+  try {
+    appSettings = await api().getSettings();
+  } catch {
+    appSettings = { open_last_dashboard: false };
+  }
+  await refresh(true);
+}
+
 if (bridge) {
   bridge
     .version()
@@ -858,7 +918,7 @@ if (bridge) {
   bridge.onStatusChanged(() => {
     void refresh();
   });
-  void refresh();
+  void init();
 } else {
   showError("The desktop bridge did not load");
 }

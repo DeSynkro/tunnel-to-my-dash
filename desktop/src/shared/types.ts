@@ -1,5 +1,9 @@
 export type ExternalMode = "off" | "all" | "origins";
 
+export interface AppSettings {
+  open_last_dashboard: boolean;
+}
+
 export interface ProfileSummary {
   id: string;
   name: string;
@@ -72,6 +76,8 @@ export interface TtmdBridge {
   checkProfile(id: string): Promise<CheckResult>;
   connect(id: string): Promise<ConnectResult>;
   disconnect(): Promise<Status>;
+  getSettings(): Promise<AppSettings>;
+  updateSettings(patch: Partial<AppSettings>): Promise<AppSettings>;
   chooseConfig(): Promise<ConfigFile | null>;
   onStatusChanged(callback: () => void): () => void;
   quit(): Promise<void>;

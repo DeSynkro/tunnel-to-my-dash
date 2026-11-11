@@ -17,6 +17,7 @@ import { CoreProcess } from "./core-process";
 import { resolveDataRoot } from "./data-dir";
 import { registerIpc, type NavigationActions } from "./ipc";
 import { isPrivateHttpUrl } from "./private-url";
+import { SettingsStore } from "./settings";
 
 app.setName("Tunnel to My Dash");
 
@@ -36,6 +37,7 @@ try {
 
 const coreDataDir = path.join(dataRoot, "core");
 const socketPath = path.join(coreDataDir, "control.sock");
+const settingsStore = new SettingsStore(dataRoot);
 app.setPath("userData", path.join(dataRoot, "electron"));
 
 app.commandLine.appendSwitch("disable-background-networking");
@@ -68,6 +70,7 @@ let dashboardWindow: BaseWindow | null = null;
 let dashboardView: WebContentsView | null = null;
 let dashboardToolbar: WebContentsView | null = null;
 let dashboardHomeURL = "";
+let dashboardClosingToMain = false;
 
 const toolbarHeight = 36;
 const toolbarRevealDelay = 350;
@@ -234,7 +237,10 @@ const navigation: NavigationActions = {
     }
   },
   backToApp: () => {
-    dashboardWindow?.close();
+    if (dashboardWindow) {
+      dashboardClosingToMain = true;
+      dashboardWindow.close();
+    }
   },
 };
 
@@ -244,6 +250,7 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
     return;
   }
 
+  dashboardClosingToMain = false;
   console.log(`[dashboard] proxy=${result.proxy}`);
 
   const partition = `persist:profile-${profileID}`;
@@ -320,16 +327,24 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
 
   window.on("closed", () => {
     stopToolbarPoll();
+    const toMain = dashboardClosingToMain;
+    dashboardClosingToMain = false;
     dashboardWindow = null;
     dashboardView = null;
     dashboardToolbar = null;
     dashboardHomeURL = "";
+
     if (control) {
       void control.disconnect().catch(() => undefined);
     }
-    if (mainWindow) {
-      mainWindow.show();
-      mainWindow.webContents.send(IPC.statusChanged);
+
+    if (toMain) {
+      if (mainWindow) {
+        mainWindow.show();
+        mainWindow.webContents.send(IPC.statusChanged);
+      }
+    } else {
+      app.quit();
     }
   });
 
@@ -390,7 +405,9 @@ function createWindow(): void {
     process.env.TTMD_SMOKE === "idle" ||
     process.env.TTMD_SMOKE === "settings" ||
     process.env.TTMD_SMOKE === "setup" ||
-    process.env.TTMD_SMOKE === "toolbar"
+    process.env.TTMD_SMOKE === "toolbar" ||
+    process.env.TTMD_SMOKE === "autoopen" ||
+    process.env.TTMD_SMOKE === "closequit"
   ) {
     mainWindow.webContents.once("did-finish-load", () => {
       if (mainWindow) {
@@ -406,11 +423,26 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
   const settings = process.env.TTMD_SMOKE === "settings";
   const setupSmoke = process.env.TTMD_SMOKE === "setup";
   const toolbarSmoke = process.env.TTMD_SMOKE === "toolbar";
+  const autoOpenSmoke = process.env.TTMD_SMOKE === "autoopen";
+  const closeQuitSmoke = process.env.TTMD_SMOKE === "closequit";
   const deadline =
-    Date.now() + (full || settings || setupSmoke || toolbarSmoke ? 60_000 : 12_000);
+    Date.now() +
+    (full || settings || setupSmoke || toolbarSmoke || autoOpenSmoke || closeQuitSmoke
+      ? 60_000
+      : 12_000);
   let submitted = false;
   let dashboardTried = false;
   let dashboardClosed = false;
+
+  if (autoOpenSmoke) {
+    await runAutoOpenSmoke(window);
+    return;
+  }
+
+  if (closeQuitSmoke) {
+    await runCloseQuitSmoke(window);
+    return;
+  }
 
   while (Date.now() < deadline) {
     try {
@@ -635,6 +667,78 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
   app.quit();
 }
 
+async function runAutoOpenSmoke(window: BrowserWindow): Promise<void> {
+  try {
+    console.log("[smoke] autoopen start");
+    let unlocked = false;
+    const deadline = Date.now() + 30_000;
+
+    while (Date.now() < deadline) {
+      if (dashboardWindow) {
+        if (!(await waitForDashboardLoad(30_000))) {
+          throw new Error("the auto-opened dashboard did not finish loading");
+        }
+        console.log("[smoke] autoopen dashboard opened");
+        app.quit();
+        return;
+      }
+
+      const screen = (await window.webContents.executeJavaScript(
+        'document.body.dataset.screen || ""',
+      )) as string;
+
+      if (screen === "lock" && !unlocked) {
+        await window.webContents.executeJavaScript(
+          `(() => {
+            const node = document.getElementById("lock-password");
+            if (node) node.value = "smoke-pass";
+            document.getElementById("lock-form")?.requestSubmit();
+          })()`,
+          true,
+        );
+        unlocked = true;
+      } else if (screen === "error") {
+        throw new Error("auto-open reached the error screen");
+      }
+
+      await delay(100);
+    }
+
+    throw new Error("auto-open did not open a dashboard");
+  } catch (error) {
+    console.error(`[smoke] autoopen failed: ${errorMessage(error)}`);
+    process.exitCode = 1;
+    app.quit();
+  }
+}
+
+async function runCloseQuitSmoke(window: BrowserWindow): Promise<void> {
+  try {
+    if (!(await waitForScreen(window, "main", 5000))) {
+      throw new Error("the dashboard list did not load");
+    }
+    await window.webContents.executeJavaScript(
+      'document.querySelector(".profile-actions button")?.click()',
+      true,
+    );
+    if (!(await waitForDashboard(5000))) {
+      throw new Error("the dashboard window did not open");
+    }
+    if (!(await waitForDashboardLoad(30_000))) {
+      throw new Error("the dashboard did not finish loading");
+    }
+
+    console.log("[smoke] closequit closing dashboard");
+    dashboardWindow?.close();
+    await delay(2000);
+    throw new Error("closing the dashboard did not quit the app");
+  } catch (error) {
+    console.error(`[smoke] closequit failed: ${errorMessage(error)}`);
+    process.exitCode = 1;
+    app.quit();
+  }
+}
+
 async function runToolbarSmoke(window: BrowserWindow): Promise<void> {
   try {
     await window.webContents.executeJavaScript(
@@ -770,6 +874,33 @@ async function runSettingsSmoke(window: BrowserWindow): Promise<void> {
     if (summary.profiles !== 0) {
       throw new Error("profile editing is still in settings");
     }
+
+    const openLastBefore = settingsStore.get().open_last_dashboard;
+    await window.webContents.executeJavaScript(
+      'document.getElementById("settings-open-last")?.click()',
+      true,
+    );
+    if (
+      !(await waitForCondition(
+        async () => settingsStore.get().open_last_dashboard === !openLastBefore,
+        3000,
+      ))
+    ) {
+      throw new Error("open-last-dashboard setting was not saved");
+    }
+    await window.webContents.executeJavaScript(
+      'document.getElementById("settings-open-last")?.click()',
+      true,
+    );
+    if (
+      !(await waitForCondition(
+        async () => settingsStore.get().open_last_dashboard === openLastBefore,
+        3000,
+      ))
+    ) {
+      throw new Error("open-last-dashboard setting was not restored");
+    }
+    console.log("[smoke] settings open-last saved");
 
     await window.webContents.executeJavaScript(
       `(() => {
@@ -1233,12 +1364,14 @@ app.whenReady().then(async () => {
   session.defaultSession.setPermissionCheckHandler(() => false);
   session.defaultSession.setSpellCheckerEnabled(false);
 
+  await settingsStore.load();
   await startCore();
   registerIpc({
     control,
     coreError,
     getWindow: () => mainWindow,
     navigation,
+    settings: settingsStore,
     openDashboard,
   });
   createWindow();

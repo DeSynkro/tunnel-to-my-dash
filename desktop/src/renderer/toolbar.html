@@ -11,13 +11,6 @@
   </head>
   <body>
     <nav class="bar" aria-label="Browser navigation">
-      <button type="button" id="app" title="Back to Tunnel to My Dash" aria-label="Back to Tunnel to My Dash">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
-        </svg>
-        <span>App</span>
-      </button>
-      <span class="divider" aria-hidden="true"></span>
       <button type="button" id="back" title="Back" aria-label="Back" disabled>
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
@@ -41,6 +34,18 @@
         <span>Home</span>
       </button>
       <span id="address" class="address"></span>
+      <span class="divider" aria-hidden="true"></span>
+      <button
+        type="button"
+        id="app"
+        title="Back to dashboards"
+        aria-label="Back to dashboards"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+        </svg>
+        <span>App</span>
+      </button>
     </nav>
     <script src="./toolbar.js"></script>
   </body>

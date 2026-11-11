@@ -16,6 +16,8 @@ const api: TtmdBridge = {
   checkProfile: (id) => ipcRenderer.invoke(IPC.checkProfile, id),
   connect: (id) => ipcRenderer.invoke(IPC.connect, id),
   disconnect: () => ipcRenderer.invoke(IPC.disconnect),
+  getSettings: () => ipcRenderer.invoke(IPC.getSettings),
+  updateSettings: (patch) => ipcRenderer.invoke(IPC.updateSettings, patch),
   chooseConfig: () => ipcRenderer.invoke(IPC.chooseConfig),
   onStatusChanged: (callback) => {
     const listener = () => callback();
