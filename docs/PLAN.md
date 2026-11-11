@@ -259,22 +259,27 @@ use `httputil.ReverseProxy` with a transport that dials through the tunnel.
 **Interface**
 
 ```go
-func Run(ctx context.Context, tunnelCfg tunnel.Config, appCfg config.App, proxyAddr string) error
+type App struct{ /* ... */ }
+
+func Start(cfg config.Tunnel) (*App, error)
+func (a *App) ProxyAddr() net.Addr
+func (a *App) Close() error
 ```
 
 **Steps**
 
-- [ ] End-to-end test: two userspace devices, an HTTP server on the server
+- [x] End-to-end test: two userspace devices, an HTTP server on the server
       device, the proxy on the client device, and a normal `http.Client`
       configured with the proxy URL. Assert the body.
-- [ ] Run `make test`; expect failure.
-- [ ] Implement `app.Run` and the `run` subcommand:
-      `ttmd-core run --tunnel <path> --config <path> [--proxy 127.0.0.1:0]`.
-- [ ] Print the listening proxy address on startup.
-- [ ] Handle SIGINT and SIGTERM; close the proxy and tunnel.
-- [ ] Run `make test` and `make core`.
+- [x] Run `make test`; expect failure.
+- [x] Implement `app.Start` and the `run` subcommand:
+      `ttmd-core run --tunnel <path> --config <path>`.
+- [x] Print the listening proxy address on startup.
+- [x] Handle SIGINT and SIGTERM; close the proxy and tunnel.
+- [x] Run `make test` and `make core`.
 - [ ] Manual check with a real config:
       `curl -x http://127.0.0.1:<port> http://192.168.0.3:3000`.
+      This one needs the real home endpoint, so it stays open for now.
 
 **Commit:** `Run the tunnel and proxy from the core CLI`
 
@@ -284,13 +289,13 @@ func Run(ctx context.Context, tunnelCfg tunnel.Config, appCfg config.App, proxyA
 
 **Steps**
 
-- [ ] Add `make check` running `go vet`, `gofmt -l`, and a grep that fails if
+- [x] Add `make check` running `go vet`, `gofmt -l`, and a grep that fails if
       `CreateTUN` appears in `core/`.
-- [ ] Run the whole test suite as the normal user.
-- [ ] Confirm `ip link` shows no new `tun` interface while the integration
+- [x] Run the whole test suite as the normal user.
+- [x] Confirm `ip link` shows no new `tun` interface while the integration
       test runs.
-- [ ] Record the result in `docs/SECURITY.md` if anything differs from the
-      assumptions.
+- [x] Record the result in `docs/SECURITY.md` if anything differs from the
+      assumptions. Nothing differed.
 
 **Commit:** `Add core privilege and no-TUN checks`
 

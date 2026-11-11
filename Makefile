@@ -14,7 +14,7 @@ export ELECTRON_CACHE := $(CACHE)/electron
 export ELECTRON_BUILDER_CACHE := $(CACHE)/electron-builder
 export PATH := $(ROOT)/.tools/go/bin:$(PATH)
 
-.PHONY: help dirs env toolchain fmt test core clean
+.PHONY: help dirs env toolchain fmt test core check clean
 
 help: ## List available targets
 	@awk 'BEGIN {FS = ":.*## "; printf "Targets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-10s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -41,6 +41,15 @@ core: ## Build the core CLI
 	@test -d core || { echo "core/ not created yet"; exit 1; }
 	@mkdir -p build
 	@cd core && $(GO) build -trimpath -o ../build/ttmd-core ./cmd/ttmd-core
+
+check: test ## Format check, vet, tests and no-TUN guard
+	@if [ "$$(id -u)" -eq 0 ]; then echo "error: run checks as a normal user"; exit 1; fi
+	@out="$$(gofmt -l $$(find core -name '*.go' -type f))"; \
+	if [ -n "$$out" ]; then echo "$$out"; echo "error: gofmt required"; exit 1; fi
+	@cd core && $(GO) vet ./...
+	@if grep -R --include='*.go' -n 'CreateTUN' core; then \
+		echo "error: CreateTUN is not allowed"; exit 1; \
+	fi
 
 clean: ## Remove build output and local caches
 	@rm -rf "$(ROOT)/build" "$(ROOT)/dist" "$(CACHE)" "$(TMP)"

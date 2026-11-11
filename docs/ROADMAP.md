@@ -24,9 +24,10 @@ No UI yet. A command-line core that proves the hard part.
 - [x] Userspace WireGuard device and TCP dialer
 - [x] Route only private ranges through the tunnel
 - [x] Localhost HTTP/CONNECT proxy
-- [ ] End-to-end test through a userspace tunnel
+- [x] CLI wiring and signal handling
+- [x] End-to-end test through a userspace tunnel
 - [ ] Manual `curl` check against a real endpoint
-- [ ] Prove no TUN device and no elevated privileges
+- [x] Prove no TUN device and no elevated privileges
 
 Done when a request can go `curl -> localhost proxy -> WireGuard -> LAN test
 server`, public addresses are refused, and the whole test runs as a normal
