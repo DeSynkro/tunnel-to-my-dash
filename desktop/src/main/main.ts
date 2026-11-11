@@ -135,7 +135,7 @@ function stopToolbarPoll(): void {
 }
 
 function handleViewPointer(payload: PointerPayload): void {
-  toolbarPageNearTop = !payload.out && payload.y <= 4;
+  toolbarPageNearTop = !payload.out && payload.y <= 12;
 }
 
 function handleToolbarPointer(payload: PointerPayload): void {
@@ -520,6 +520,13 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   dashboardHomeURL = result.dashboard_url;
   dashboardAutoHide = settingsStore.get().auto_hide_toolbar;
   window.on("resize", layoutDashboard);
+  window.on("focus", () => {
+    if (!dashboardAutoHide || dashboardLocked) {
+      return;
+    }
+    toolbarInitialUntil = Date.now() + 1500;
+    setToolbarVisible(true);
+  });
 
   if (dashboardAutoHide) {
     startToolbarPoll();
@@ -650,7 +657,8 @@ function createWindow(): void {
     process.env.TTMD_SMOKE === "lock" ||
     process.env.TTMD_SMOKE === "lockback" ||
     process.env.TTMD_SMOKE === "idlelock" ||
-    process.env.TTMD_SMOKE === "toolbarfixed"
+    process.env.TTMD_SMOKE === "toolbarfixed" ||
+    process.env.TTMD_SMOKE === "refocus"
   ) {
     mainWindow.webContents.once("did-finish-load", () => {
       if (mainWindow) {
@@ -672,6 +680,7 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
   const lockBackSmoke = process.env.TTMD_SMOKE === "lockback";
   const idleLockSmoke = process.env.TTMD_SMOKE === "idlelock";
   const toolbarFixedSmoke = process.env.TTMD_SMOKE === "toolbarfixed";
+  const refocusSmoke = process.env.TTMD_SMOKE === "refocus";
   const deadline =
     Date.now() +
     (full ||
@@ -683,7 +692,8 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
     lockSmoke ||
     lockBackSmoke ||
     idleLockSmoke ||
-    toolbarFixedSmoke
+    toolbarFixedSmoke ||
+    refocusSmoke
       ? 60_000
       : 12_000);
   let submitted = false;
@@ -717,6 +727,11 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
 
   if (toolbarFixedSmoke) {
     await runToolbarFixedSmoke(window);
+    return;
+  }
+
+  if (refocusSmoke) {
+    await runRefocusSmoke(window);
     return;
   }
 
@@ -1264,6 +1279,45 @@ async function runToolbarFixedSmoke(window: BrowserWindow): Promise<void> {
     app.quit();
   } catch (error) {
     console.error(`[smoke] toolbarfixed failed: ${errorMessage(error)}`);
+    process.exitCode = 1;
+    app.quit();
+  }
+}
+
+async function runRefocusSmoke(window: BrowserWindow): Promise<void> {
+  try {
+    console.log("[smoke] refocus start");
+    if (!(await waitForScreen(window, "main", 5000))) {
+      throw new Error("the dashboard list did not load");
+    }
+    if (!(await waitForProfileButton(window, 3000))) {
+      throw new Error("the profile card did not render");
+    }
+    await window.webContents.executeJavaScript(
+      'document.querySelector(".profile-actions button")?.click()',
+      true,
+    );
+    if (!(await waitForDashboard(5000)) || !(await waitForDashboardLoad(30_000))) {
+      throw new Error("the dashboard did not open");
+    }
+
+    setToolbarVisible(false);
+    await delay(200);
+    dashboardWindow?.blur();
+    await delay(300);
+    dashboardWindow?.focus();
+    await delay(500);
+
+    const visible = dashboardToolbar?.getVisible() ?? false;
+    const viewY = dashboardView?.getBounds().y;
+    console.log(`[smoke] refocus visible=${visible} viewY=${viewY}`);
+    if (!visible || viewY !== toolbarHeight) {
+      throw new Error("the toolbar did not return on refocus");
+    }
+
+    app.quit();
+  } catch (error) {
+    console.error(`[smoke] refocus failed: ${errorMessage(error)}`);
     process.exitCode = 1;
     app.quit();
   }

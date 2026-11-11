@@ -35,9 +35,10 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 - Behavior settings in plaintext `settings.json`: open the last dashboard
   after launch and after every unlock.
 - Auto-hide is event-driven now: the dashboard and toolbar preloads report the
-  pointer, so it no longer depends on global cursor polling or window focus.
-  The Behavior setting can turn it off, and the toolbar reserves its own row so
-  it never covers dashboard content.
+  pointer, so it no longer depends on global cursor polling. It also returns
+  when the dashboard window regains focus, and the top-edge reveal zone is
+  wider. The Behavior setting can turn it off, and the toolbar reserves its own
+  row so it never covers dashboard content.
 - Dashboard window X quits the whole app; the Main menu button returns to the
   main menu. The toolbar has Main menu and a labeled Lock button on the right.
 - Padlock lock overlay: it covers the dashboard with a blurred snapshot of
