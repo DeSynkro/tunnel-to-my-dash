@@ -112,6 +112,31 @@ if (window.top === window) {
     return "";
   }
 
+  function isLoginButton(element: Element): boolean {
+    const label = (element.textContent ?? "").trim();
+    const loginText = /log ?in|sign ?in|submit|unlock|continue/i;
+
+    if (element instanceof HTMLInputElement) {
+      if (element.type === "submit") {
+        return true;
+      }
+      if (element.type === "button") {
+        return loginText.test(element.value);
+      }
+      return false;
+    }
+
+    if (element instanceof HTMLButtonElement) {
+      const type = element.getAttribute("type");
+      if (type === "submit" || type === null || type === "") {
+        return true;
+      }
+      return loginText.test(label);
+    }
+
+    return element.getAttribute("role") === "button" && loginText.test(label);
+  }
+
   function capture(event: Event): void {
     if (location.protocol !== "http:" && location.protocol !== "https:") {
       return;
@@ -160,11 +185,10 @@ if (window.top === window) {
       if (!(event.target instanceof Element)) {
         return;
       }
-      if (
-        event.target.closest(
-          'button, input[type="submit"], [role="button"]',
-        )
-      ) {
+      const button = event.target.closest(
+        'button, input[type="submit"], input[type="button"], [role="button"]',
+      );
+      if (button && isLoginButton(button)) {
         capture(event);
       }
     },
