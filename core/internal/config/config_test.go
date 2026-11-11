@@ -39,6 +39,7 @@ PrivateKey = %s
 Address = 10.66.0.2/24, fd00::2/64
 DNS = 192.168.0.1
 MTU = 1380
+ListenPort = 51820
 
 [Peer]
 PublicKey = %s
@@ -71,6 +72,9 @@ func TestLoadTunnel(t *testing.T) {
 	}
 	if got.MTU != 1380 {
 		t.Errorf("MTU = %d, want 1380", got.MTU)
+	}
+	if got.ListenPort != 51820 {
+		t.Errorf("ListenPort = %d, want 51820", got.ListenPort)
 	}
 	if len(got.Addresses) != 2 || got.Addresses[0].String() != "10.66.0.2/24" || got.Addresses[1].String() != "fd00::2/64" {
 		t.Errorf("addresses = %v", got.Addresses)

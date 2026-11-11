@@ -28,6 +28,7 @@ type Tunnel struct {
 	Addresses     []net.IPNet
 	DNS           []net.IP
 	MTU           int
+	ListenPort    uint16
 }
 
 type App struct {
@@ -190,6 +191,12 @@ func (p *tunnelParser) parseInterface(key, value string, line int) error {
 			return fmt.Errorf("line %d: invalid MTU", line)
 		}
 		p.mtu = n
+	case "listenport":
+		n, err := strconv.Atoi(value)
+		if err != nil || n < 0 || n > 65535 {
+			return fmt.Errorf("line %d: invalid ListenPort", line)
+		}
+		p.cfg.ListenPort = uint16(n)
 	}
 	return nil
 }

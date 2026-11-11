@@ -24,3 +24,11 @@ func TestRunUnknownFlag(t *testing.T) {
 		t.Fatalf("exit code = %d, want 2", code)
 	}
 }
+
+func TestRunRequiresConfigPaths(t *testing.T) {
+	var out bytes.Buffer
+
+	if code := run([]string{"run"}, &out); code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+}
