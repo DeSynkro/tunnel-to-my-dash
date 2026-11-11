@@ -244,7 +244,7 @@
                 <p class="kicker">Profile</p>
                 <h2>Edit profile</h2>
               </div>
-              <button type="button" class="ghost" id="profile-back">Back to dashboards</button>
+              <button type="button" class="ghost" id="profile-back">Back to main menu</button>
             </div>
 
             <form id="profile-form" class="form panel-form" autocomplete="off">
@@ -330,38 +330,59 @@
               <div>
                 <h2>Settings</h2>
               </div>
-              <button type="button" class="ghost" id="settings-back">Back to dashboards</button>
+              <button type="button" class="ghost" id="settings-back">Back to main menu</button>
             </div>
 
             <div class="settings-grid">
-              <div class="settings-column">
-                <section class="settings-block">
-                  <h3>Behavior</h3>
-                  <label class="check">
-                    <input type="checkbox" id="settings-open-last" />
-                    <span>Open last dashboard after launch</span>
-                  </label>
-                  <p class="hint">
-                    After you unlock, the last active dashboard opens automatically.
-                  </p>
-                  <p class="form-error" id="settings-behavior-error" hidden></p>
-                </section>
+              <section class="settings-card">
+                <h3>Behavior</h3>
+                <label class="check">
+                  <input type="checkbox" id="settings-open-last" />
+                  <span>Open last dashboard after launch</span>
+                </label>
+                <p class="hint">
+                  After you unlock, the last active dashboard opens automatically.
+                </p>
+                <p class="form-error" id="settings-behavior-error" hidden></p>
+              </section>
 
-                <section class="settings-block">
-                  <h3>Application</h3>
-                  <p class="lead">
-                    Portable data stays in the folder beside the AppImage. Updates
-                    are manual and the app does not phone home.
-                  </p>
-                </section>
-              </div>
+              <section class="settings-card">
+                <h3>Security</h3>
+                <label class="check">
+                  <input type="checkbox" id="settings-force-lan" />
+                  <span>Force LAN-only for all profiles</span>
+                </label>
+                <p class="hint">
+                  Overrides every profile's external-content mode. Profile
+                  choices are kept but ignored while this is on.
+                </p>
 
-              <div class="settings-column">
-                <section class="settings-block">
-                  <h3>App lock</h3>
-                  <p class="lead" id="settings-lock-state"></p>
+                <label class="check">
+                  <input type="checkbox" id="settings-idle-lock" />
+                  <span>Lock after idle</span>
+                </label>
+                <p class="hint" id="settings-idle-hint">
+                  Locks the vault after a period without input.
+                </p>
+                <label class="field inline-field" id="settings-idle-minutes-field" hidden>
+                  <span>Minutes</span>
+                  <select id="settings-idle-minutes">
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                    <option value="15">15</option>
+                    <option value="30">30</option>
+                    <option value="60">60</option>
+                  </select>
+                </label>
+                <p class="form-error" id="settings-security-error" hidden></p>
+              </section>
 
-                  <form id="settings-password-form" class="form panel-form" autocomplete="off">
+              <section class="settings-card settings-card-wide">
+                <h3>App lock</h3>
+                <p class="lead" id="settings-lock-state"></p>
+
+                <form id="settings-password-form" class="form app-lock-form" autocomplete="off">
+                  <div class="app-lock-fields">
                     <label class="field" id="settings-old-password-field" hidden>
                       <span>Current password</span>
                       <input
@@ -387,60 +408,32 @@
                         autocomplete="new-password"
                       />
                     </label>
-                    <p class="form-error" id="settings-password-error" hidden></p>
-                    <p class="note" id="settings-password-note" hidden></p>
-                    <div class="actions">
-                      <button type="submit" id="settings-password-submit">Change password</button>
-                      <button
-                        type="button"
-                        class="ghost danger"
-                        id="settings-password-remove"
-                        hidden
-                      >
-                        Turn off app lock
-                      </button>
-                    </div>
-                  </form>
-                </section>
-
-                <section class="settings-block">
-                  <h3>Security</h3>
-                  <label class="check">
-                    <input type="checkbox" id="settings-force-lan" />
-                    <span>Force LAN-only for all profiles</span>
-                  </label>
-                  <p class="hint">
-                    Overrides every profile's external-content mode. Profile
-                    choices are kept but ignored while this is on.
-                  </p>
-
-                  <label class="check">
-                    <input type="checkbox" id="settings-idle-lock" />
-                    <span>Lock after idle</span>
-                  </label>
-                  <p class="hint" id="settings-idle-hint">
-                    Locks the vault after a period without input.
-                  </p>
-                  <label class="field inline-field" id="settings-idle-minutes-field" hidden>
-                    <span>Minutes</span>
-                    <select id="settings-idle-minutes">
-                      <option value="5">5</option>
-                      <option value="10">10</option>
-                      <option value="15">15</option>
-                      <option value="30">30</option>
-                      <option value="60">60</option>
-                    </select>
-                  </label>
-                  <p class="form-error" id="settings-security-error" hidden></p>
-                </section>
-              </div>
+                  </div>
+                  <p class="form-error" id="settings-password-error" hidden></p>
+                  <p class="note" id="settings-password-note" hidden></p>
+                  <div class="actions">
+                    <button type="submit" id="settings-password-submit">Change password</button>
+                    <button
+                      type="button"
+                      class="ghost danger"
+                      id="settings-password-remove"
+                      hidden
+                    >
+                      Turn off app lock
+                    </button>
+                  </div>
+                </form>
+              </section>
             </div>
 
             <p class="settings-note">
               Security settings are stored in the encrypted vault. Behavior
               settings are stored in settings.json beside your portable data.
+              Portable data stays in the folder beside the AppImage; updates are
+              manual and the app does not phone home.
             </p>
           </section>
+
         </main>
       </div>
     </div>

@@ -74,14 +74,16 @@ svg {
 }
 
 #app,
-#home {
+#home,
+#lock {
   width: auto;
   gap: 5px;
   padding: 0 8px;
 }
 
 #app span,
-#home span {
+#home span,
+#lock span {
   font-size: 11px;
   font-weight: 600;
 }

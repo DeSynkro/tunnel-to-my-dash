@@ -68,10 +68,10 @@ The desktop app has four parts:
 - **Dashboard view.** A separate `BaseWindow` with a sandboxed
   `WebContentsView` and its own Chromium session and proxy. It loads the
   configured LAN URL and nothing else as a top-level page. A 36px navigation
-  bar overlays the view. The window X quits the app; the App button returns to
-  the dashboard list. A padlock shows an opaque lock overlay over a blurred
-  snapshot of the page, hides the live page, disconnects the tunnel and
-  reconnects the same dashboard after unlock. Back to dashboards from that
+  bar overlays the view. The window X quits the app; the Main menu button
+  returns to the main menu. A padlock shows an opaque lock overlay over a
+  blurred snapshot of the page, hides the live page, disconnects the tunnel and
+  reconnects the same dashboard after unlock. Back to main menu from that
   overlay suppresses auto-open once so the next unlock lands on the main menu.
   Embedding the dashboard in the main shell is a later refinement.
 - **Go core.** A userspace WireGuard device, a TCP/IP stack, a localhost HTTP
@@ -98,13 +98,13 @@ The shell uses one ink neutral ramp, a mint accent for live status and focus,
 and off-white primary actions. Addresses, versions and route labels use the
 system mono. On the main, profile and settings screens a 200px rail carries
 the Dashboards and Settings entries, the app-lock state and the version.
-Setup is an asymmetric split; lock is a compact card. Settings is a two-column
-layout with Behavior and Application on the left and App lock and Security on
-the right. The active profile is probed once at startup; the profile status
-dot is also a button for a manual re-check. It dials the dashboard host and
-port through the tunnel and turns green or red, with no label. The route mark
-and route line are the repeating signature detail. Short labels are sentence
-case, and spacing stays on a 4px scale.
+Setup is an asymmetric split; lock is a compact card. Settings uses cards:
+Behavior and Security on top and App lock full width, with the storage note
+below. The active profile is probed once at startup; the profile status dot is
+also a button for a manual re-check. It dials the dashboard host and port
+through the tunnel and turns green or red, with no label. The route mark and
+route line are the repeating signature detail. Short labels are sentence case,
+and spacing stays on a 4px scale.
 
 ## The tunnel
 
