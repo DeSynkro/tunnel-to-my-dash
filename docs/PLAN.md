@@ -355,31 +355,32 @@ Argon2id-derived key; keyfile mode stores it in `vault.key` with `0600`.
 ### Tasks
 
 1. Crypto and vault lifecycle
-   - Argon2id parameters: time 3, memory 64 MiB, threads 2, 32-byte key.
-   - Create a password vault, lock, reopen, reject a wrong password, accept
-     the right one.
-   - Tampered ciphertext fails cleanly.
-   - Atomic writes and `0600` permissions.
-   - Lockout after repeated failures with an increasing delay.
+   - [x] Argon2id parameters: time 3, memory 64 MiB, threads 2, 32-byte key.
+   - [x] Create a password vault, lock, reopen, reject a wrong password,
+     accept the right one.
+   - [x] Tampered ciphertext fails cleanly.
+   - [x] Atomic writes and `0600` permissions.
+   - [x] Lockout after repeated failures with an increasing delay.
    - Commit: `Add the encrypted vault core`
 
 2. Profiles
-   - `Profile` and `Data` with stable random IDs.
-   - Add, update, delete and set active; duplicate and missing IDs rejected.
-   - Validate name, tunnel text and dashboard URL.
-   - The first profile becomes active; deleting the active profile picks
+   - [ ] `Profile` and `Data` with stable random IDs.
+   - [ ] Add, update, delete and set active; duplicate and missing IDs
+     rejected.
+   - [ ] Validate name, tunnel text and dashboard URL.
+   - [ ] The first profile becomes active; deleting the active profile picks
      another.
    - Commit: `Add vault profiles`
 
 3. Keyfile mode and password changes
-   - Create and open a vault with a `0600` key file.
-   - Reject a key file with group or other permissions.
-   - Change the password and convert password ↔ keyfile.
+   - [x] Create and open a vault with a `0600` key file.
+   - [x] Reject a key file with group or other permissions.
+   - [ ] Change the password and convert password ↔ keyfile.
    - Commit: `Add vault keyfile mode and password changes`
 
 4. Export and import
-   - Export the payload with a separate Argon2id password.
-   - Import with the right password; reject a wrong one.
+   - [ ] Export the payload with a separate Argon2id password.
+   - [ ] Import with the right password; reject a wrong one.
    - Commit: `Add vault export and import`
 
 ### Acceptance
