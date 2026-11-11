@@ -1,0 +1,97 @@
+# Security
+
+This is pre-release software. There is no supported release yet.
+
+## Reporting
+
+Once the repository is hosted, use a private security advisory for
+vulnerabilities. Please do not open a public issue for something exploitable.
+
+## What we are protecting
+
+- The WireGuard private key, preshared key and any saved service tokens.
+- Access to the user's LAN services while the app is open.
+- The user's normal VPN, routing table and system configuration, which the app
+  never changes.
+- The user's browsing habits from third-party tracking in the default mode.
+
+## Threat model
+
+In scope:
+
+- Someone picks up an unlocked phone or laptop and opens the app.
+- The app is used on an untrusted network.
+- A dashboard or LAN page is malicious or has been compromised.
+- A portable data folder or USB stick is lost.
+- A third-party font or widget tries to track the user.
+- The tunnel drops unexpectedly.
+
+Out of scope:
+
+- A compromised operating system, kernel, or root account.
+- An attacker who can read process memory or debug the app.
+- Physical coercion.
+- A malicious WireGuard endpoint or a compromised home network.
+- Side-channel attacks against the host.
+
+## Privacy rules
+
+- No telemetry, analytics, advertising identifiers, accounts or cloud
+  services.
+- No crash uploads unless a future opt-in flow is added.
+- No background update pings. Updates are checked manually.
+- The app does not listen on a network interface.
+- Logs do not contain URLs, keys or dashboard content by default.
+- The dashboard browser is LAN-only unless the user turns on external
+  content.
+
+## Secrets at rest
+
+- The vault is encrypted with XChaCha20-Poly1305 under a random 256-bit key.
+- Password mode derives the key with Argon2id.
+- Convenience mode stores the key in a `0600` file. It is only as strong as
+  the device account and is not suitable for a USB stick.
+- Keys are never written to logs or crash reports.
+- Real configs and vaults belong in `local/`, which is gitignored. A secret
+  found in git history is treated as leaked and must be replaced.
+
+## Browser hardening
+
+- Dashboard content runs in a separate Electron session with no Node
+  integration, no preload bridge and no file access.
+- Context isolation and the Chromium sandbox stay enabled.
+- Remote debugging is disabled in release builds.
+- New windows and popups are denied.
+- Top-level navigation is limited to private addresses.
+- Permissions are denied by default.
+- HTTP and HTTPS requests are forced through the localhost proxy.
+- Loopback destinations are blocked so a page cannot reach the app's own
+  control socket or proxy.
+- External content is subresource-only and opt-in.
+
+## Fail-closed behaviour
+
+If the tunnel is down, LAN requests fail. There is no fallback to a direct
+connection, the system VPN, or the host's LAN interface. If the proxy cannot
+classify a destination, it refuses it.
+
+## App lock limitations
+
+The app lock is a casual privacy screen. It stops someone who picks up the
+device from opening the app and poking around. It does not turn the vault into
+a defense against an attacker who can copy the files and run an offline
+password search. A weak password such as `123` is still weak, and the UI says
+so.
+
+## Audit checklist
+
+- [ ] Launch the app with no dashboard configured and capture outbound traffic.
+      Only the WireGuard endpoint should appear.
+- [ ] Verify Chromium background networking and service hooks are disabled.
+- [ ] Verify the dashboard cannot navigate to a public page.
+- [ ] Verify loopback and public destinations are refused by the proxy.
+- [ ] Verify no TUN device is created and no elevated privileges are used.
+- [ ] Verify the AppImage runs with the Chromium sandbox enabled.
+- [ ] Verify keys are absent from logs, the config file and crash output.
+- [ ] Verify the portable data folder permissions.
+- [ ] Verify a failed handshake leaves the browser with no network access.

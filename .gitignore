@@ -1,0 +1,65 @@
+# Local runtime data and anything that must never be committed
+local/
+.cache/
+.tmp/
+.tools/
+*.wg.conf
+*.wgconf
+wg*.conf
+!*.example.conf
+*.key
+*.pem
+vault.enc
+vault.key
+vault.meta.json
+*.sock
+
+# Build output
+/build/
+/dist/
+/out/
+/desktop/dist/
+/desktop/release/
+/core/ttmd-core
+core/**/*.test
+coverage.out
+*.prof
+*.AppImage
+*.AppImage.zsync
+*.exe
+*.msi
+*.deb
+*.rpm
+*.tar.gz
+*.zip
+
+# Node / Electron
+node_modules/
+desktop/node_modules/
+.electron/
+.vite/
+*.tsbuildinfo
+.eslintcache
+npm-debug.log*
+yarn-error.log*
+
+# Go
+core/vendor/
+testdata/generated/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Editors and OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Logs and crash dumps
+*.log
+core.*
