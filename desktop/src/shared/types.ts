@@ -66,6 +66,7 @@ export interface NavState {
   canGoForward: boolean;
   url: string;
   passwordProtected: boolean;
+  peek: boolean;
 }
 
 export interface NavigationBridge {

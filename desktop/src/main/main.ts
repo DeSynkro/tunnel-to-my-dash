@@ -80,26 +80,72 @@ let dashboardAutoHide = true;
 let suppressAutoOpenOnce = false;
 
 const toolbarHeight = 36;
-const toolbarRevealDelay = 350;
+const toolbarExpandedTop = 8;
+const toolbarExpandedGap = 4;
+const toolbarSideMargin = 32;
+const toolbarMaxWidth = 720;
+const toolbarMinWidth = 360;
+const toolbarRadius = 12;
+const peekWidth = 72;
+const peekHeight = 6;
+const peekTop = 6;
+const peekRadius = 3;
+const toolbarAnimationMs = 180;
 const toolbarHideDelay = 900;
-const toolbarPollInterval = 150;
+const toolbarPollInterval = 100;
 
 let toolbarVisible = true;
 let toolbarPointerOver = false;
-let toolbarPageNearTop = false;
-let toolbarHoveredAt = 0;
 let toolbarLeftAt = 0;
 let toolbarInitialUntil = 0;
+let toolbarAnimation: ReturnType<typeof setInterval> | null = null;
 let toolbarPoll: ReturnType<typeof setInterval> | null = null;
 let idleMonitor: ReturnType<typeof setInterval> | null = null;
 
-function layoutDashboard(): void {
+type ToolbarRect = { x: number; y: number; width: number; height: number };
+
+function toolbarExpandedRect(): ToolbarRect {
+  if (!dashboardWindow) {
+    return { x: 0, y: 0, width: 0, height: 0 };
+  }
+  const { width } = dashboardWindow.getContentBounds();
+  const barWidth = Math.max(
+    toolbarMinWidth,
+    Math.min(toolbarMaxWidth, width - toolbarSideMargin * 2),
+  );
+  return {
+    x: Math.round((width - barWidth) / 2),
+    y: toolbarExpandedTop,
+    width: barWidth,
+    height: toolbarHeight,
+  };
+}
+
+function toolbarPeekRect(): ToolbarRect {
+  if (!dashboardWindow) {
+    return { x: 0, y: 0, width: 0, height: 0 };
+  }
+  const { width } = dashboardWindow.getContentBounds();
+  return {
+    x: Math.round((width - peekWidth) / 2),
+    y: peekTop,
+    width: peekWidth,
+    height: peekHeight,
+  };
+}
+
+function toolbarPageOffset(rect: ToolbarRect): number {
+  return rect.y + rect.height + (rect.height > peekHeight ? toolbarExpandedGap : 0);
+}
+
+function applyToolbarFrame(rect: ToolbarRect, radius: number): void {
   if (!dashboardWindow) {
     return;
   }
+  dashboardToolbar?.setBounds(rect);
+  dashboardToolbar?.setBorderRadius(radius);
   const { width, height } = dashboardWindow.getContentBounds();
-  const offset = dashboardToolbar?.getVisible() ? toolbarHeight : 0;
-  dashboardToolbar?.setBounds({ x: 0, y: 0, width, height: toolbarHeight });
+  const offset = toolbarPageOffset(rect);
   dashboardView?.setBounds({
     x: 0,
     y: offset,
@@ -109,17 +155,94 @@ function layoutDashboard(): void {
   dashboardLock?.setBounds({ x: 0, y: 0, width, height });
 }
 
-function setToolbarVisible(visible: boolean): void {
-  if (!dashboardToolbar || toolbarVisible === visible) {
+function stopToolbarAnimation(): void {
+  if (toolbarAnimation) {
+    clearInterval(toolbarAnimation);
+    toolbarAnimation = null;
+  }
+}
+
+function animateToolbar(expanded: boolean): void {
+  if (!dashboardWindow || !dashboardToolbar) {
     return;
   }
-  toolbarVisible = visible;
-  if (!visible) {
-    toolbarPointerOver = false;
-    toolbarHoveredAt = 0;
+  stopToolbarAnimation();
+
+  const wasExpanded = toolbarVisible;
+  const from = wasExpanded ? toolbarExpandedRect() : toolbarPeekRect();
+  const to = expanded ? toolbarExpandedRect() : toolbarPeekRect();
+  const fromRadius = wasExpanded ? toolbarRadius : peekRadius;
+  const toRadius = expanded ? toolbarRadius : peekRadius;
+  const fromOffset = toolbarPageOffset(from);
+  const toOffset = toolbarPageOffset(to);
+  const start = Date.now();
+
+  toolbarVisible = expanded;
+  sendNavState();
+
+  if (
+    from.x === to.x &&
+    from.y === to.y &&
+    from.width === to.width &&
+    from.height === to.height
+  ) {
+    applyToolbarFrame(to, toRadius);
+    return;
   }
-  dashboardToolbar.setVisible(visible);
-  layoutDashboard();
+
+  toolbarAnimation = setInterval(() => {
+    if (!dashboardWindow || !dashboardToolbar) {
+      stopToolbarAnimation();
+      return;
+    }
+
+    const t = Math.min(1, (Date.now() - start) / toolbarAnimationMs);
+    const eased = 1 - Math.pow(1 - t, 3);
+    const rect: ToolbarRect = {
+      x: Math.round(from.x + (to.x - from.x) * eased),
+      y: Math.round(from.y + (to.y - from.y) * eased),
+      width: Math.round(from.width + (to.width - from.width) * eased),
+      height: Math.round(from.height + (to.height - from.height) * eased),
+    };
+    const radius = Math.round(fromRadius + (toRadius - fromRadius) * eased);
+    const offset = Math.round(fromOffset + (toOffset - fromOffset) * eased);
+    const { width, height } = dashboardWindow.getContentBounds();
+
+    dashboardToolbar.setBounds(rect);
+    dashboardToolbar.setBorderRadius(radius);
+    dashboardView?.setBounds({
+      x: 0,
+      y: offset,
+      width,
+      height: Math.max(0, height - offset),
+    });
+    dashboardLock?.setBounds({ x: 0, y: 0, width, height });
+
+    if (t >= 1) {
+      stopToolbarAnimation();
+      applyToolbarFrame(to, toRadius);
+    }
+  }, 16);
+}
+
+function setToolbarExpanded(expanded: boolean): void {
+  if (!dashboardToolbar || toolbarVisible === expanded) {
+    return;
+  }
+  if (!expanded) {
+    toolbarPointerOver = false;
+    toolbarLeftAt = 0;
+  }
+  animateToolbar(expanded);
+}
+
+function layoutDashboard(): void {
+  if (!dashboardWindow) {
+    return;
+  }
+  stopToolbarAnimation();
+  const rect = toolbarVisible ? toolbarExpandedRect() : toolbarPeekRect();
+  applyToolbarFrame(rect, toolbarVisible ? toolbarRadius : peekRadius);
 }
 
 function stopToolbarPoll(): void {
@@ -127,27 +250,24 @@ function stopToolbarPoll(): void {
     clearInterval(toolbarPoll);
     toolbarPoll = null;
   }
+  stopToolbarAnimation();
   toolbarPointerOver = false;
-  toolbarPageNearTop = false;
-  toolbarHoveredAt = 0;
   toolbarLeftAt = 0;
   toolbarInitialUntil = 0;
 }
 
-function handleViewPointer(payload: PointerPayload): void {
-  toolbarPageNearTop = !payload.out && payload.y <= 12;
-}
-
 function handleToolbarPointer(payload: PointerPayload): void {
   toolbarPointerOver = !payload.out;
-}
-
-ipcMain.on(IPC.pointerView, (event, payload: PointerPayload) => {
-  if (event.sender !== dashboardView?.webContents) {
-    return;
+  if (
+    toolbarPointerOver &&
+    !toolbarVisible &&
+    dashboardAutoHide &&
+    !dashboardLocked
+  ) {
+    toolbarInitialUntil = 0;
+    setToolbarExpanded(true);
   }
-  handleViewPointer(payload);
-});
+}
 
 ipcMain.on(IPC.pointerToolbar, (event, payload: PointerPayload) => {
   if (event.sender !== dashboardToolbar?.webContents) {
@@ -216,10 +336,10 @@ function startToolbarPoll(): void {
   stopToolbarPoll();
   toolbarVisible = true;
   toolbarPointerOver = false;
-  toolbarPageNearTop = false;
   toolbarInitialUntil = Date.now() + 1500;
   dashboardToolbar?.setVisible(true);
-  layoutDashboard();
+  applyToolbarFrame(toolbarExpandedRect(), toolbarRadius);
+  sendNavState();
 
   toolbarPoll = setInterval(() => {
     if (!dashboardWindow || !dashboardToolbar) {
@@ -227,47 +347,33 @@ function startToolbarPoll(): void {
     }
 
     if (!dashboardWindow.isFocused()) {
-      setToolbarVisible(false);
+      if (toolbarVisible) {
+        setToolbarExpanded(false);
+      }
       toolbarPointerOver = false;
-      toolbarHoveredAt = 0;
+      toolbarLeftAt = 0;
+      return;
+    }
+
+    if (!toolbarVisible) {
+      return;
+    }
+    if (toolbarPointerOver) {
       toolbarLeftAt = 0;
       return;
     }
 
     const now = Date.now();
-
-    if (toolbarVisible) {
-      if (toolbarPointerOver) {
-        toolbarLeftAt = 0;
-        return;
-      }
-      if (now < toolbarInitialUntil) {
-        toolbarLeftAt = 0;
-        return;
-      }
-      if (toolbarLeftAt === 0) {
-        toolbarLeftAt = now;
-      }
-      if (now - toolbarLeftAt >= toolbarHideDelay) {
-        toolbarLeftAt = 0;
-        setToolbarVisible(false);
-      }
+    if (now < toolbarInitialUntil) {
+      toolbarLeftAt = 0;
       return;
     }
-
-    toolbarLeftAt = 0;
-    if (toolbarPageNearTop) {
-      if (toolbarHoveredAt === 0) {
-        toolbarHoveredAt = now;
-      }
-      if (now - toolbarHoveredAt >= toolbarRevealDelay) {
-        toolbarHoveredAt = 0;
-        // The cursor is in the top edge, which the revealed bar now covers.
-        toolbarPointerOver = true;
-        setToolbarVisible(true);
-      }
-    } else {
-      toolbarHoveredAt = 0;
+    if (toolbarLeftAt === 0) {
+      toolbarLeftAt = now;
+    }
+    if (now - toolbarLeftAt >= toolbarHideDelay) {
+      toolbarLeftAt = 0;
+      setToolbarExpanded(false);
     }
   }, toolbarPollInterval);
 }
@@ -306,7 +412,6 @@ async function startCore(): Promise<void> {
 function dashboardWebPreferences(partition: string): WebPreferences {
   return {
     partition,
-    preload: path.join(__dirname, "view-preload.js"),
     contextIsolation: true,
     sandbox: true,
     nodeIntegration: false,
@@ -328,6 +433,7 @@ function sendNavState(): void {
     canGoForward: history.canGoForward(),
     url: dashboardView.webContents.getURL(),
     passwordProtected: dashboardPasswordProtected,
+    peek: !toolbarVisible,
   });
 }
 
@@ -432,7 +538,8 @@ async function unlockDashboard(password: string): Promise<void> {
   } else {
     toolbarVisible = true;
     dashboardToolbar?.setVisible(true);
-    layoutDashboard();
+    applyToolbarFrame(toolbarExpandedRect(), toolbarRadius);
+    sendNavState();
   }
 
   if (dashboardView) {
@@ -488,6 +595,7 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   const toolbar = new WebContentsView({
     webPreferences: {
       preload: path.join(__dirname, "toolbar-preload.js"),
+      transparent: true,
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
@@ -496,6 +604,7 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
       devTools: !app.isPackaged,
     },
   });
+  toolbar.setBackgroundColor("#00000000");
   const lock = new WebContentsView({
     webPreferences: {
       preload: path.join(__dirname, "lock-preload.js"),
@@ -525,7 +634,7 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
       return;
     }
     toolbarInitialUntil = Date.now() + 1500;
-    setToolbarVisible(true);
+    setToolbarExpanded(true);
   });
 
   if (dashboardAutoHide) {
@@ -533,7 +642,8 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   } else {
     toolbarVisible = true;
     toolbar.setVisible(true);
-    layoutDashboard();
+    applyToolbarFrame(toolbarExpandedRect(), toolbarRadius);
+    sendNavState();
   }
 
   void toolbar.webContents.loadFile(path.join(__dirname, "renderer/toolbar.html"));
@@ -1269,11 +1379,12 @@ async function runToolbarFixedSmoke(window: BrowserWindow): Promise<void> {
     }
 
     await delay(2000);
-    const visible = dashboardToolbar?.getVisible() ?? false;
+    const expanded = (dashboardToolbar?.getBounds().height ?? 0) === toolbarHeight;
     const viewY = dashboardView?.getBounds().y;
-    console.log(`[smoke] toolbarfixed visible=${visible} viewY=${viewY}`);
-    if (!visible || viewY !== toolbarHeight) {
-      throw new Error("the fixed toolbar did not stay visible");
+    const expectedViewY = toolbarExpandedTop + toolbarHeight + toolbarExpandedGap;
+    console.log(`[smoke] toolbarfixed expanded=${expanded} viewY=${viewY}`);
+    if (!expanded || viewY !== expectedViewY) {
+      throw new Error("the fixed toolbar did not stay expanded");
     }
 
     app.quit();
@@ -1301,17 +1412,18 @@ async function runRefocusSmoke(window: BrowserWindow): Promise<void> {
       throw new Error("the dashboard did not open");
     }
 
-    setToolbarVisible(false);
+    setToolbarExpanded(false);
     await delay(200);
     dashboardWindow?.blur();
     await delay(300);
     dashboardWindow?.focus();
     await delay(500);
 
-    const visible = dashboardToolbar?.getVisible() ?? false;
+    const expanded = (dashboardToolbar?.getBounds().height ?? 0) === toolbarHeight;
     const viewY = dashboardView?.getBounds().y;
-    console.log(`[smoke] refocus visible=${visible} viewY=${viewY}`);
-    if (!visible || viewY !== toolbarHeight) {
+    const expectedViewY = toolbarExpandedTop + toolbarHeight + toolbarExpandedGap;
+    console.log(`[smoke] refocus expanded=${expanded} viewY=${viewY}`);
+    if (!expanded || viewY !== expectedViewY) {
       throw new Error("the toolbar did not return on refocus");
     }
 
@@ -1344,11 +1456,13 @@ async function runToolbarSmoke(window: BrowserWindow): Promise<void> {
     console.log(
       `[smoke] toolbar window=${JSON.stringify(dashboardWindow?.getContentBounds())}`,
     );
-    let last = dashboardToolbar?.getVisible() ?? false;
-    console.log(`[smoke] toolbar visible=${last}`);
+    const expandedViewY = toolbarExpandedTop + toolbarHeight + toolbarExpandedGap;
+    const peekViewY = peekTop + peekHeight;
+    let last = (dashboardToolbar?.getBounds().height ?? 0) === toolbarHeight;
+    console.log(`[smoke] toolbar expanded=${last}`);
     const initialViewY = dashboardView?.getBounds().y;
     console.log(`[smoke] toolbar view y=${initialViewY}`);
-    if (initialViewY !== (last ? toolbarHeight : 0)) {
+    if (initialViewY !== (last ? expandedViewY : peekViewY)) {
       throw new Error("the toolbar does not reserve its own row");
     }
     let sawHidden = !last;
@@ -1357,14 +1471,19 @@ async function runToolbarSmoke(window: BrowserWindow): Promise<void> {
     const end = Date.now() + 8000;
     while (Date.now() < end) {
       await delay(100);
-      const current = dashboardToolbar?.getVisible() ?? false;
+      const current = (dashboardToolbar?.getBounds().height ?? 0) === toolbarHeight;
       if (current === last) {
         continue;
       }
       last = current;
-      console.log(`[smoke] toolbar visible=${current}`);
+      console.log(`[smoke] toolbar expanded=${current}`);
+      await delay(250);
+      const settledHeight = dashboardToolbar?.getBounds().height;
       const viewY = dashboardView?.getBounds().y;
-      if (viewY !== (current ? toolbarHeight : 0)) {
+      if (
+        settledHeight !== (current ? toolbarHeight : peekHeight) ||
+        viewY !== (current ? expandedViewY : peekViewY)
+      ) {
         throw new Error("the dashboard view does not follow the toolbar row");
       }
       if (!current) {

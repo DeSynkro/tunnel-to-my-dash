@@ -46,6 +46,7 @@ bridge.onState((state) => {
   back.disabled = !state.canGoBack;
   forward.disabled = !state.canGoForward;
   lockButton.hidden = !state.passwordProtected;
+  document.body.classList.toggle("peek", state.peek);
 
   try {
     const url = new URL(state.url);

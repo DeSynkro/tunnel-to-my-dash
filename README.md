@@ -26,9 +26,10 @@ the app's own traffic uses the tunnel.
 - A small Go core runs a userspace WireGuard device and a TCP/IP stack, so no
   root or system VPN slot is needed.
 - A localhost HTTP proxy feeds the app's browser view through that tunnel.
-- The browser view is Chromium (via Electron), with a small auto-hiding
-  toolbar and in-place navigation. The toolbar reserves its own row when
-  visible, so it never covers the page. By default it can only reach private
+- The browser view is Chromium (via Electron), with a small floating glass
+  toolbar and in-place navigation. Auto-hide shrinks it to a centered peek
+  pill; hovering expands it with a short animation. The toolbar reserves its
+  own row, so it never covers the page. By default it can only reach private
   addresses; public pages are blocked.
 - Secrets live in an encrypted vault. The app lock is optional; the same
   password unlocks the vault.
@@ -97,8 +98,8 @@ one. The app does not phone home for updates.
   origins, or an exact-origin list; wildcards are not supported.
 - The dashboard opens in its own window with a toolbar; links stay in the same
   view. A same-window/new-window setting is planned.
-- Auto-hide can be turned off in Settings if you prefer the toolbar always
-  visible.
+- Auto-hide can be turned off in Settings if you prefer the floating toolbar
+  always visible.
 - Launch at login, start minimized and close to tray are deferred until the
   tray icon and distribution artwork exist.
 - Windows and Android packaging come after the Linux AppImage.

@@ -69,9 +69,7 @@ Out of scope:
 ## Browser hardening
 
 - Dashboard content runs in a separate Electron session with no Node
-  integration and no file access. Its only preload is a minimal sandboxed
-  script that reports pointer position for toolbar auto-hide; it exposes no
-  API to the page.
+  integration, no preload bridge and no file access.
 - Context isolation and the Chromium sandbox stay enabled.
 - Remote debugging is disabled in release builds.
 - New windows and popups are denied.

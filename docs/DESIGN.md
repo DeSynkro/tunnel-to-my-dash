@@ -68,13 +68,14 @@ The desktop app has four parts:
 - **Dashboard view.** A separate `BaseWindow` with a sandboxed
   `WebContentsView` and its own Chromium session and proxy. It loads the
   configured LAN URL and nothing else as a top-level page. A 36px navigation
-  bar sits in its own row. The view starts below it while the bar is visible
-  and fills the window when the bar hides, so the bar never covers dashboard
-  content. The window X quits the app; the Main menu button returns to the main
-  menu. A padlock shows an opaque lock overlay over a blurred snapshot of the
-  page, hides the live page, disconnects the tunnel and reconnects the same
-  dashboard after unlock. Back to main menu from that overlay suppresses
-  auto-open once so the next unlock lands on the main menu.
+  bar is a centered floating glass bar. With auto-hide on it shrinks to a
+  small centered peek pill; hovering expands it with a short animated resize.
+  The bar reserves its own row and the view starts below it, so it never covers
+  dashboard content. The window X quits the app; the Main menu button returns
+  to the main menu. A padlock shows an opaque lock overlay over a blurred
+  snapshot of the page, hides the live page, disconnects the tunnel and
+  reconnects the same dashboard after unlock. Back to main menu from that
+  overlay suppresses auto-open once so the next unlock lands on the main menu.
   Embedding the dashboard in the main shell is a later refinement.
 - **Go core.** A userspace WireGuard device, a TCP/IP stack, a localhost HTTP
   proxy, the vault, and a small control API on a `0600` Unix socket. It runs

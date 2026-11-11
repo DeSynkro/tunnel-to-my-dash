@@ -31,3 +31,14 @@ window.addEventListener("mouseenter", () => {
 window.addEventListener("mouseleave", () => {
   ipcRenderer.send(IPC.pointerToolbar, { y: 0, out: true });
 });
+
+let lastHover = false;
+setInterval(() => {
+  const bar = document.querySelector(".bar");
+  const over = !!bar && bar.matches(":hover");
+  if (over === lastHover) {
+    return;
+  }
+  lastHover = over;
+  ipcRenderer.send(IPC.pointerToolbar, { y: 0, out: !over });
+}, 120);
