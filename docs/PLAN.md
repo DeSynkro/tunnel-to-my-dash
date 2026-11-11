@@ -108,12 +108,12 @@ regardless of what the imported WireGuard config says.
 
 **Steps**
 
-- [ ] Table test: `192.168.0.3`, `10.1.2.3`, `172.16.0.1`, `172.31.255.254`
+- [x] Table test: `192.168.0.3`, `10.1.2.3`, `172.16.0.1`, `172.31.255.254`
       and `fd00::1` are LAN; `172.32.0.1`, `127.0.0.1`, `169.254.1.1`,
       `8.8.8.8`, `::1`, `fe80::1`, `224.0.0.1` and `nil` are not.
-- [ ] Run `make test`; expect failure.
-- [ ] Implement the classifier and the default ranges.
-- [ ] Run `make test`; expect pass.
+- [x] Run `make test`; expect failure.
+- [x] Implement the classifier and the default ranges.
+- [x] Run `make test`; expect pass.
 
 **Commit:** `Add LAN address classification`
 
