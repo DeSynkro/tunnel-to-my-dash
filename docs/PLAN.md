@@ -364,11 +364,11 @@ Argon2id-derived key; keyfile mode stores it in `vault.key` with `0600`.
    - Commit: `Add the encrypted vault core`
 
 2. Profiles
-   - [ ] `Profile` and `Data` with stable random IDs.
-   - [ ] Add, update, delete and set active; duplicate and missing IDs
+   - [x] `Profile` and `Data` with stable random IDs.
+   - [x] Add, update, delete and set active; duplicate and missing IDs
      rejected.
-   - [ ] Validate name, tunnel text and dashboard URL.
-   - [ ] The first profile becomes active; deleting the active profile picks
+   - [x] Validate name, tunnel text and dashboard URL.
+   - [x] The first profile becomes active; deleting the active profile picks
      another.
    - Commit: `Add vault profiles`
 
