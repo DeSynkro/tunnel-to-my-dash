@@ -18,29 +18,150 @@
           <h1>Tunnel to My Dash</h1>
           <p class="tagline">Your LAN, without turning off your VPN.</p>
         </div>
+        <div class="header-actions">
+          <button type="button" class="ghost" id="lock-button" hidden>Lock</button>
+          <button type="button" class="ghost" id="quit-button">Quit</button>
+        </div>
       </header>
 
-      <section class="panel">
-        <p class="eyebrow">Desktop shell</p>
-        <h2>The core connects here</h2>
+      <section id="screen-loading" class="screen">
+        <p class="eyebrow">Starting</p>
+        <h2>Waking up the core</h2>
+        <p class="body">Connecting to the local control socket…</p>
+      </section>
+
+      <section id="screen-error" class="screen" hidden>
+        <p class="eyebrow">Problem</p>
+        <h2>Something went wrong</h2>
+        <p class="body" id="error-message"></p>
+        <div class="actions">
+          <button type="button" id="error-retry">Try again</button>
+        </div>
+      </section>
+
+      <section id="screen-setup" class="screen" hidden>
+        <p class="eyebrow">First run</p>
+        <h2>Set up your tunnel</h2>
         <p class="body">
-          The Go core and its control socket are in place. The setup flow,
-          vault unlock and dashboard window are the next step.
+          Import the WireGuard config for this machine and point the app at your
+          dashboard. Everything stays in the encrypted vault.
         </p>
-        <dl class="facts">
-          <div>
-            <dt>Status</dt>
-            <dd>Shell</dd>
+
+        <form id="setup-form" class="form" autocomplete="off">
+          <label class="field">
+            <span>Profile name</span>
+            <input id="setup-name" type="text" value="Home" maxlength="64" required />
+          </label>
+
+          <div class="field">
+            <span>WireGuard config</span>
+            <div class="row">
+              <button type="button" class="ghost" id="setup-choose">Choose file…</button>
+              <span class="hint" id="setup-file">No file chosen</span>
+            </div>
+            <textarea
+              id="setup-config"
+              rows="8"
+              spellcheck="false"
+              placeholder="Or paste the [Interface] / [Peer] text here"
+            ></textarea>
           </div>
-          <div>
-            <dt>Mode</dt>
-            <dd>LAN only</dd>
+
+          <label class="field">
+            <span>Dashboard URL</span>
+            <input id="setup-url" type="url" placeholder="http://192.168.0.3:3000" required />
+          </label>
+
+          <fieldset class="lock-options">
+            <legend>App lock</legend>
+            <label class="check">
+              <input type="checkbox" id="setup-lock" />
+              Require a password to open the app
+            </label>
+            <p class="hint">
+              Without a password, the vault key is stored in a 0600 file and the
+              app opens straight to your dashboard.
+            </p>
+            <label class="field" id="setup-password-field" hidden>
+              <span>Password</span>
+              <input id="setup-password" type="password" autocomplete="new-password" />
+            </label>
+          </fieldset>
+
+          <p class="form-error" id="setup-error" hidden></p>
+          <div class="actions">
+            <button type="submit" id="setup-submit">Create and save</button>
           </div>
-          <div>
-            <dt>Version</dt>
-            <dd data-version>dev</dd>
+        </form>
+      </section>
+
+      <section id="screen-lock" class="screen" hidden>
+        <p class="eyebrow">Locked</p>
+        <h2>Unlock the vault</h2>
+        <p class="body">Enter your app password to reach your dashboards.</p>
+
+        <form id="lock-form" class="form narrow" autocomplete="off">
+          <label class="field">
+            <span>Password</span>
+            <input id="lock-password" type="password" autocomplete="current-password" autofocus />
+          </label>
+          <p class="form-error" id="lock-error" hidden></p>
+          <div class="actions">
+            <button type="submit">Unlock</button>
           </div>
-        </dl>
+        </form>
+      </section>
+
+      <section id="screen-main" class="screen" hidden>
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Tunnels</p>
+            <h2>Your dashboards</h2>
+          </div>
+          <button type="button" class="ghost" id="add-profile-toggle">Add profile</button>
+        </div>
+
+        <div class="profiles" id="profile-list"></div>
+        <p class="empty" id="profiles-empty" hidden>No profiles yet. Add one to get started.</p>
+
+        <form id="add-form" class="form panel-form" hidden>
+          <label class="field">
+            <span>Profile name</span>
+            <input id="add-name" type="text" maxlength="64" required />
+          </label>
+
+          <div class="field">
+            <span>WireGuard config</span>
+            <div class="row">
+              <button type="button" class="ghost" id="add-choose">Choose file…</button>
+              <span class="hint" id="add-file">No file chosen</span>
+            </div>
+            <textarea
+              id="add-config"
+              rows="6"
+              spellcheck="false"
+              placeholder="Paste the [Interface] / [Peer] text here"
+            ></textarea>
+          </div>
+
+          <label class="field">
+            <span>Dashboard URL</span>
+            <input id="add-url" type="url" placeholder="http://192.168.0.3:3000" required />
+          </label>
+
+          <p class="form-error" id="add-error" hidden></p>
+          <div class="actions">
+            <button type="submit" id="add-submit">Save profile</button>
+            <button type="button" class="ghost" id="add-cancel">Cancel</button>
+          </div>
+        </form>
+
+        <p class="note" id="main-note">The dashboard window is the next step.</p>
+
+        <div class="security">
+          <p class="eyebrow">Security</p>
+          <p class="body" id="security-state"></p>
+        </div>
       </section>
 
       <footer>No account. No cloud. No telemetry.</footer>

@@ -442,7 +442,7 @@ content is a later phase.
    Commit: `Add the core serve command`
 - [x] 3. Desktop scaffold: TypeScript, esbuild, Electron, build and start scripts.
    Commit: `Add the desktop app skeleton`
-4. Setup, lock and profile UI through the preload bridge.
+- [x] 4. Setup, lock and profile UI through the preload bridge.
    Commit: `Add the desktop setup and lock screens`
 5. Dashboard child window with a session partition and proxy.
    Commit: `Open the dashboard through the tunnel`

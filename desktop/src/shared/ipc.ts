@@ -1,0 +1,16 @@
+export const IPC = {
+  status: "ttmd:status",
+  createVault: "ttmd:create-vault",
+  unlock: "ttmd:unlock",
+  lock: "ttmd:lock",
+  changePassword: "ttmd:change-password",
+  addProfile: "ttmd:add-profile",
+  updateProfile: "ttmd:update-profile",
+  deleteProfile: "ttmd:delete-profile",
+  activateProfile: "ttmd:activate-profile",
+  connect: "ttmd:connect",
+  disconnect: "ttmd:disconnect",
+  chooseConfig: "ttmd:choose-config",
+  quit: "ttmd:quit",
+  version: "ttmd:version",
+} as const;
