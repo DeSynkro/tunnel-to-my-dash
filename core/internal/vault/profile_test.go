@@ -104,6 +104,12 @@ func TestProfileCRUD(t *testing.T) {
 	if got := s.Profiles()[0].Name; got != "Home 2" {
 		t.Fatalf("updated name = %q", got)
 	}
+	if got, ok := s.Profile(home.ID); !ok || got.Name != "Home 2" {
+		t.Fatalf("profile lookup = %+v, ok = %v", got, ok)
+	}
+	if _, ok := s.Profile("missing"); ok {
+		t.Fatal("found a missing profile")
+	}
 
 	if err := s.DeleteProfile(office.ID); err != nil {
 		t.Fatal(err)

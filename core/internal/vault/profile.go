@@ -54,6 +54,17 @@ func (s *Store) Profiles() []Profile {
 	return out
 }
 
+func (s *Store) Profile(id string) (Profile, bool) {
+	if !s.unlocked {
+		return Profile{}, false
+	}
+	index := s.findProfile(id)
+	if index < 0 {
+		return Profile{}, false
+	}
+	return cloneProfile(s.data.Profiles[index]), true
+}
+
 func (s *Store) ActiveProfile() (Profile, bool) {
 	if !s.unlocked {
 		return Profile{}, false

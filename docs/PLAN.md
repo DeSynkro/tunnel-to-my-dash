@@ -391,3 +391,70 @@ Argon2id-derived key; keyfile mode stores it in `vault.key` with `0600`.
 - [x] Keyfile mode works with `0600` and rejects looser permissions.
 - [x] Export and import round-trip without exposing keys.
 - [x] No OS keyring, no plaintext private keys on disk.
+
+## Phase 3 — Electron shell
+
+Goal: a working Linux desktop app that creates or unlocks the vault, imports
+a profile, starts the tunnel and opens the dashboard. Still LAN-only; external
+content is a later phase.
+
+### UX
+
+- First run: create the vault (optional password), import or paste a
+  WireGuard config, name the profile, set the dashboard URL.
+- Lock: unlock with the password; keyfile vaults open directly.
+- Main: profile list, connect/disconnect, lock, add profile.
+- Dashboard: a separate sandboxed child window with its own session and
+  proxy. Closing it disconnects the tunnel.
+- v1 uses a child window rather than a single-window `WebContentsView` and
+  toolbar. The single-window version is a later refinement.
+
+### Architecture
+
+- The Go core gets a `serve` command. It opens the vault and listens on
+  `<data-dir>/control.sock` with a small HTTP/JSON API, socket mode `0600`.
+- Endpoints: status, vault create/unlock/lock/password, profile CRUD and
+  activate, connect and disconnect.
+- Responses never include `tunnel_config` or private keys.
+- The Electron main process is the only control client. The renderer talks to
+  it through a narrow preload bridge.
+- The dashboard session uses `persist:profile-<id>` and
+  `session.setProxy` pointing at the core's localhost proxy.
+- The data directory is next to the AppImage or portable exe when writable,
+  otherwise the normal user data directory. Development uses
+  `local/dev-data`.
+
+### Security
+
+- Shell renderer: context isolation, sandbox, no Node integration.
+- Dashboard: no preload, no Node, sandbox, context isolation, permissions
+  denied, `window.open` denied.
+- Chromium background networking and known Google services disabled with
+  command-line switches, then audited.
+- No external content yet. The proxy stays LAN-only; the `allow_external`
+  flag is stored for the later phase.
+
+### Tasks
+
+- [x] 1. Core control server with a fake connector in tests.
+   Commit: `Add the core control server`
+2. `serve` command and Unix socket lifecycle.
+   Commit: `Add the core serve command`
+3. Desktop scaffold: TypeScript, esbuild, Electron, build and start scripts.
+   Commit: `Add the desktop app skeleton`
+4. Setup, lock and profile UI through the preload bridge.
+   Commit: `Add the desktop setup and lock screens`
+5. Dashboard child window with a session partition and proxy.
+   Commit: `Open the dashboard through the tunnel`
+6. Hardening, no-phone-home switches and a real endpoint pass.
+   Commit: `Harden the desktop shell`
+
+### Acceptance
+
+- First run creates a vault and a profile from a `.conf` file.
+- Lock and unlock work.
+- Connect opens the dashboard while ProtonVPN is active.
+- Closing the dashboard disconnects the tunnel.
+- No Node in the shell renderer or dashboard; no permission prompts.
+- `make check` passes and the desktop code type-checks.
+- No unexpected outbound traffic beyond the WireGuard endpoint.
