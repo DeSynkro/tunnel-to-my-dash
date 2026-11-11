@@ -61,12 +61,14 @@ export interface ConfigFile {
   text: string;
 }
 
+export type ToolbarMode = "fixed" | "floating" | "peek";
+
 export interface NavState {
   canGoBack: boolean;
   canGoForward: boolean;
   url: string;
   passwordProtected: boolean;
-  peek: boolean;
+  mode: ToolbarMode;
 }
 
 export interface NavigationBridge {

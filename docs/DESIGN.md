@@ -70,9 +70,10 @@ The desktop app has four parts:
   configured LAN URL and nothing else as a top-level page. A 36px navigation
   bar is a centered floating glass bar. With auto-hide on it shrinks to a
   small centered peek pill and overlays the dashboard; hovering expands it with
-  a short animated resize. With auto-hide off the bar takes its own reserved
-  row, so it covers nothing. The window X quits the app; the Main menu button
-  returns to the main menu. A padlock shows an opaque lock overlay over a blurred
+  a short animated resize. With auto-hide off the bar becomes a plain
+  full-width row above the view, so it covers nothing and has no floating pill
+  frame. The window X quits the app; the Main menu button returns to the main
+  menu. A padlock shows an opaque lock overlay over a blurred
   snapshot of the page, hides the live page, disconnects the tunnel and
   reconnects the same dashboard after unlock. Back to main menu from that
   overlay suppresses auto-open once so the next unlock lands on the main menu.

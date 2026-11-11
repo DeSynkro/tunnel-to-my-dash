@@ -134,10 +134,16 @@ function toolbarPeekRect(): ToolbarRect {
   };
 }
 
+function toolbarFixedRect(): ToolbarRect {
+  if (!dashboardWindow) {
+    return { x: 0, y: 0, width: 0, height: 0 };
+  }
+  const { width } = dashboardWindow.getContentBounds();
+  return { x: 0, y: 0, width, height: toolbarHeight };
+}
+
 function dashboardPageOffset(): number {
-  return dashboardAutoHide
-    ? 0
-    : toolbarExpandedTop + toolbarHeight + toolbarExpandedGap;
+  return dashboardAutoHide ? 0 : toolbarHeight;
 }
 
 function applyToolbarFrame(rect: ToolbarRect, radius: number): void {
@@ -226,7 +232,7 @@ function animateToolbar(expanded: boolean): void {
 }
 
 function setToolbarExpanded(expanded: boolean): void {
-  if (!dashboardToolbar || toolbarVisible === expanded) {
+  if (!dashboardAutoHide || !dashboardToolbar || toolbarVisible === expanded) {
     return;
   }
   if (!expanded) {
@@ -241,6 +247,10 @@ function layoutDashboard(): void {
     return;
   }
   stopToolbarAnimation();
+  if (!dashboardAutoHide) {
+    applyToolbarFrame(toolbarFixedRect(), 0);
+    return;
+  }
   const rect = toolbarVisible ? toolbarExpandedRect() : toolbarPeekRect();
   applyToolbarFrame(rect, toolbarVisible ? toolbarRadius : peekRadius);
 }
@@ -433,7 +443,7 @@ function sendNavState(): void {
     canGoForward: history.canGoForward(),
     url: dashboardView.webContents.getURL(),
     passwordProtected: dashboardPasswordProtected,
-    peek: !toolbarVisible,
+    mode: !dashboardAutoHide ? "fixed" : toolbarVisible ? "floating" : "peek",
   });
 }
 
@@ -538,7 +548,7 @@ async function unlockDashboard(password: string): Promise<void> {
   } else {
     toolbarVisible = true;
     dashboardToolbar?.setVisible(true);
-    applyToolbarFrame(toolbarExpandedRect(), toolbarRadius);
+    applyToolbarFrame(toolbarFixedRect(), 0);
     sendNavState();
   }
 
@@ -642,7 +652,7 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   } else {
     toolbarVisible = true;
     toolbar.setVisible(true);
-    applyToolbarFrame(toolbarExpandedRect(), toolbarRadius);
+    applyToolbarFrame(toolbarFixedRect(), 0);
     sendNavState();
   }
 
@@ -1381,9 +1391,8 @@ async function runToolbarFixedSmoke(window: BrowserWindow): Promise<void> {
     await delay(2000);
     const expanded = (dashboardToolbar?.getBounds().height ?? 0) === toolbarHeight;
     const viewY = dashboardView?.getBounds().y;
-    const expectedViewY = toolbarExpandedTop + toolbarHeight + toolbarExpandedGap;
     console.log(`[smoke] toolbarfixed expanded=${expanded} viewY=${viewY}`);
-    if (!expanded || viewY !== expectedViewY) {
+    if (!expanded || viewY !== toolbarHeight) {
       throw new Error("the fixed toolbar did not stay expanded");
     }
 
