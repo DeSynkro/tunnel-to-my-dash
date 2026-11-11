@@ -23,7 +23,7 @@ No UI yet. A command-line core that proves the hard part.
 - [x] WireGuard config parser
 - [x] Userspace WireGuard device and TCP dialer
 - [x] Route only private ranges through the tunnel
-- [ ] Localhost HTTP/CONNECT proxy
+- [x] Localhost HTTP/CONNECT proxy
 - [ ] End-to-end test through a userspace tunnel
 - [ ] Manual `curl` check against a real endpoint
 - [ ] Prove no TUN device and no elevated privileges

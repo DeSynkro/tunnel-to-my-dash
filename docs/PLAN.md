@@ -238,15 +238,15 @@ use `httputil.ReverseProxy` with a transport that dials through the tunnel.
 
 **Steps**
 
-- [ ] Tests with a fake dialer:
+- [x] Tests with a fake dialer:
       - HTTP GET returns the upstream body.
       - Public and loopback targets return 403 and never call the dialer.
       - `CONNECT` carries raw bytes to an echo server.
       - WebSocket echo works through the proxy.
-- [ ] Run `make test`; expect failure.
-- [ ] Implement the proxy and policy.
-- [ ] Run `make test`; expect pass.
-- [ ] Confirm `Proxy-Authorization` and `Proxy-Connection` are not forwarded
+- [x] Run `make test`; expect failure.
+- [x] Implement the proxy and policy.
+- [x] Run `make test`; expect pass.
+- [x] Confirm `Proxy-Authorization` and `Proxy-Connection` are not forwarded
       and hop-by-hop headers are stripped.
 
 **Commit:** `Add the localhost LAN proxy`
