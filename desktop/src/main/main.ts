@@ -32,12 +32,23 @@ app.commandLine.appendSwitch("disable-background-networking");
 app.commandLine.appendSwitch("disable-component-update");
 app.commandLine.appendSwitch("disable-domain-reliability");
 app.commandLine.appendSwitch("disable-sync");
+app.commandLine.appendSwitch("disable-quic");
+app.commandLine.appendSwitch("disable-client-side-phishing-detection");
+app.commandLine.appendSwitch("disable-spell-checking");
+app.commandLine.appendSwitch("disable-component-extensions-with-background-pages");
 app.commandLine.appendSwitch("no-pings");
 app.commandLine.appendSwitch("disable-breakpad");
+app.commandLine.appendSwitch("force-webrtc-ip-handling-policy", "disable_non_proxied_udp");
+app.commandLine.appendSwitch("host-resolver-rules", "MAP * ~NOTFOUND, EXCLUDE 127.0.0.1");
 app.commandLine.appendSwitch(
   "disable-features",
-  "SafeBrowsing,OptimizationHints,MediaRouter,Translate,AutofillServerCommunication,InterestFeedContentSuggestions",
+  "SafeBrowsing,OptimizationHints,MediaRouter,Translate,AutofillServerCommunication,InterestFeedContentSuggestions,DnsOverHttps,NetworkTimeServiceQuerying,OptimizationGuideModelDownloading,OptimizationHintsFetching",
 );
+
+if (process.env.TTMD_NETLOG) {
+  app.commandLine.appendSwitch("log-net-log", process.env.TTMD_NETLOG);
+  app.commandLine.appendSwitch("net-log-capture-mode", "IncludeSensitive");
+}
 
 let control: ControlClient | null = null;
 let coreError: string | null = null;
@@ -82,16 +93,18 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
     return;
   }
 
+  console.log(`[dashboard] proxy=${result.proxy}`);
+
   const partition = `persist:profile-${profileID}`;
   const dashboardSession = session.fromPartition(partition);
   await dashboardSession.setProxy({
     proxyRules: `http=${result.proxy};https=${result.proxy}`,
-    proxyBypassRules: "<-loopback>",
   });
   dashboardSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
     callback(false);
   });
   dashboardSession.setPermissionCheckHandler(() => false);
+  dashboardSession.setSpellCheckerEnabled(false);
 
   const window = new BrowserWindow({
     width: 1100,
@@ -109,6 +122,7 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
       webSecurity: true,
       allowRunningInsecureContent: false,
       spellcheck: false,
+      webviewTag: false,
       devTools: !app.isPackaged,
     },
   });
@@ -116,6 +130,11 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
 
   window.setMenuBarVisibility(false);
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" as const }));
+  window.webContents.on("will-navigate", (event, url) => {
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      event.preventDefault();
+    }
+  });
   window.on("closed", () => {
     dashboardWindow = null;
     if (control) {
@@ -155,6 +174,7 @@ function createWindow(): void {
       webSecurity: true,
       allowRunningInsecureContent: false,
       spellcheck: false,
+      webviewTag: false,
       devTools: !app.isPackaged,
     },
   });
@@ -176,7 +196,11 @@ function createWindow(): void {
 
   mainWindow.loadFile(path.join(__dirname, "renderer/index.html"));
 
-  if (process.env.TTMD_SMOKE === "1") {
+  if (
+    process.env.TTMD_SMOKE === "1" ||
+    process.env.TTMD_SMOKE === "full" ||
+    process.env.TTMD_SMOKE === "idle"
+  ) {
     mainWindow.webContents.once("did-finish-load", () => {
       if (mainWindow) {
         void runSmoke(mainWindow);
@@ -186,7 +210,9 @@ function createWindow(): void {
 }
 
 async function runSmoke(window: BrowserWindow): Promise<void> {
-  const deadline = Date.now() + 12_000;
+  const full = process.env.TTMD_SMOKE === "full";
+  const idle = process.env.TTMD_SMOKE === "idle";
+  const deadline = Date.now() + (full ? 45_000 : 12_000);
   let submitted = false;
   let dashboardTried = false;
   let dashboardClosed = false;
@@ -198,6 +224,13 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
         profiles: document.querySelectorAll(".profile").length,
         error: document.getElementById("setup-error")?.textContent || "",
       })`)) as { screen: string; profiles: number; error: string };
+
+      if (idle && state.screen && state.screen !== "loading") {
+        await delay(2000);
+        console.log(`[smoke] idle screen=${state.screen}`);
+        app.quit();
+        return;
+      }
 
       if (!submitted && state.screen === "setup") {
         await submitSmokeSetup(window);
@@ -227,6 +260,32 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
           }
 
           console.log("[smoke] dashboard opened");
+
+          if (full) {
+            if (!(await waitForDashboardLoad(30_000))) {
+              console.error("[smoke] dashboard did not finish loading");
+              process.exitCode = 1;
+              app.quit();
+              return;
+            }
+            const state = dashboardWindow
+              ? ((await dashboardWindow.webContents.executeJavaScript(`({
+                  title: document.title,
+                  bodyLength: (document.body?.innerText || "").length,
+                  errorPage:
+                    (document.body?.innerText || "").includes("ERR_PROXY") ||
+                    (document.body?.innerText || "").includes("This site can"),
+                })`)) as { title: string; bodyLength: number; errorPage: boolean })
+              : { title: "", bodyLength: 0, errorPage: true };
+
+            console.log(
+              `[smoke] dashboard loaded title=${JSON.stringify(state.title)} body=${state.bodyLength} errorPage=${state.errorPage}`,
+            );
+            if (state.errorPage) {
+              process.exitCode = 1;
+            }
+          }
+
           dashboardWindow?.close();
           dashboardClosed = true;
           await delay(200);
@@ -262,6 +321,37 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
   console.error("[smoke] the UI did not settle in time");
   process.exitCode = 1;
   app.quit();
+}
+
+async function waitForDashboardLoad(timeoutMs: number): Promise<boolean> {
+  const window = dashboardWindow;
+  if (!window) {
+    return false;
+  }
+  if (!window.webContents.isLoading()) {
+    return true;
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timer);
+      resolve(ok);
+    };
+    const timer = setTimeout(() => finish(false), timeoutMs);
+
+    window.webContents.once("did-finish-load", () => finish(true));
+    window.webContents.on("did-fail-load", (_event, _code, _description, _url, isMainFrame) => {
+      if (isMainFrame) {
+        finish(false);
+      }
+    });
+    window.once("closed", () => finish(false));
+  });
 }
 
 async function waitForDashboard(timeoutMs: number): Promise<boolean> {
@@ -324,6 +414,7 @@ app.whenReady().then(async () => {
     callback(false);
   });
   session.defaultSession.setPermissionCheckHandler(() => false);
+  session.defaultSession.setSpellCheckerEnabled(false);
 
   await startCore();
   registerIpc({

@@ -7,8 +7,9 @@ application and uses that tunnel for one thing: browsing your local network.
 It does not create a system VPN, ask for root, or change your routing table.
 Your normal VPN keeps running.
 
-Status: early development. The tunnel, LAN-only proxy and encrypted vault
-core are working. The desktop shell is being built.
+Status: early development. The Linux desktop shell works: first-run setup,
+encrypted vault, profiles and the dashboard window. Packaging and mobile are
+next.
 
 ## Why
 
@@ -27,10 +28,11 @@ the app's own traffic uses the tunnel.
 - A localhost HTTP proxy feeds the app's browser view through that tunnel.
 - The browser view is Chromium (via Electron). By default it can only reach
   private addresses; public pages are blocked.
-- An optional internet toggle lets the dashboard load external fonts and
-  widgets. External requests can be reviewed and blocked per origin.
 - Secrets live in an encrypted vault. The app lock is optional; the same
   password unlocks the vault.
+- The first desktop release is LAN-only. An internet toggle for external fonts
+  and widgets is planned; the proxy already refuses everything outside private
+  address ranges.
 
 More detail in [docs/DESIGN.md](docs/DESIGN.md).
 
@@ -48,6 +50,25 @@ More detail in [docs/DESIGN.md](docs/DESIGN.md).
     desktop/    Electron shell and UI
     docs/       design, roadmap, plan and security notes
     scripts/    build and toolchain helpers
+
+## Run it
+
+    make core
+    make desktop-deps
+    make desktop-start
+
+The first run asks for a WireGuard `.conf`, a dashboard URL such as
+`http://192.168.0.3:3000`, and an optional app password. During development the
+vault, Electron profile and core data live under `local/dev-data`, which is
+ignored by git.
+
+## Current limits
+
+- LAN-only: external fonts and widgets are blocked until the internet toggle
+  lands.
+- The dashboard opens in its own window. A single-window toolbar is planned.
+- AppImage, Windows and Android packaging come after the Linux shell.
+- Jellyfin playback and OpenCode are next on the real-world test list.
 
 ## Development
 

@@ -54,18 +54,23 @@ export/import, lockout and tamper checks.
 
 ## Phase 3 — Electron shell
 
-- [ ] Minimal TypeScript shell with no UI framework
-- [ ] Lock screen and first-run setup
-- [ ] Settings: tunnel, dashboard URL, internet toggle, external sites
-- [ ] Sidecar lifecycle and local control socket
-- [ ] Sandboxed dashboard view with proxy
-- [ ] Navigation and permission restrictions
-- [ ] Disable Chromium background networking and service hooks
-- [ ] Error states: endpoint down, handshake timeout, blocked page
-- [ ] Test against the real dashboard, Jellyfin and OpenCode
+- [x] Minimal TypeScript shell with no UI framework
+- [x] Lock screen and first-run setup
+- [x] Settings for the tunnel and dashboard URL
+- [ ] Internet toggle and external-site panel (deferred; proxy is LAN-only)
+- [x] Sidecar lifecycle and local control socket
+- [x] Sandboxed dashboard window with proxy
+- [x] Navigation and permission restrictions
+- [x] Disable Chromium background networking, DNS and service hooks
+- [ ] Friendly error pages for endpoint and handshake failures
+- [x] Test against the real dashboard
+- [ ] Test Jellyfin and OpenCode
 
 Done when the app opens the dashboard through the tunnel while the normal VPN
 stays connected, and the network audit shows no unexpected traffic.
+
+Desktop dashboard pass complete. Remaining Phase 3 items are the deferred
+internet toggle and the Jellyfin/OpenCode checks.
 
 ## Phase 4 — AppImage, portable data and updates
 
@@ -81,11 +86,11 @@ dashboard without installing anything else.
 
 ## Phase 5 — Real-world pass
 
-- [ ] Dashboard at `192.168.0.3:3000`
+- [x] Dashboard at `192.168.0.3:3000`
 - [ ] Jellyfin on the same host, different port
 - [ ] OpenCode container
 - [ ] Laptop dashboard at `192.168.0.4:3000`
-- [ ] Normal VPN active for the whole session
+- [x] Normal VPN active for the whole session
 - [ ] Remote network and home Wi-Fi
 - [ ] Tunnel failure behaviour and reconnect
 

@@ -65,11 +65,13 @@ The desktop app has four parts:
 
 - **Electron main process.** Window, lock screen, settings, data directory,
   and the lifecycle of the Go core. No remote content runs with Node access.
-- **Dashboard view.** A separate sandboxed `WebContentsView` with its own
+- **Dashboard view.** A separate sandboxed `BrowserWindow` with its own
   Chromium session and proxy. It loads the configured LAN URL and nothing
-  else as a top-level page.
+  else as a top-level page. The first desktop version uses a child window; a
+  single-window `WebContentsView` with a toolbar is a later refinement.
 - **Go core.** A userspace WireGuard device, a TCP/IP stack, a localhost HTTP
-  proxy, the vault, and a small control API. It runs as an ordinary user.
+  proxy, the vault, and a small control API on a `0600` Unix socket. It runs
+  as an ordinary user.
 - **Data directory.** Config, vault, and the Chromium profile. On Linux it
   lives beside the AppImage when that location is writable; otherwise in the
   normal per-user config directory.
@@ -77,10 +79,10 @@ The desktop app has four parts:
 Startup sequence:
 
 1. Unlock the vault, or use the convenience key.
-2. Start the core and wait for the WireGuard handshake.
-3. Start the localhost proxy on a random loopback port.
-4. Point the dashboard session at the proxy and load the configured URL.
-5. On lock, close, or crash, stop the core and drop the tunnel.
+2. Start the core, the WireGuard device and the localhost proxy.
+3. Point the dashboard session at the proxy and load the configured URL.
+   The first request triggers the WireGuard handshake.
+4. On dashboard close, lock, or crash, stop the core and drop the tunnel.
 
 ## The tunnel
 
@@ -133,6 +135,11 @@ The proxy supports plain HTTP, HTTPS via `CONNECT`, WebSockets and streaming
 responses. TLS is passed through end to end; the app does not intercept or
 rewrite encrypted traffic.
 
+Chromium's own DNS resolver is disabled. The shell only loads local files and
+the dashboard URL is an IP literal; every name that needs resolving is resolved
+by the proxy. A background service that tries to look something up fails closed
+instead of reaching the internet.
+
 ## External content
 
 Dashboards often pull fonts, icons or widget data from public origins. Strict
@@ -155,6 +162,9 @@ The internet toggle is off by default. When it is on:
 
 If the dashboard fetches its widgets on the server side, the browser never
 contacts those services and the toggle is irrelevant.
+
+The first desktop release stays LAN-only. The internet toggle and external-site
+panel land together with the external proxy path.
 
 ## Secrets, app lock and portable data
 

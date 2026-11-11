@@ -446,15 +446,18 @@ content is a later phase.
    Commit: `Add the desktop setup and lock screens`
 - [x] 5. Dashboard child window with a session partition and proxy.
    Commit: `Open the dashboard through the tunnel`
-6. Hardening, no-phone-home switches and a real endpoint pass.
+- [x] 6. Hardening, no-phone-home switches and a real endpoint pass.
    Commit: `Harden the desktop shell`
 
 ### Acceptance
 
-- First run creates a vault and a profile from a `.conf` file.
-- Lock and unlock work.
-- Connect opens the dashboard while ProtonVPN is active.
-- Closing the dashboard disconnects the tunnel.
-- No Node in the shell renderer or dashboard; no permission prompts.
-- `make check` passes and the desktop code type-checks.
-- No unexpected outbound traffic beyond the WireGuard endpoint.
+- [x] First run creates a vault and a profile from a `.conf` file.
+- [x] Lock and unlock work.
+- [x] Connect opens the dashboard while ProtonVPN is active.
+- [x] Closing the dashboard disconnects the tunnel.
+- [x] No Node in the shell renderer or dashboard; no permission prompts.
+- [x] `make check` passes and the desktop code type-checks.
+- [x] No unexpected outbound traffic beyond the WireGuard endpoint.
+
+Desktop pass complete. Remaining: the deferred external-content toggle, Jellyfin
+and OpenCode checks, friendly tunnel error pages, and AppImage packaging.

@@ -85,13 +85,20 @@ so.
 
 ## Audit checklist
 
-- [ ] Launch the app with no dashboard configured and capture outbound traffic.
-      Only the WireGuard endpoint should appear.
-- [ ] Verify Chromium background networking and service hooks are disabled.
-- [ ] Verify the dashboard cannot navigate to a public page.
-- [ ] Verify loopback and public destinations are refused by the proxy.
-- [ ] Verify no TUN device is created and no elevated privileges are used.
+- [x] Launch the app with no dashboard configured and capture outbound traffic.
+      No TCP or UDP sockets were owned by Electron or the core for the whole
+      eight-second audit.
+- [x] Verify Chromium background networking and service hooks are disabled.
+- [x] Verify the dashboard cannot navigate to a public page.
+- [x] Verify loopback and public destinations are refused by the proxy.
+- [x] Verify no TUN device is created and no elevated privileges are used.
 - [ ] Verify the AppImage runs with the Chromium sandbox enabled.
-- [ ] Verify keys are absent from logs, the config file and crash output.
-- [ ] Verify the portable data folder permissions.
+- [x] Verify keys are absent from logs, the config file and crash output.
+- [x] Verify the vault and key file permissions.
 - [ ] Verify a failed handshake leaves the browser with no network access.
+
+An early audit found Google endpoints opened by Electron's background
+services. Blocking Chromium's own DNS removed them, and the real dashboard
+still loaded through the proxy with the normal VPN active. Chromium's resolver
+is now disabled with `host-resolver-rules`; anything that tries to look up a
+name fails closed.

@@ -44,6 +44,7 @@ const setupURL = element<HTMLInputElement>("setup-url");
 const setupLock = element<HTMLInputElement>("setup-lock");
 const setupPasswordField = element<HTMLElement>("setup-password-field");
 const setupPassword = element<HTMLInputElement>("setup-password");
+const setupPasswordHint = element<HTMLElement>("setup-password-hint");
 const setupError = element<HTMLElement>("setup-error");
 const setupSubmit = element<HTMLButtonElement>("setup-submit");
 
@@ -312,6 +313,7 @@ async function submitSetup(event: SubmitEvent): Promise<void> {
 
     setupForm.reset();
     setupPasswordField.hidden = true;
+    setupPasswordHint.hidden = true;
     setupFile.textContent = "No file chosen";
     await refresh();
   } catch (error) {
@@ -389,12 +391,34 @@ async function submitUnlock(event: SubmitEvent): Promise<void> {
   }
 }
 
+function updatePasswordHint(): void {
+  const length = setupPassword.value.length;
+  if (!setupLock.checked || length === 0) {
+    setupPasswordHint.hidden = true;
+    setupPasswordHint.textContent = "";
+    return;
+  }
+
+  setupPasswordHint.hidden = false;
+  if (length < 8) {
+    setupPasswordHint.textContent =
+      "Weak. Fine for a casual lock, not for a stolen device.";
+  } else if (length < 12) {
+    setupPasswordHint.textContent = "Okay. Longer is better.";
+  } else {
+    setupPasswordHint.textContent = "Good.";
+  }
+}
+
 setupLock.addEventListener("change", () => {
   setupPasswordField.hidden = !setupLock.checked;
   if (!setupLock.checked) {
     setupPassword.value = "";
   }
+  updatePasswordHint();
 });
+
+setupPassword.addEventListener("input", updatePasswordHint);
 
 setupChoose.addEventListener("click", () => {
   void chooseConfig(setupConfig, setupFile);
