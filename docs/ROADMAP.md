@@ -26,12 +26,15 @@ No UI yet. A command-line core that proves the hard part.
 - [x] Localhost HTTP/CONNECT proxy
 - [x] CLI wiring and signal handling
 - [x] End-to-end test through a userspace tunnel
-- [ ] Manual `curl` check against a real endpoint
+- [x] Manual `curl` check against a real endpoint
 - [x] Prove no TUN device and no elevated privileges
 
 Done when a request can go `curl -> localhost proxy -> WireGuard -> LAN test
 server`, public addresses are refused, and the whole test runs as a normal
 user.
+
+Phase 1 complete: HTTP 200 from `192.168.0.3:3000` through the home endpoint
+with ProtonVPN active.
 
 ## Phase 2 — Vault, configuration and app lock core
 

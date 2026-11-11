@@ -207,6 +207,7 @@ adapter. No OS TUN device is opened. TCP dials come from `gonet`.
 - [x] Implement the netstack, adapter and device lifecycle.
 - [x] Run `make test`; expect pass.
 - [x] Test `Close` twice and after the peer disappears.
+- [x] Resolve a hostname endpoint to an IP before configuring wireguard-go.
 
 **Commit:** `Add the userspace WireGuard device`
 
@@ -277,9 +278,9 @@ func (a *App) Close() error
 - [x] Print the listening proxy address on startup.
 - [x] Handle SIGINT and SIGTERM; close the proxy and tunnel.
 - [x] Run `make test` and `make core`.
-- [ ] Manual check with a real config:
-      `curl -x http://127.0.0.1:<port> http://192.168.0.3:3000`.
-      This one needs the real home endpoint, so it stays open for now.
+- [x] Manual check with a real config:
+      `curl -x http://127.0.0.1:<port> http://192.168.0.3:3000` returned
+      HTTP 200 through the home endpoint while ProtonVPN was active.
 
 **Commit:** `Run the tunnel and proxy from the core CLI`
 

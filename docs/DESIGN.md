@@ -92,7 +92,9 @@ proxy.
 
 The WireGuard handshake still travels over UDP to the public endpoint, using
 whatever network the machine already has. If the user's normal VPN is active,
-that handshake simply rides inside it.
+that handshake simply rides inside it. A hostname endpoint is resolved to an
+address at startup; a literal IP is used as-is. The tunnel does not re-resolve
+while it is running.
 
 `AllowedIPs` from the imported config is not trusted. The app overrides it
 with private ranges only:

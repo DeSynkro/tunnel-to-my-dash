@@ -1,6 +1,7 @@
 package tunnel
 
 import (
+	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/desynkro/tunnel-to-my-dash/core/internal/lan"
 	"golang.zx2c4.com/wireguard/conn"
@@ -56,6 +58,11 @@ func Start(cfg Config) (*Device, error) {
 	if err := validateEndpoint(cfg.Endpoint); err != nil {
 		return nil, err
 	}
+	endpoint, err := resolveEndpoint(cfg.Endpoint)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Endpoint = endpoint
 
 	ns, link, err := newNetstack(cfg.MTU, cfg.Addresses)
 	if err != nil {
@@ -105,6 +112,36 @@ func buildUAPI(cfg Config) string {
 	b.WriteString("persistent_keepalive_interval=25\n")
 
 	return b.String()
+}
+
+func resolveEndpoint(value string) (string, error) {
+	host, port, err := net.SplitHostPort(value)
+	if err != nil {
+		return "", errors.New("invalid endpoint")
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return net.JoinHostPort(ip.String(), port), nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	addrs, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	if err != nil {
+		return "", fmt.Errorf("resolve endpoint: %w", err)
+	}
+	if len(addrs) == 0 {
+		return "", errors.New("resolve endpoint: no addresses")
+	}
+
+	chosen := addrs[0].IP
+	for _, addr := range addrs {
+		if v4 := addr.IP.To4(); v4 != nil {
+			chosen = v4
+			break
+		}
+	}
+	return net.JoinHostPort(chosen.String(), port), nil
 }
 
 func validateEndpoint(value string) error {

@@ -79,6 +79,30 @@ func TestDialRejectsHostname(t *testing.T) {
 	}
 }
 
+func TestResolveEndpointLiteral(t *testing.T) {
+	got, err := resolveEndpoint("192.0.2.10:51820")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "192.0.2.10:51820" {
+		t.Fatalf("endpoint = %q", got)
+	}
+}
+
+func TestResolveEndpointHostname(t *testing.T) {
+	got, err := resolveEndpoint("localhost:51820")
+	if err != nil {
+		t.Skipf("localhost did not resolve: %v", err)
+	}
+	host, _, err := net.SplitHostPort(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if net.ParseIP(host) == nil {
+		t.Fatalf("resolved host = %q, want an IP", host)
+	}
+}
+
 func TestStartRejectsEmptyConfig(t *testing.T) {
 	if _, err := Start(Config{}); err == nil {
 		t.Fatal("expected an error")
