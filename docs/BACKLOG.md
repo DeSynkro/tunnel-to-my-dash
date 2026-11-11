@@ -19,13 +19,12 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
   links, instead of leaving them dead.
 - Let users choose whether dashboard links open in the same window or in a
   new window. Same-window is the current default.
-- Per-profile credential quick-paste: an encrypted list of service names,
-  URLs, usernames and passwords in the vault, with copy buttons from the
-  dashboard toolbar. Clear the clipboard after 30 seconds and do not add
-  autofill until the security model is settled.
-
 ## Done
 
+- Saved passwords: per-profile logins in the encrypted vault, edited in the
+  profile screen and copied from a key panel in the dashboard toolbar. The
+  password only travels from the core to the clipboard, clears after 30
+  seconds if unchanged, and clears on lock. No autofill.
 - Brand integration: the house mark in the masthead and lock screen, the
   window and AppImage icon rendered from the logo, the README banner, and the
   neutral graphite + amber palette with green/red status dots across the main

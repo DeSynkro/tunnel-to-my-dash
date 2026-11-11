@@ -1,6 +1,8 @@
 import type {
   AppSettings,
   ConfigFile,
+  CredentialInput,
+  CredentialSummary,
   ExternalMode,
   ProfileInput,
   ProfileSummary,
@@ -95,6 +97,21 @@ const profileSave = element<HTMLButtonElement>("profile-save");
 const profileBack = element<HTMLButtonElement>("profile-back");
 const profileCancel = element<HTMLButtonElement>("profile-cancel");
 
+const credentialAdd = element<HTMLButtonElement>("credential-add");
+const credentialList = element<HTMLElement>("credential-list");
+const credentialEmpty = element<HTMLElement>("credential-empty");
+const credentialError = element<HTMLElement>("credential-error");
+const credentialForm = element<HTMLFormElement>("credential-form");
+const credentialFormTitle = element<HTMLElement>("credential-form-title");
+const credentialName = element<HTMLInputElement>("credential-name");
+const credentialURL = element<HTMLInputElement>("credential-url");
+const credentialUsername = element<HTMLInputElement>("credential-username");
+const credentialPasswordLabel = element<HTMLElement>("credential-password-label");
+const credentialPassword = element<HTMLInputElement>("credential-password");
+const credentialPasswordHint = element<HTMLElement>("credential-password-hint");
+const credentialSave = element<HTMLButtonElement>("credential-save");
+const credentialCancel = element<HTMLButtonElement>("credential-cancel");
+
 const settingsOpenLast = element<HTMLInputElement>("settings-open-last");
 const settingsAutoHide = element<HTMLInputElement>("settings-auto-hide");
 const settingsBehaviorError = element<HTMLElement>("settings-behavior-error");
@@ -121,6 +138,9 @@ let status: Status | null = null;
 let addFormOpen = false;
 let settingsOpen = false;
 let editingProfileID: string | null = null;
+let credentials: CredentialSummary[] = [];
+let editingCredentialID: string | null = null;
+let credentialsToken = 0;
 const reachability: Record<string, boolean> = {};
 let reachabilityChecking: string | null = null;
 let autoChecked = false;
@@ -562,6 +582,8 @@ function showProfile(profileID: string): void {
   }
 
   setFormError(profileError, "");
+  closeCredentialForm();
+  void loadCredentials(profileID);
 
   renderRail();
   showScreen("profile");
@@ -569,6 +591,161 @@ function showProfile(profileID: string): void {
 
 function updateProfileOriginsVisibility(): void {
   profileOriginsField.hidden = !profileExternalOrigins.checked;
+}
+
+function renderCredentials(): void {
+  credentialList.replaceChildren();
+  credentialEmpty.hidden = editingProfileID === null || credentials.length > 0;
+
+  for (const credential of credentials) {
+    const row = document.createElement("div");
+    row.className = "credential-row";
+
+    const info = document.createElement("div");
+    info.className = "credential-info";
+    const name = document.createElement("strong");
+    name.textContent = credential.name;
+    const detail = document.createElement("span");
+    const parts = [credential.username, credential.url].filter(
+      (part): part is string => !!part,
+    );
+    detail.textContent = parts.length > 0 ? parts.join(" · ") : "No username";
+    detail.title = detail.textContent;
+    info.append(name, detail);
+
+    const actions = document.createElement("div");
+    actions.className = "actions";
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.className = "ghost";
+    edit.textContent = "Edit";
+    edit.addEventListener("click", () => openCredentialForm(credential));
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "ghost danger";
+    remove.textContent = "Delete";
+    remove.addEventListener("click", () => {
+      void deleteCredential(credential, remove);
+    });
+    actions.append(edit, remove);
+
+    row.append(info, actions);
+    credentialList.append(row);
+  }
+}
+
+async function loadCredentials(profileID: string): Promise<void> {
+  const token = ++credentialsToken;
+  credentials = [];
+  renderCredentials();
+  setFormError(credentialError, "");
+  try {
+    const list = await api().listCredentials(profileID);
+    if (token !== credentialsToken || editingProfileID !== profileID) {
+      return;
+    }
+    credentials = list;
+    renderCredentials();
+  } catch (error) {
+    if (token === credentialsToken) {
+      setFormError(credentialError, message(error));
+    }
+  }
+}
+
+function openCredentialForm(credential: CredentialSummary | null): void {
+  editingCredentialID = credential?.id ?? null;
+  credentialFormTitle.textContent = credential ? "Edit password" : "New password";
+  credentialName.value = credential?.name ?? "";
+  credentialURL.value = credential?.url ?? "";
+  credentialUsername.value = credential?.username ?? "";
+  credentialPassword.value = "";
+  credentialPassword.required = credential === null;
+  credentialPasswordLabel.textContent = credential
+    ? "New password (optional)"
+    : "Password";
+  credentialPasswordHint.hidden = credential === null;
+  setFormError(credentialError, "");
+  credentialForm.hidden = false;
+  credentialAdd.hidden = true;
+  credentialName.focus();
+}
+
+function closeCredentialForm(): void {
+  editingCredentialID = null;
+  credentialForm.hidden = true;
+  credentialAdd.hidden = false;
+  setFormError(credentialError, "");
+}
+
+async function deleteCredential(
+  credential: CredentialSummary,
+  button: HTMLButtonElement,
+): Promise<void> {
+  const profileID = editingProfileID;
+  if (!profileID) {
+    return;
+  }
+  if (!window.confirm(`Delete "${credential.name}"?`)) {
+    return;
+  }
+
+  setBusy(button, true, "Deleting…");
+  try {
+    await api().deleteCredential(profileID, credential.id);
+    await loadCredentials(profileID);
+  } catch (error) {
+    setFormError(credentialError, message(error));
+    setBusy(button, false);
+  }
+}
+
+async function submitCredential(event: SubmitEvent): Promise<void> {
+  event.preventDefault();
+  const profileID = editingProfileID;
+  if (!profileID) {
+    return;
+  }
+
+  const name = credentialName.value.trim();
+  const url = credentialURL.value.trim();
+  const username = credentialUsername.value.trim();
+  const password = credentialPassword.value;
+  if (!name) {
+    setFormError(credentialError, "Give the password a name");
+    return;
+  }
+  if (!editingCredentialID && !password) {
+    setFormError(credentialError, "Enter the password");
+    return;
+  }
+  if (url && !/^https?:\/\//i.test(url)) {
+    setFormError(credentialError, "The URL must start with http:// or https://");
+    return;
+  }
+
+  const input: CredentialInput = { name, password };
+  if (url) {
+    input.url = url;
+  }
+  if (username) {
+    input.username = username;
+  }
+
+  setBusy(credentialSave, true, "Saving…");
+  try {
+    if (editingCredentialID) {
+      await api().updateCredential(profileID, editingCredentialID, input);
+    } else {
+      await api().addCredential(profileID, input);
+    }
+    closeCredentialForm();
+    await loadCredentials(profileID);
+  } catch (error) {
+    setFormError(credentialError, message(error));
+  } finally {
+    setBusy(credentialSave, false);
+  }
 }
 
 async function submitProfile(event: SubmitEvent): Promise<void> {
@@ -931,6 +1108,12 @@ profileBack.addEventListener("click", () => {
 
 profileCancel.addEventListener("click", () => {
   showMain();
+});
+
+credentialAdd.addEventListener("click", () => openCredentialForm(null));
+credentialCancel.addEventListener("click", closeCredentialForm);
+credentialForm.addEventListener("submit", (event) => {
+  void submitCredential(event);
 });
 
 profileExternalOff.addEventListener("change", updateProfileOriginsVisibility);

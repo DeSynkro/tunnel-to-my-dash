@@ -254,6 +254,26 @@ a UI change rather than a data migration. Each profile gets its own Chromium
 session partition, so cookies from two dashboards that happen to share the same
 LAN IP do not collide.
 
+## Saved passwords
+
+Each profile can keep a list of service logins: a name, an optional URL, an
+optional username and a password. They live inside the encrypted vault, so an
+export carries them and deleting a profile deletes its logins.
+
+Editing happens in the profile editor on its own screen. Copying happens in
+the dashboard toolbar: a key button opens a small panel under the bar, and
+each login has Username and Password copy buttons. The renderer only ever
+receives names, URLs and usernames. When a copy button is pressed, the main
+process fetches that one password from the core over the control socket and
+writes it straight to the clipboard, so the secret never reaches a renderer.
+The clipboard clears itself after 30 seconds if it still holds the copied
+value, and clears at once when the dashboard locks. There is no autofill and
+no reveal control.
+
+The toolbar panel pins the floating bar open while it is visible and closes
+on an outside click, Escape, navigation, window blur or lock. Editing a saved
+login leaves the stored password untouched unless a new one is typed.
+
 ## Privacy and security
 
 - No telemetry, analytics, crash uploads, accounts or update pings.

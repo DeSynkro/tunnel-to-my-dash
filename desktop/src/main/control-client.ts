@@ -2,6 +2,9 @@ import http from "node:http";
 import type {
   CheckResult,
   ConnectResult,
+  CredentialInput,
+  CredentialSecret,
+  CredentialSummary,
   ProfileInput,
   ProfileSummary,
   SecuritySettings,
@@ -56,6 +59,53 @@ export class ControlClient {
 
   checkProfile(id: string): Promise<CheckResult> {
     return this.request("POST", `/profiles/${encodeURIComponent(id)}/check`);
+  }
+
+  listCredentials(profileID: string): Promise<CredentialSummary[]> {
+    return this.request(
+      "GET",
+      `/profiles/${encodeURIComponent(profileID)}/credentials`,
+    );
+  }
+
+  addCredential(
+    profileID: string,
+    input: CredentialInput,
+  ): Promise<CredentialSummary> {
+    return this.request(
+      "POST",
+      `/profiles/${encodeURIComponent(profileID)}/credentials`,
+      input,
+    );
+  }
+
+  updateCredential(
+    profileID: string,
+    credentialID: string,
+    input: CredentialInput,
+  ): Promise<CredentialSummary> {
+    return this.request(
+      "PUT",
+      `/profiles/${encodeURIComponent(profileID)}/credentials/${encodeURIComponent(credentialID)}`,
+      input,
+    );
+  }
+
+  deleteCredential(profileID: string, credentialID: string): Promise<void> {
+    return this.request(
+      "DELETE",
+      `/profiles/${encodeURIComponent(profileID)}/credentials/${encodeURIComponent(credentialID)}`,
+    );
+  }
+
+  credentialSecret(
+    profileID: string,
+    credentialID: string,
+  ): Promise<CredentialSecret> {
+    return this.request(
+      "GET",
+      `/profiles/${encodeURIComponent(profileID)}/credentials/${encodeURIComponent(credentialID)}/secret`,
+    );
   }
 
   connect(id: string): Promise<ConnectResult> {

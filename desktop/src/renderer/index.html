@@ -313,6 +313,67 @@
                 <button type="button" class="ghost" id="profile-cancel">Cancel</button>
               </div>
             </form>
+
+            <section class="panel credential-panel" aria-labelledby="credentials-title">
+              <div class="credential-head">
+                <div>
+                  <h3 id="credentials-title">Passwords</h3>
+                  <p class="hint">
+                    Stored in the encrypted vault. Copy them from the dashboard
+                    toolbar, or edit them here.
+                  </p>
+                </div>
+                <button type="button" class="ghost" id="credential-add">
+                  Add password
+                </button>
+              </div>
+
+              <p class="form-error" id="credential-error" hidden></p>
+              <div class="credential-list" id="credential-list"></div>
+              <p class="empty credential-empty" id="credential-empty">
+                No saved passwords yet.
+              </p>
+
+              <form
+                id="credential-form"
+                class="credential-form"
+                autocomplete="off"
+                hidden
+              >
+                <p class="kicker" id="credential-form-title">New password</p>
+                <div class="credential-fields">
+                  <label class="field">
+                    <span>Service name</span>
+                    <input id="credential-name" type="text" maxlength="64" required />
+                  </label>
+                  <label class="field">
+                    <span>URL (optional)</span>
+                    <input id="credential-url" type="url" placeholder="https://" />
+                  </label>
+                  <label class="field">
+                    <span>Username (optional)</span>
+                    <input id="credential-username" type="text" autocomplete="off" />
+                  </label>
+                  <label class="field">
+                    <span id="credential-password-label">Password</span>
+                    <input
+                      id="credential-password"
+                      type="password"
+                      autocomplete="new-password"
+                    />
+                  </label>
+                </div>
+                <p class="hint" id="credential-password-hint" hidden>
+                  Leave blank to keep the current password.
+                </p>
+                <div class="actions">
+                  <button type="submit" id="credential-save">Save password</button>
+                  <button type="button" class="ghost" id="credential-cancel">
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </section>
           </section>
 
           <section id="screen-settings" class="screen" hidden>

@@ -55,6 +55,20 @@ Out of scope:
 - Real configs and vaults belong in `local/`, which is gitignored. A secret
   found in git history is treated as leaked and must be replaced.
 
+## Saved passwords and the clipboard
+
+- Saved logins are part of the vault payload and use the same
+  XChaCha20-Poly1305 envelope as tunnel configs and the security policy.
+- A profile summary never includes a password. The dashboard toolbar renderer
+  receives names, URLs and usernames only.
+- Copying asks the core for one credential over the `0600` control socket; the
+  Electron main process writes the value to the clipboard and never sends it
+  to a renderer.
+- The clipboard is cleared after 30 seconds if it still matches the copied
+  value, and cleared immediately when the dashboard locks or the app quits.
+- There is no autofill and no password reveal in the UI. Editing a saved login
+  leaves the stored password untouched unless a new one is typed.
+
 ## Settings storage
 
 - `settings.json` is plaintext and holds behavior only, such as whether to

@@ -3,6 +3,7 @@ import {
   app,
   BaseWindow,
   BrowserWindow,
+  clipboard,
   ipcMain,
   Menu,
   powerMonitor,
@@ -12,7 +13,12 @@ import {
 } from "electron";
 import path from "node:path";
 import { IPC } from "../shared/ipc";
-import type { ConnectResult, PointerPayload } from "../shared/types";
+import type {
+  ConnectResult,
+  CredentialField,
+  CredentialSummary,
+  PointerPayload,
+} from "../shared/types";
 import { ControlClient } from "./control-client";
 import { CoreProcess } from "./core-process";
 import { resolveDataRoot } from "./data-dir";
@@ -77,6 +83,7 @@ let dashboardPasswordProtected = false;
 let dashboardLocked = false;
 let dashboardClosingToMain = false;
 let dashboardAutoHide = true;
+let dashboardProfileID: string | null = null;
 let suppressAutoOpenOnce = false;
 
 const toolbarHeight = 36;
@@ -93,14 +100,26 @@ const peekRadius = 3;
 const toolbarAnimationMs = 180;
 const toolbarHideDelay = 900;
 const toolbarPollInterval = 100;
+const toolbarPanelGap = 4;
+const toolbarPanelMaxHeight = 300;
+
+const clipboardClearMs = (() => {
+  const value = Number(process.env.TTMD_CLIPBOARD_MS);
+  return Number.isFinite(value) && value > 0 ? value : 30_000;
+})();
 
 let toolbarVisible = true;
 let toolbarPointerOver = false;
 let toolbarLeftAt = 0;
 let toolbarInitialUntil = 0;
+let toolbarPanelOpen = false;
+let toolbarPanelHeight = 0;
 let toolbarAnimation: ReturnType<typeof setInterval> | null = null;
 let toolbarPoll: ReturnType<typeof setInterval> | null = null;
 let idleMonitor: ReturnType<typeof setInterval> | null = null;
+let clipboardTimer: ReturnType<typeof setTimeout> | null = null;
+let clipboardValue = "";
+let quitting = false;
 
 type ToolbarRect = { x: number; y: number; width: number; height: number };
 
@@ -150,7 +169,11 @@ function applyToolbarFrame(rect: ToolbarRect, radius: number): void {
   if (!dashboardWindow) {
     return;
   }
-  dashboardToolbar?.setBounds(rect);
+  const extended = { ...rect };
+  if (toolbarPanelOpen && toolbarPanelHeight > 0 && rect.height > peekHeight) {
+    extended.height = rect.height + toolbarPanelGap + toolbarPanelHeight;
+  }
+  dashboardToolbar?.setBounds(extended);
   dashboardToolbar?.setBorderRadius(radius);
   const { width, height } = dashboardWindow.getContentBounds();
   const offset = dashboardPageOffset();
@@ -211,18 +234,7 @@ function animateToolbar(expanded: boolean): void {
       height: Math.round(from.height + (to.height - from.height) * eased),
     };
     const radius = Math.round(fromRadius + (toRadius - fromRadius) * eased);
-    const { width, height } = dashboardWindow.getContentBounds();
-    const offset = dashboardPageOffset();
-
-    dashboardToolbar.setBounds(rect);
-    dashboardToolbar.setBorderRadius(radius);
-    dashboardView?.setBounds({
-      x: 0,
-      y: offset,
-      width,
-      height: Math.max(0, height - offset),
-    });
-    dashboardLock?.setBounds({ x: 0, y: 0, width, height });
+    applyToolbarFrame(rect, radius);
 
     if (t >= 1) {
       stopToolbarAnimation();
@@ -255,6 +267,83 @@ function layoutDashboard(): void {
   applyToolbarFrame(rect, toolbarVisible ? toolbarRadius : peekRadius);
 }
 
+function sendToolbarPanelState(open: boolean): void {
+  dashboardToolbar?.webContents.send(IPC.toolbarPanelState, { open });
+}
+
+function closeToolbarPanel(): void {
+  if (!toolbarPanelOpen) {
+    return;
+  }
+  toolbarPanelOpen = false;
+  toolbarPanelHeight = 0;
+  sendToolbarPanelState(false);
+  layoutDashboard();
+}
+
+function setToolbarPanel(open: boolean, height: number): void {
+  if (!dashboardToolbar || dashboardLocked) {
+    return;
+  }
+  if (!open) {
+    closeToolbarPanel();
+    return;
+  }
+  toolbarPanelOpen = true;
+  toolbarPanelHeight = Math.max(80, Math.min(Math.round(height), toolbarPanelMaxHeight));
+  if (dashboardAutoHide) {
+    setToolbarExpanded(true);
+  }
+  layoutDashboard();
+}
+
+async function clearClipboardIfOurs(): Promise<void> {
+  if (clipboardTimer) {
+    clearTimeout(clipboardTimer);
+    clipboardTimer = null;
+  }
+  if (!clipboardValue) {
+    return;
+  }
+  const ours = clipboardValue;
+  clipboardValue = "";
+  try {
+    if ((await clipboard.readText()) === ours) {
+      clipboard.clear();
+    }
+  } catch {
+    // The clipboard is best effort; never block the app on it.
+  }
+}
+
+async function copyToClipboard(value: string): Promise<void> {
+  await clearClipboardIfOurs();
+  await clipboard.writeText(value);
+  clipboardValue = value;
+  clipboardTimer = setTimeout(() => {
+    clipboardTimer = null;
+    void clearClipboardIfOurs();
+  }, clipboardClearMs);
+  clipboardTimer.unref?.();
+}
+
+function toolbarPanelArg(value: unknown): { open: boolean; height: number } {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Invalid request.");
+  }
+  const raw = value as Record<string, unknown>;
+  if (typeof raw.open !== "boolean") {
+    throw new Error("Invalid request.");
+  }
+  const height =
+    typeof raw.height === "number" && Number.isFinite(raw.height) ? raw.height : 0;
+  return { open: raw.open, height };
+}
+
+function isCredentialField(value: unknown): value is CredentialField {
+  return value === "username" || value === "password";
+}
+
 function stopToolbarPoll(): void {
   if (toolbarPoll) {
     clearInterval(toolbarPoll);
@@ -285,6 +374,40 @@ ipcMain.on(IPC.pointerToolbar, (event, payload: PointerPayload) => {
   }
   handleToolbarPointer(payload);
 });
+
+ipcMain.handle(IPC.toolbarPanel, (event, payload: unknown) => {
+  if (event.sender !== dashboardToolbar?.webContents) {
+    throw new Error("Invalid request.");
+  }
+  const { open, height } = toolbarPanelArg(payload);
+  setToolbarPanel(open, height);
+});
+
+ipcMain.handle(
+  IPC.toolbarCopyCredential,
+  async (event, credentialID: unknown, field: unknown) => {
+    if (event.sender !== dashboardToolbar?.webContents) {
+      throw new Error("Invalid request.");
+    }
+    if (typeof credentialID !== "string" || !isCredentialField(field)) {
+      throw new Error("Invalid request.");
+    }
+    if (!control || !dashboardProfileID) {
+      throw new Error("No dashboard is open.");
+    }
+
+    const secret = await control.credentialSecret(dashboardProfileID, credentialID);
+    const value = field === "username" ? secret.username : secret.password;
+    if (!value) {
+      throw new Error(
+        field === "username"
+          ? "No username saved for that login."
+          : "No password saved for that login.",
+      );
+    }
+    await copyToClipboard(value);
+  },
+);
 
 function startIdleMonitor(): void {
   stopIdleMonitor();
@@ -357,11 +480,16 @@ function startToolbarPoll(): void {
     }
 
     if (!dashboardWindow.isFocused()) {
+      closeToolbarPanel();
       if (toolbarVisible) {
         setToolbarExpanded(false);
       }
       toolbarPointerOver = false;
       toolbarLeftAt = 0;
+      return;
+    }
+
+    if (toolbarPanelOpen) {
       return;
     }
 
@@ -447,6 +575,22 @@ function sendNavState(): void {
   });
 }
 
+async function loadToolbarCredentials(): Promise<void> {
+  if (!dashboardToolbar || !dashboardProfileID) {
+    return;
+  }
+  let credentials: CredentialSummary[] = [];
+  try {
+    credentials = (await control?.listCredentials(dashboardProfileID)) ?? [];
+  } catch (error) {
+    console.error(`[credentials] ${errorMessage(error)}`);
+  }
+  if (!dashboardToolbar) {
+    return;
+  }
+  dashboardToolbar.webContents.send(IPC.toolbarCredentials, { credentials });
+}
+
 const navigation: NavigationActions = {
   back: () => {
     dashboardView?.webContents.navigationHistory.goBack();
@@ -494,6 +638,8 @@ async function lockDashboard(): Promise<void> {
 
   dashboardLocked = true;
   stopToolbarPoll();
+  closeToolbarPanel();
+  await clearClipboardIfOurs();
 
   let snapshot = "";
   try {
@@ -538,6 +684,7 @@ async function unlockDashboard(password: string): Promise<void> {
   });
 
   dashboardHomeURL = result.dashboard_url;
+  dashboardProfileID = profileID;
   dashboardLocked = false;
   dashboardLock?.setVisible(false);
   dashboardView?.webContents.setAudioMuted(false);
@@ -551,6 +698,7 @@ async function unlockDashboard(password: string): Promise<void> {
     applyToolbarFrame(toolbarFixedRect(), 0);
     sendNavState();
   }
+  void loadToolbarCredentials();
 
   if (dashboardView) {
     try {
@@ -569,6 +717,9 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
 
   dashboardClosingToMain = false;
   dashboardLocked = false;
+  dashboardProfileID = profileID;
+  toolbarPanelOpen = false;
+  toolbarPanelHeight = 0;
   console.log(`[dashboard] proxy=${result.proxy}`);
 
   const partition = `persist:profile-${profileID}`;
@@ -659,7 +810,10 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
 
   void toolbar.webContents.loadFile(path.join(__dirname, "renderer/toolbar.html"));
   void lock.webContents.loadFile(path.join(__dirname, "renderer/lock.html"));
-  toolbar.webContents.on("did-finish-load", sendNavState);
+  toolbar.webContents.on("did-finish-load", () => {
+    sendNavState();
+    void loadToolbarCredentials();
+  });
 
   view.webContents.setWindowOpenHandler(({ url }) => {
     if (isPrivateHttpUrl(url)) {
@@ -672,8 +826,15 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
       event.preventDefault();
     }
   });
-  view.webContents.on("did-navigate", sendNavState);
-  view.webContents.on("did-navigate-in-page", sendNavState);
+  view.webContents.on("focus", () => closeToolbarPanel());
+  view.webContents.on("did-navigate", () => {
+    closeToolbarPanel();
+    sendNavState();
+  });
+  view.webContents.on("did-navigate-in-page", () => {
+    closeToolbarPanel();
+    sendNavState();
+  });
   view.webContents.on("page-title-updated", (_event, title) => {
     window.setTitle(title ? `${title} — Tunnel to My Dash` : "Tunnel to My Dash");
   });
@@ -690,6 +851,9 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
     dashboardPartition = "";
     dashboardPasswordProtected = false;
     dashboardLocked = false;
+    dashboardProfileID = null;
+    toolbarPanelOpen = false;
+    toolbarPanelHeight = 0;
 
     if (control) {
       void control.disconnect().catch(() => undefined);
@@ -780,7 +944,8 @@ function createWindow(): void {
     process.env.TTMD_SMOKE === "lockback" ||
     process.env.TTMD_SMOKE === "idlelock" ||
     process.env.TTMD_SMOKE === "toolbarfixed" ||
-    process.env.TTMD_SMOKE === "refocus"
+    process.env.TTMD_SMOKE === "refocus" ||
+    process.env.TTMD_SMOKE === "credentials"
   ) {
     mainWindow.webContents.once("did-finish-load", () => {
       if (mainWindow) {
@@ -803,6 +968,7 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
   const idleLockSmoke = process.env.TTMD_SMOKE === "idlelock";
   const toolbarFixedSmoke = process.env.TTMD_SMOKE === "toolbarfixed";
   const refocusSmoke = process.env.TTMD_SMOKE === "refocus";
+  const credentialsSmoke = process.env.TTMD_SMOKE === "credentials";
   const deadline =
     Date.now() +
     (full ||
@@ -815,7 +981,8 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
     lockBackSmoke ||
     idleLockSmoke ||
     toolbarFixedSmoke ||
-    refocusSmoke
+    refocusSmoke ||
+    credentialsSmoke
       ? 60_000
       : 12_000);
   let submitted = false;
@@ -854,6 +1021,11 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
 
   if (refocusSmoke) {
     await runRefocusSmoke(window);
+    return;
+  }
+
+  if (credentialsSmoke) {
+    await runCredentialsSmoke(window);
     return;
   }
 
@@ -1440,6 +1612,242 @@ async function runRefocusSmoke(window: BrowserWindow): Promise<void> {
     app.quit();
   } catch (error) {
     console.error(`[smoke] refocus failed: ${errorMessage(error)}`);
+    process.exitCode = 1;
+    app.quit();
+  }
+}
+
+async function runCredentialsSmoke(window: BrowserWindow): Promise<void> {
+  try {
+    console.log("[smoke] credentials start");
+    if (!(await waitForScreen(window, "main", 5000))) {
+      throw new Error("the dashboard list did not load");
+    }
+    if (!(await waitForProfileButton(window, 3000))) {
+      throw new Error("the profile card did not render");
+    }
+    if (!control) {
+      throw new Error("the core is not ready");
+    }
+
+    const profileID = (await control.status()).active_profile ?? "";
+    if (!profileID) {
+      throw new Error("no active profile");
+    }
+
+    await window.webContents.executeJavaScript(
+      'document.querySelector(".profile-edit")?.click()',
+      true,
+    );
+    if (!(await waitForScreen(window, "profile", 3000))) {
+      throw new Error("the profile editor did not open");
+    }
+    if (
+      !(await waitForCondition(async () => {
+        const count = (await window.webContents.executeJavaScript(
+          'document.querySelectorAll(".credential-row").length',
+        )) as number;
+        return count === 2;
+      }, 3000))
+    ) {
+      throw new Error("the seeded passwords did not appear in the editor");
+    }
+    console.log("[smoke] credentials seeded=2");
+
+    await window.webContents.executeJavaScript(
+      `(() => {
+        document.getElementById("credential-add")?.click();
+        const set = (id, value) => {
+          const node = document.getElementById(id);
+          if (node) node.value = value;
+        };
+        set("credential-name", "Grafana");
+        set("credential-url", "http://192.168.0.4:3001");
+        set("credential-username", "monitor");
+        set("credential-password", "grafana-secret");
+        document.getElementById("credential-form")?.requestSubmit();
+      })()`,
+      true,
+    );
+    if (
+      !(await waitForCondition(async () => {
+        const names = (await window.webContents.executeJavaScript(
+          '[...document.querySelectorAll(".credential-row strong")].map((node) => node.textContent)',
+        )) as string[];
+        return Array.isArray(names) && names.includes("Grafana");
+      }, 5000))
+    ) {
+      throw new Error("adding a password did not update the list");
+    }
+    let list = await control.listCredentials(profileID);
+    const added = list.find((credential) => credential.name === "Grafana");
+    if (!added) {
+      throw new Error("the added password is not in the vault");
+    }
+    let secret = await control.credentialSecret(profileID, added.id);
+    if (secret.username !== "monitor" || secret.password !== "grafana-secret") {
+      throw new Error("the added password was stored incorrectly");
+    }
+    console.log("[smoke] credentials added");
+
+    await window.webContents.executeJavaScript(
+      `(() => {
+        const rows = [...document.querySelectorAll(".credential-row")];
+        const row = rows.find(
+          (item) => item.querySelector("strong")?.textContent === "Grafana",
+        );
+        row?.querySelector("button")?.click();
+        const set = (id, value) => {
+          const node = document.getElementById(id);
+          if (node) node.value = value;
+        };
+        set("credential-name", "Grafana 2");
+        set("credential-username", "monitor2");
+        set("credential-password", "");
+        document.getElementById("credential-form")?.requestSubmit();
+      })()`,
+      true,
+    );
+    if (
+      !(await waitForCondition(async () => {
+        const names = (await window.webContents.executeJavaScript(
+          '[...document.querySelectorAll(".credential-row strong")].map((node) => node.textContent)',
+        )) as string[];
+        return Array.isArray(names) && names.includes("Grafana 2");
+      }, 5000))
+    ) {
+      throw new Error("editing a password did not update the list");
+    }
+    list = await control.listCredentials(profileID);
+    const edited = list.find((credential) => credential.name === "Grafana 2");
+    if (!edited || edited.username !== "monitor2") {
+      throw new Error("the edited password was not saved");
+    }
+    secret = await control.credentialSecret(profileID, edited.id);
+    if (secret.password !== "grafana-secret") {
+      throw new Error("a blank edit replaced the stored password");
+    }
+    console.log("[smoke] credentials edited");
+
+    await window.webContents.executeJavaScript(
+      `(() => {
+        window.confirm = () => true;
+        const rows = [...document.querySelectorAll(".credential-row")];
+        const row = rows.find(
+          (item) => item.querySelector("strong")?.textContent === "Grafana 2",
+        );
+        row?.querySelectorAll("button")[1]?.click();
+      })()`,
+      true,
+    );
+    if (
+      !(await waitForCondition(async () => {
+        const names = (await window.webContents.executeJavaScript(
+          '[...document.querySelectorAll(".credential-row strong")].map((node) => node.textContent)',
+        )) as string[];
+        return Array.isArray(names) && !names.includes("Grafana 2");
+      }, 5000))
+    ) {
+      throw new Error("deleting a password did not update the list");
+    }
+    console.log("[smoke] credentials deleted");
+
+    await window.webContents.executeJavaScript(
+      'document.getElementById("profile-back")?.click()',
+      true,
+    );
+    if (!(await waitForScreen(window, "main", 3000))) {
+      throw new Error("could not return to the dashboard list");
+    }
+    await window.webContents.executeJavaScript(
+      'document.querySelector(".profile-actions button")?.click()',
+      true,
+    );
+    if (!(await waitForDashboard(5000)) || !(await waitForDashboardLoad(30_000))) {
+      throw new Error("the dashboard did not open");
+    }
+    const toolbar = dashboardToolbar;
+    if (!toolbar) {
+      throw new Error("the toolbar did not open");
+    }
+
+    if (
+      !(await waitForCondition(async () => {
+        const hidden = (await toolbar.webContents.executeJavaScript(
+          'document.getElementById("passwords")?.hidden',
+        )) as boolean;
+        return hidden === false;
+      }, 5000))
+    ) {
+      throw new Error("the toolbar did not receive the saved passwords");
+    }
+    const leaked = (await toolbar.webContents.executeJavaScript(
+      'document.body.innerText.includes("hunter2") || document.body.innerText.includes("grafana-secret") || document.body.innerText.includes("opencode-secret")',
+    )) as boolean;
+    if (leaked) {
+      throw new Error("the toolbar DOM contains a stored password");
+    }
+    console.log("[smoke] credentials toolbar ready");
+
+    await toolbar.webContents.executeJavaScript(
+      'document.getElementById("passwords")?.click()',
+      true,
+    );
+    if (
+      !(await waitForCondition(async () => {
+        const open = (await toolbar.webContents.executeJavaScript(
+          'document.getElementById("passwords-panel")?.classList.contains("open")',
+        )) as boolean;
+        return open === true;
+      }, 3000))
+    ) {
+      throw new Error("the passwords panel did not open");
+    }
+    const rows = (await toolbar.webContents.executeJavaScript(
+      'document.querySelectorAll(".credential").length',
+    )) as number;
+    if (rows !== 2) {
+      throw new Error(`the passwords panel shows ${rows} rows, want 2`);
+    }
+    console.log("[smoke] credentials panel=2");
+
+    await toolbar.webContents.executeJavaScript(
+      `(() => {
+        const rows = [...document.querySelectorAll(".credential")];
+        const row = rows.find(
+          (item) => item.querySelector("strong")?.textContent === "Jellyfin",
+        );
+        const button = [...(row?.querySelectorAll("button") ?? [])].find(
+          (item) => item.textContent === "Password",
+        );
+        button?.click();
+      })()`,
+      true,
+    );
+    if (
+      !(await waitForCondition(async () => (await clipboard.readText()) === "hunter2", 3000))
+    ) {
+      throw new Error("copying the password did not reach the clipboard");
+    }
+    console.log("[smoke] credentials copied");
+    if (
+      !(await waitForCondition(async () => (await clipboard.readText()) === "", 4000))
+    ) {
+      throw new Error("the clipboard was not cleared after the timeout");
+    }
+    console.log("[smoke] credentials clipboard cleared");
+
+    const after = (await toolbar.webContents.executeJavaScript(
+      'document.body.innerText.includes("hunter2")',
+    )) as boolean;
+    if (after) {
+      throw new Error("the copied password appeared in the toolbar DOM");
+    }
+    console.log("[smoke] credentials toolbar clean");
+
+    app.quit();
+  } catch (error) {
+    console.error(`[smoke] credentials failed: ${errorMessage(error)}`);
     process.exitCode = 1;
     app.quit();
   }
@@ -2241,7 +2649,15 @@ app.whenReady().then(async () => {
   });
 });
 
-app.on("before-quit", () => {
+app.on("before-quit", (event) => {
+  if (!quitting && clipboardValue) {
+    quitting = true;
+    event.preventDefault();
+    void clearClipboardIfOurs().finally(() => {
+      app.quit();
+    });
+    return;
+  }
   stopIdleMonitor();
   core?.stop();
 });

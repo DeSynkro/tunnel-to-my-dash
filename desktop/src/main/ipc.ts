@@ -7,6 +7,7 @@ import { IPC } from "../shared/ipc";
 import type {
   AppSettings,
   ConnectResult,
+  CredentialInput,
   ProfileInput,
   SecuritySettings,
 } from "../shared/types";
@@ -55,6 +56,28 @@ export function registerIpc(options: IpcOptions): void {
   ipcMain.handle(IPC.deleteProfile, (_event, id: unknown) => control().deleteProfile(stringArg(id)));
   ipcMain.handle(IPC.activateProfile, (_event, id: unknown) => control().activateProfile(stringArg(id)));
   ipcMain.handle(IPC.checkProfile, (_event, id: unknown) => control().checkProfile(stringArg(id)));
+  ipcMain.handle(IPC.listCredentials, (_event, profileID: unknown) =>
+    control().listCredentials(stringArg(profileID)),
+  );
+  ipcMain.handle(
+    IPC.addCredential,
+    (_event, profileID: unknown, input: CredentialInput) =>
+      control().addCredential(stringArg(profileID), credentialArg(input)),
+  );
+  ipcMain.handle(
+    IPC.updateCredential,
+    (_event, profileID: unknown, credentialID: unknown, input: CredentialInput) =>
+      control().updateCredential(
+        stringArg(profileID),
+        stringArg(credentialID),
+        credentialArg(input),
+      ),
+  );
+  ipcMain.handle(
+    IPC.deleteCredential,
+    (_event, profileID: unknown, credentialID: unknown) =>
+      control().deleteCredential(stringArg(profileID), stringArg(credentialID)),
+  );
   ipcMain.handle(IPC.connect, async (_event, id: unknown) => {
     const profileID = stringArg(id);
     const result = await control().connect(profileID);
@@ -132,6 +155,27 @@ function stringArg(value: unknown): string {
     throw new Error("Invalid request.");
   }
   return value;
+}
+
+function credentialArg(value: unknown): CredentialInput {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Invalid saved password");
+  }
+  const raw = value as Record<string, unknown>;
+  if (typeof raw.name !== "string" || typeof raw.password !== "string") {
+    throw new Error("Invalid saved password");
+  }
+  const input: CredentialInput = {
+    name: raw.name,
+    password: raw.password,
+  };
+  if (typeof raw.url === "string" && raw.url !== "") {
+    input.url = raw.url;
+  }
+  if (typeof raw.username === "string" && raw.username !== "") {
+    input.username = raw.username;
+  }
+  return input;
 }
 
 function securityArg(value: unknown): SecuritySettings {

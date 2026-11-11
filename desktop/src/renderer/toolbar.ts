@@ -1,4 +1,8 @@
-import type { NavigationBridge } from "../shared/types";
+import type {
+  CredentialField,
+  CredentialSummary,
+  NavigationBridge,
+} from "../shared/types";
 
 declare global {
   interface Window {
@@ -22,6 +26,13 @@ const forward = element<HTMLButtonElement>("forward");
 const reload = element<HTMLButtonElement>("reload");
 const home = element<HTMLButtonElement>("home");
 const address = element<HTMLElement>("address");
+const passwordsButton = element<HTMLButtonElement>("passwords");
+const passwordsPanel = element<HTMLElement>("passwords-panel");
+const passwordsList = element<HTMLElement>("passwords-list");
+const passwordsCount = element<HTMLElement>("passwords-count");
+
+let credentials: CredentialSummary[] = [];
+let panelOpen = false;
 
 appButton.addEventListener("click", () => {
   void bridge.backToApp();
@@ -41,12 +52,137 @@ reload.addEventListener("click", () => {
 home.addEventListener("click", () => {
   void bridge.home();
 });
+passwordsButton.addEventListener("click", () => {
+  if (panelOpen) {
+    hidePanel();
+    return;
+  }
+  void openPanel();
+});
+
+function renderCredentials(): void {
+  passwordsButton.hidden = credentials.length === 0;
+  passwordsCount.textContent =
+    credentials.length === 0 ? "" : `${credentials.length} saved`;
+  passwordsList.replaceChildren();
+
+  for (const credential of credentials) {
+    const row = document.createElement("div");
+    row.className = "credential";
+
+    const info = document.createElement("div");
+    info.className = "credential-info";
+    const name = document.createElement("strong");
+    name.textContent = credential.name;
+    name.title = credential.name;
+    const detail = document.createElement("span");
+    detail.textContent = credential.username || "No username";
+    detail.title = credential.username || "";
+    info.append(name, detail);
+
+    const actions = document.createElement("div");
+    actions.className = "credential-actions";
+    const user = document.createElement("button");
+    user.type = "button";
+    user.textContent = "Username";
+    user.title = "Copy username";
+    user.addEventListener("click", () => {
+      void copyCredential(credential.id, "username", user);
+    });
+    const password = document.createElement("button");
+    password.type = "button";
+    password.textContent = "Password";
+    password.title = "Copy password";
+    password.addEventListener("click", () => {
+      void copyCredential(credential.id, "password", password);
+    });
+    actions.append(user, password);
+
+    row.append(info, actions);
+    passwordsList.append(row);
+  }
+}
+
+async function copyCredential(
+  credentialID: string,
+  field: CredentialField,
+  button: HTMLButtonElement,
+): Promise<void> {
+  const label = button.textContent ?? "";
+  button.disabled = true;
+  try {
+    await bridge.copyCredential(credentialID, field);
+    button.textContent = "Copied";
+  } catch {
+    button.textContent = "Failed";
+  }
+  window.setTimeout(() => {
+    button.textContent = label;
+    button.disabled = false;
+  }, 1200);
+}
+
+async function openPanel(): Promise<void> {
+  if (panelOpen || credentials.length === 0) {
+    return;
+  }
+
+  panelOpen = true;
+  passwordsButton.setAttribute("aria-expanded", "true");
+  passwordsPanel.hidden = false;
+  const height = Math.ceil(passwordsPanel.getBoundingClientRect().height);
+  try {
+    await bridge.openPanel(height);
+    passwordsPanel.classList.add("open");
+  } catch {
+    panelOpen = false;
+    passwordsPanel.hidden = true;
+    passwordsButton.setAttribute("aria-expanded", "false");
+  }
+}
+
+function hidePanel(notify = true): void {
+  if (!panelOpen) {
+    return;
+  }
+
+  panelOpen = false;
+  passwordsPanel.classList.remove("open");
+  passwordsPanel.hidden = true;
+  passwordsButton.setAttribute("aria-expanded", "false");
+  if (notify) {
+    void bridge.closePanel();
+  }
+}
+
+bridge.onCredentials((state) => {
+  credentials = state.credentials;
+  renderCredentials();
+  if (credentials.length === 0) {
+    hidePanel();
+  }
+});
+
+bridge.onPanelState((state) => {
+  if (!state.open) {
+    hidePanel(false);
+  }
+});
+
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    hidePanel();
+  }
+});
 
 bridge.onState((state) => {
   back.disabled = !state.canGoBack;
   forward.disabled = !state.canGoForward;
   lockButton.hidden = !state.passwordProtected;
   document.body.dataset.mode = state.mode;
+  if (state.mode === "peek") {
+    hidePanel(false);
+  }
 
   try {
     const url = new URL(state.url);

@@ -37,6 +37,20 @@
       <span class="divider" aria-hidden="true"></span>
       <button
         type="button"
+        id="passwords"
+        title="Saved passwords"
+        aria-label="Saved passwords"
+        aria-expanded="false"
+        hidden
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="8" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.6" />
+          <path d="M10.5 10.5 20 20M16 16l2-2M13 13l2-2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+        </svg>
+        <span>Passwords</span>
+      </button>
+      <button
+        type="button"
         id="app"
         title="Back to main menu"
         aria-label="Back to main menu"
@@ -54,6 +68,15 @@
         <span>Lock</span>
       </button>
     </nav>
+
+    <section class="panel" id="passwords-panel" aria-label="Saved passwords" hidden>
+      <div class="panel-head">
+        <span>Saved passwords</span>
+        <span id="passwords-count"></span>
+      </div>
+      <div class="panel-list" id="passwords-list"></div>
+    </section>
+
     <script src="./toolbar.js"></script>
   </body>
 </html>

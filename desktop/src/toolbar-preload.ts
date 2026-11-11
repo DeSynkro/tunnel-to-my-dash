@@ -1,6 +1,11 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { IPC } from "./shared/ipc";
-import type { NavigationBridge, NavState } from "./shared/types";
+import type {
+  NavigationBridge,
+  NavState,
+  ToolbarCredentialsState,
+  ToolbarPanelState,
+} from "./shared/types";
 
 const api: NavigationBridge = {
   back: () => ipcRenderer.invoke(IPC.navBack),
@@ -16,6 +21,26 @@ const api: NavigationBridge = {
       ipcRenderer.removeListener(IPC.navState, listener);
     };
   },
+  onCredentials: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, state: ToolbarCredentialsState) =>
+      callback(state);
+    ipcRenderer.on(IPC.toolbarCredentials, listener);
+    return () => {
+      ipcRenderer.removeListener(IPC.toolbarCredentials, listener);
+    };
+  },
+  onPanelState: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, state: ToolbarPanelState) =>
+      callback(state);
+    ipcRenderer.on(IPC.toolbarPanelState, listener);
+    return () => {
+      ipcRenderer.removeListener(IPC.toolbarPanelState, listener);
+    };
+  },
+  copyCredential: (credentialID, field) =>
+    ipcRenderer.invoke(IPC.toolbarCopyCredential, credentialID, field),
+  openPanel: (height) => ipcRenderer.invoke(IPC.toolbarPanel, { open: true, height }),
+  closePanel: () => ipcRenderer.invoke(IPC.toolbarPanel, { open: false }),
 };
 
 contextBridge.exposeInMainWorld("ttmdNav", api);

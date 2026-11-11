@@ -56,6 +56,35 @@ export interface CheckResult {
   reachable: boolean;
 }
 
+export interface CredentialSummary {
+  id: string;
+  name: string;
+  url?: string;
+  username?: string;
+}
+
+export interface CredentialInput {
+  name: string;
+  url?: string;
+  username?: string;
+  password: string;
+}
+
+export interface CredentialSecret {
+  username: string;
+  password: string;
+}
+
+export type CredentialField = "username" | "password";
+
+export interface ToolbarCredentialsState {
+  credentials: CredentialSummary[];
+}
+
+export interface ToolbarPanelState {
+  open: boolean;
+}
+
 export interface ConfigFile {
   name: string;
   text: string;
@@ -79,6 +108,11 @@ export interface NavigationBridge {
   backToApp(): Promise<void>;
   lock(): Promise<void>;
   onState(callback: (state: NavState) => void): () => void;
+  onCredentials(callback: (state: ToolbarCredentialsState) => void): () => void;
+  onPanelState(callback: (state: ToolbarPanelState) => void): () => void;
+  copyCredential(credentialID: string, field: CredentialField): Promise<void>;
+  openPanel(height: number): Promise<void>;
+  closePanel(): Promise<void>;
 }
 
 export interface LockBridge {
@@ -99,6 +133,14 @@ export interface TtmdBridge {
   deleteProfile(id: string): Promise<void>;
   activateProfile(id: string): Promise<Status>;
   checkProfile(id: string): Promise<CheckResult>;
+  listCredentials(profileID: string): Promise<CredentialSummary[]>;
+  addCredential(profileID: string, input: CredentialInput): Promise<CredentialSummary>;
+  updateCredential(
+    profileID: string,
+    credentialID: string,
+    input: CredentialInput,
+  ): Promise<CredentialSummary>;
+  deleteCredential(profileID: string, credentialID: string): Promise<void>;
   connect(id: string): Promise<ConnectResult>;
   disconnect(): Promise<Status>;
   getSettings(): Promise<AppSettings>;
