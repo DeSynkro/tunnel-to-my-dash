@@ -460,4 +460,18 @@ content is a later phase.
 - [x] No unexpected outbound traffic beyond the WireGuard endpoint.
 
 Desktop pass complete. Remaining: the deferred external-content toggle, Jellyfin
-and OpenCode checks, friendly tunnel error pages, and AppImage packaging.
+and OpenCode checks, and friendly tunnel error pages.
+
+## Phase 4 — Linux AppImage
+
+- [x] electron-builder AppImage with the Go core in `resources/ttmd-core`
+- [x] Portable `tunnel-to-my-dash-data/` beside the AppImage, with fallback
+- [x] Chromium sandbox verified without `--no-sandbox`
+- [x] SHA-256 checksums and `make release`
+- [x] Real AppImage pass against the home dashboard
+- [x] CI workflow and Dependabot (first hosted run pending)
+- [x] Manual update path documented, no update pings
+- [ ] GPG-signed release artifacts
+- [ ] Automated network audit in CI
+
+Artifact: `desktop/release/Tunnel-to-My-Dash-0.1.0-x86_64.AppImage`.

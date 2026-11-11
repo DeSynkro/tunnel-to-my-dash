@@ -74,15 +74,21 @@ internet toggle and the Jellyfin/OpenCode checks.
 
 ## Phase 4 — AppImage, portable data and updates
 
-- [ ] AppImage with the Go core bundled
-- [ ] Portable data directory beside the AppImage, with fallback
-- [ ] Verify the Chromium sandbox works without `--no-sandbox`
-- [ ] Signed checksums and release script
-- [ ] CI: tests, build, dependency updates, network audit
-- [ ] Manual update check without telemetry
+- [x] AppImage with the Go core bundled
+- [x] Portable data directory beside the AppImage, with fallback
+- [x] Verify the Chromium sandbox works without `--no-sandbox`
+- [x] SHA-256 checksums and `make release`
+- [x] CI workflow, AppImage build and dependency updates (first hosted run
+      pending)
+- [x] Manual update path without telemetry
+- [ ] GPG-signed release artifacts
+- [ ] Automated network audit in CI
 
 Done when a fresh user can download one file, run it, and reach their
 dashboard without installing anything else.
+
+Phase 4 complete on Linux: the packaged AppImage loaded the real dashboard
+with portable data beside it and the Chromium sandbox enabled.
 
 ## Phase 5 — Real-world pass
 

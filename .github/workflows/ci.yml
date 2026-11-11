@@ -1,0 +1,51 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install the pinned Go toolchain
+        run: make toolchain
+
+      - name: Core checks
+        run: make check
+
+      - name: Desktop dependencies
+        run: make desktop-deps
+
+      - name: Desktop typecheck and build
+        run: make desktop-check
+
+      - name: Build AppImage
+        run: make appimage
+
+      - name: Checksums
+        run: make checksums
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage
+          path: |
+            desktop/release/*.AppImage
+            desktop/release/SHA256SUMS
+          if-no-files-found: error

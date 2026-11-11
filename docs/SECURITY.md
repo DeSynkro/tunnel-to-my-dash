@@ -92,7 +92,9 @@ so.
 - [x] Verify the dashboard cannot navigate to a public page.
 - [x] Verify loopback and public destinations are refused by the proxy.
 - [x] Verify no TUN device is created and no elevated privileges are used.
-- [ ] Verify the AppImage runs with the Chromium sandbox enabled.
+- [x] Verify the AppImage runs with the Chromium sandbox enabled. The
+      packaged build loaded the dashboard without `--no-sandbox`; only the
+      usual GPU-worker sandbox warning appeared.
 - [x] Verify keys are absent from logs, the config file and crash output.
 - [x] Verify the vault and key file permissions.
 - [ ] Verify a failed handshake leaves the browser with no network access.

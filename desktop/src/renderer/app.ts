@@ -66,6 +66,7 @@ const addSubmit = element<HTMLButtonElement>("add-submit");
 const addCancel = element<HTMLButtonElement>("add-cancel");
 const mainNote = element<HTMLElement>("main-note");
 const securityState = element<HTMLElement>("security-state");
+const appVersion = element<HTMLElement>("app-version");
 
 let status: Status | null = null;
 let addFormOpen = false;
@@ -473,6 +474,12 @@ errorRetry.addEventListener("click", () => {
 });
 
 if (bridge) {
+  bridge
+    .version()
+    .then((version) => {
+      appVersion.textContent = ` · v${version}`;
+    })
+    .catch(() => undefined);
   bridge.onStatusChanged(() => {
     void refresh();
   });
