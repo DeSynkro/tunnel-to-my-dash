@@ -17,12 +17,14 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
   enabling or disabling the app lock.
 - Add a confirm-password field to first-run setup and password changes. This
   prevents typos and lockouts.
-- Let dashboard service tiles open in the app. Homarr-style dashboards use
-  `target="_blank"` for their service links; the dashboard window currently
-  denies all new windows, so the tiles do nothing. Allow private http(s) URLs
-  in a same-session child window and keep public URLs blocked.
 - Offer a deliberate "open in normal browser" path for public dashboard
   links, instead of leaving them dead.
+
+## Done
+
+- Dashboard service tiles: Homarr-style `target="_blank"` links now open
+  private http(s) URLs in a same-session child window. Public URLs stay
+  blocked.
 
 ## Later
 

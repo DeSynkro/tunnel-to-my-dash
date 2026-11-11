@@ -60,6 +60,7 @@ export/import, lockout and tamper checks.
 - [ ] Internet toggle and external-site panel (deferred; proxy is LAN-only)
 - [x] Sidecar lifecycle and local control socket
 - [x] Sandboxed dashboard window with proxy
+- [x] Dashboard service tiles open in-app for private http(s) URLs
 - [x] Navigation and permission restrictions
 - [x] Disable Chromium background networking, DNS and service hooks
 - [ ] Friendly error pages for endpoint and handshake failures

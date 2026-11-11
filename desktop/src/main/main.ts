@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { app, BrowserWindow, Menu, session } from "electron";
+import { app, BrowserWindow, Menu, session, type WebPreferences } from "electron";
 import path from "node:path";
 import { IPC } from "../shared/ipc";
 import type { ConnectResult } from "../shared/types";
@@ -7,6 +7,7 @@ import { ControlClient } from "./control-client";
 import { CoreProcess } from "./core-process";
 import { resolveDataRoot } from "./data-dir";
 import { registerIpc } from "./ipc";
+import { isPrivateHttpUrl } from "./private-url";
 
 app.setName("Tunnel to My Dash");
 
@@ -55,6 +56,7 @@ let coreError: string | null = null;
 let core: CoreProcess | null = null;
 let mainWindow: BrowserWindow | null = null;
 let dashboardWindow: BrowserWindow | null = null;
+const dashboardChildren = new Set<BrowserWindow>();
 
 function resolveCorePath(): string {
   if (process.env.TTMD_CORE) {
@@ -87,6 +89,54 @@ async function startCore(): Promise<void> {
   }
 }
 
+function dashboardWebPreferences(partition: string): WebPreferences {
+  return {
+    partition,
+    contextIsolation: true,
+    sandbox: true,
+    nodeIntegration: false,
+    webSecurity: true,
+    allowRunningInsecureContent: false,
+    spellcheck: false,
+    webviewTag: false,
+    devTools: !app.isPackaged,
+  };
+}
+
+function secureDashboardWindow(window: BrowserWindow, partition: string): void {
+  window.setMenuBarVisibility(false);
+
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    if (!isPrivateHttpUrl(url)) {
+      return { action: "deny" };
+    }
+    return {
+      action: "allow",
+      overrideBrowserWindowOptions: {
+        width: 1100,
+        height: 780,
+        minWidth: 800,
+        minHeight: 600,
+        autoHideMenuBar: true,
+        backgroundColor: "#0e1012",
+        webPreferences: dashboardWebPreferences(partition),
+      },
+    };
+  });
+
+  window.webContents.on("will-navigate", (event, url) => {
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      event.preventDefault();
+    }
+  });
+
+  window.webContents.on("did-create-window", (child) => {
+    dashboardChildren.add(child);
+    child.once("closed", () => dashboardChildren.delete(child));
+    secureDashboardWindow(child, partition);
+  });
+}
+
 async function openDashboard(profileID: string, result: ConnectResult): Promise<void> {
   if (dashboardWindow) {
     dashboardWindow.focus();
@@ -114,27 +164,11 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
     title: "Tunnel to My Dash",
     backgroundColor: "#0e1012",
     autoHideMenuBar: true,
-    webPreferences: {
-      partition,
-      contextIsolation: true,
-      sandbox: true,
-      nodeIntegration: false,
-      webSecurity: true,
-      allowRunningInsecureContent: false,
-      spellcheck: false,
-      webviewTag: false,
-      devTools: !app.isPackaged,
-    },
+    webPreferences: dashboardWebPreferences(partition),
   });
   dashboardWindow = window;
+  secureDashboardWindow(window, partition);
 
-  window.setMenuBarVisibility(false);
-  window.webContents.setWindowOpenHandler(() => ({ action: "deny" as const }));
-  window.webContents.on("will-navigate", (event, url) => {
-    if (!url.startsWith("http://") && !url.startsWith("https://")) {
-      event.preventDefault();
-    }
-  });
   window.on("closed", () => {
     dashboardWindow = null;
     if (control) {
@@ -286,6 +320,31 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
             }
           }
 
+          if (full && dashboardWindow) {
+            const clicked = (await dashboardWindow.webContents.executeJavaScript(
+              `(() => {
+                const link = document.querySelector('a[target="_blank"][href^="http://192.168."]');
+                if (!link) return false;
+                link.click();
+                return true;
+              })()`,
+              true,
+            )) as boolean;
+
+            console.log(`[smoke] service link clicked=${clicked}`);
+            if (clicked) {
+              const opened = await waitForServiceWindow(3000);
+              console.log(`[smoke] service window opened=${opened}`);
+              if (!opened) {
+                process.exitCode = 1;
+              }
+              for (const child of Array.from(dashboardChildren)) {
+                child.close();
+              }
+              await delay(200);
+            }
+          }
+
           dashboardWindow?.close();
           dashboardClosed = true;
           await delay(200);
@@ -352,6 +411,17 @@ async function waitForDashboardLoad(timeoutMs: number): Promise<boolean> {
     });
     window.once("closed", () => finish(false));
   });
+}
+
+async function waitForServiceWindow(timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (dashboardChildren.size > 0) {
+      return true;
+    }
+    await delay(50);
+  }
+  return false;
 }
 
 async function waitForDashboard(timeoutMs: number): Promise<boolean> {
