@@ -1,16 +1,16 @@
 :root {
   color-scheme: dark;
-  --bg: #0b0d12;
-  --surface: #11141b;
-  --surface-raised: #171b23;
-  --border: rgba(233, 235, 239, 0.08);
-  --border-strong: rgba(233, 235, 239, 0.14);
-  --text: #e9ebef;
-  --secondary: #a2a8b3;
-  --muted: #7f8795;
-  --faint: #626a77;
-  --accent: #7fd1b9;
-  --accent-soft: rgba(127, 209, 185, 0.14);
+  --bg: #0a1011;
+  --surface: #0f1618;
+  --surface-raised: #151d1f;
+  --border: rgba(240, 229, 212, 0.09);
+  --border-strong: rgba(240, 229, 212, 0.16);
+  --text: #ece7dd;
+  --secondary: #a9a49a;
+  --muted: #847f76;
+  --faint: #7b756c;
+  --accent: #f0a35a;
+  --accent-soft: rgba(240, 163, 90, 0.14);
   --danger: #d18c86;
   --danger-border: rgba(209, 140, 134, 0.32);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -524,7 +524,7 @@ button {
 }
 
 button:hover:not(:disabled) {
-  background: #f4f6f8;
+  background: #f7f1e3;
 }
 
 button:active:not(:disabled) {

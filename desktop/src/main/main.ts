@@ -597,7 +597,7 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
     minHeight: 600,
     title: "Tunnel to My Dash",
     icon: path.join(__dirname, "icon.png"),
-    backgroundColor: "#0e1012",
+    backgroundColor: "#0a1011",
   });
 
   const view = new WebContentsView({
@@ -735,7 +735,7 @@ function createWindow(): void {
     center: true,
     title: "Tunnel to My Dash",
     icon: path.join(__dirname, "icon.png"),
-    backgroundColor: "#0e1012",
+    backgroundColor: "#0a1011",
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
