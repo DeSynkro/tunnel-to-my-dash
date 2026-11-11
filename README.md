@@ -26,8 +26,9 @@ the app's own traffic uses the tunnel.
 - A small Go core runs a userspace WireGuard device and a TCP/IP stack, so no
   root or system VPN slot is needed.
 - A localhost HTTP proxy feeds the app's browser view through that tunnel.
-- The browser view is Chromium (via Electron). By default it can only reach
-  private addresses; public pages are blocked.
+- The browser view is Chromium (via Electron), with a small toolbar and
+  in-place navigation. By default it can only reach private addresses; public
+  pages are blocked.
 - Secrets live in an encrypted vault. The app lock is optional; the same
   password unlocks the vault.
 - The first desktop release is LAN-only. An internet toggle for external fonts
@@ -84,9 +85,11 @@ one. The app does not phone home for updates.
 
 - LAN-only: external fonts and widgets are blocked until the internet toggle
   lands.
-- The dashboard opens in its own window. A single-window toolbar is planned.
+- The dashboard opens in its own window with a toolbar; links stay in the same
+  view. A same-window/new-window setting is planned.
 - Windows and Android packaging come after the Linux AppImage.
-- Jellyfin playback and OpenCode are next on the real-world test list.
+- Jellyfin playback inside the app is still untested; Jellyfin, OpenCode and
+  the laptop dashboard answered over HTTP through the tunnel.
 - Release artifacts have SHA-256 checksums; GPG signing will follow when a
   release key exists.
 

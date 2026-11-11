@@ -298,7 +298,9 @@ function createWindow(): void {
   if (
     process.env.TTMD_SMOKE === "1" ||
     process.env.TTMD_SMOKE === "full" ||
-    process.env.TTMD_SMOKE === "idle"
+    process.env.TTMD_SMOKE === "idle" ||
+    process.env.TTMD_SMOKE === "settings" ||
+    process.env.TTMD_SMOKE === "setup"
   ) {
     mainWindow.webContents.once("did-finish-load", () => {
       if (mainWindow) {
@@ -311,7 +313,9 @@ function createWindow(): void {
 async function runSmoke(window: BrowserWindow): Promise<void> {
   const full = process.env.TTMD_SMOKE === "full";
   const idle = process.env.TTMD_SMOKE === "idle";
-  const deadline = Date.now() + (full ? 45_000 : 12_000);
+  const settings = process.env.TTMD_SMOKE === "settings";
+  const setupSmoke = process.env.TTMD_SMOKE === "setup";
+  const deadline = Date.now() + (full || settings || setupSmoke ? 60_000 : 12_000);
   let submitted = false;
   let dashboardTried = false;
   let dashboardClosed = false;
@@ -329,6 +333,36 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
         console.log(`[smoke] idle screen=${state.screen}`);
         app.quit();
         return;
+      }
+
+      if (settings) {
+        if (state.screen === "main") {
+          await runSettingsSmoke(window);
+          return;
+        }
+        if (state.screen === "error" || state.screen === "lock" || state.screen === "setup") {
+          console.error(`[smoke] settings needs a seeded, unlocked vault, got screen=${state.screen}`);
+          process.exitCode = 1;
+          app.quit();
+          return;
+        }
+        await delay(100);
+        continue;
+      }
+
+      if (setupSmoke) {
+        if (state.screen === "setup") {
+          await runSetupSmoke(window);
+          return;
+        }
+        if (state.screen === "error" || state.screen === "lock" || state.screen === "main") {
+          console.error(`[smoke] setup needs an empty data directory, got screen=${state.screen}`);
+          process.exitCode = 1;
+          app.quit();
+          return;
+        }
+        await delay(100);
+        continue;
       }
 
       if (!submitted && state.screen === "setup") {
@@ -469,6 +503,305 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
   console.error("[smoke] the UI did not settle in time");
   process.exitCode = 1;
   app.quit();
+}
+
+async function runSetupSmoke(window: BrowserWindow): Promise<void> {
+  try {
+    console.log("[smoke] setup start");
+    const config = smokeTunnelConfig();
+
+    await window.webContents.executeJavaScript(
+      `(() => {
+        const set = (id, value) => {
+          const node = document.getElementById(id);
+          if (node) node.value = value;
+        };
+        set("setup-name", "Home");
+        set("setup-config", ${JSON.stringify(config)});
+        set("setup-url", "http://192.168.0.3:3000");
+        const lock = document.getElementById("setup-lock");
+        if (lock) {
+          lock.checked = true;
+          lock.dispatchEvent(new Event("change"));
+        }
+        set("setup-password", "setup-pass");
+        set("setup-password-confirm", "setup-pasx");
+        document.getElementById("setup-form")?.requestSubmit();
+      })()`,
+      true,
+    );
+
+    if (!(await waitForText(window, "setup-error", "Passwords do not match.", 3000))) {
+      throw new Error("mismatched setup passwords were not rejected");
+    }
+    console.log("[smoke] setup confirm mismatch rejected");
+
+    await window.webContents.executeJavaScript(
+      `(() => {
+        const lock = document.getElementById("setup-lock");
+        if (lock) {
+          lock.checked = false;
+          lock.dispatchEvent(new Event("change"));
+        }
+        document.getElementById("setup-form")?.requestSubmit();
+      })()`,
+      true,
+    );
+
+    if (!(await waitForScreen(window, "main", 10_000))) {
+      throw new Error("the first-run setup did not complete");
+    }
+    const profiles = (await window.webContents.executeJavaScript(
+      'document.querySelectorAll(".profile").length',
+    )) as number;
+    console.log(`[smoke] setup complete profiles=${profiles}`);
+    if (profiles < 1) {
+      throw new Error("the first-run setup saved no profile");
+    }
+
+    app.quit();
+  } catch (error) {
+    console.error(`[smoke] setup failed: ${errorMessage(error)}`);
+    process.exitCode = 1;
+    app.quit();
+  }
+}
+
+async function runSettingsSmoke(window: BrowserWindow): Promise<void> {
+  try {
+    console.log("[smoke] settings start");
+
+    await window.webContents.executeJavaScript(
+      'document.getElementById("settings-toggle")?.click()',
+      true,
+    );
+    if (!(await waitForScreen(window, "settings", 3000))) {
+      throw new Error("settings screen did not open");
+    }
+
+    const summary = (await window.webContents.executeJavaScript(`({
+      profiles: document.querySelectorAll(".settings-profile").length,
+      lockState: document.getElementById("settings-lock-state")?.textContent || "",
+    })`)) as { profiles: number; lockState: string };
+    console.log(
+      `[smoke] settings profiles=${summary.profiles} lock=${JSON.stringify(summary.lockState)}`,
+    );
+    if (summary.profiles < 1) {
+      throw new Error("no profile editor in settings");
+    }
+
+    await window.webContents.executeJavaScript(
+      `(() => {
+        const set = (id, value) => {
+          const node = document.getElementById(id);
+          if (node) node.value = value;
+        };
+        set("settings-new-password", "smoke-pass");
+        set("settings-new-password-confirm", "smoke-pasx");
+        document.getElementById("settings-password-form")?.requestSubmit();
+      })()`,
+      true,
+    );
+    if (!(await waitForText(window, "settings-password-error", "Passwords do not match.", 3000))) {
+      throw new Error("mismatched passwords were not rejected");
+    }
+    console.log("[smoke] settings confirm mismatch rejected");
+
+    const seeded = await control?.status();
+    const originalName = seeded?.profiles[0]?.name;
+    if (!originalName) {
+      throw new Error("the seeded profile is missing");
+    }
+
+    await window.webContents.executeJavaScript(
+      `(() => {
+        const input = document.querySelector(".settings-profile-name");
+        if (input) input.value = "Home edited";
+        document.querySelector(".settings-profile-save")?.click();
+      })()`,
+      true,
+    );
+    if (!(await waitForProfileName("Home edited", 5000))) {
+      throw new Error("profile rename was not saved");
+    }
+    if (!(await waitForProfileSaveIdle(window, 3000))) {
+      throw new Error("the profile save button stayed busy");
+    }
+    console.log("[smoke] settings profile rename saved");
+
+    await window.webContents.executeJavaScript(
+      `(() => {
+        const input = document.querySelector(".settings-profile-name");
+        if (input) input.value = ${JSON.stringify(originalName)};
+        document.querySelector(".settings-profile-save")?.click();
+      })()`,
+      true,
+    );
+    if (!(await waitForProfileName(originalName, 5000))) {
+      throw new Error("profile rename was not restored");
+    }
+    if (!(await waitForProfileSaveIdle(window, 3000))) {
+      throw new Error("the profile save button stayed busy after restoring the name");
+    }
+
+    await window.webContents.executeJavaScript(
+      `(() => {
+        const set = (id, value) => {
+          const node = document.getElementById(id);
+          if (node) node.value = value;
+        };
+        set("settings-new-password", "smoke-pass");
+        set("settings-new-password-confirm", "smoke-pass");
+        document.getElementById("settings-password-form")?.requestSubmit();
+      })()`,
+      true,
+    );
+    if (!(await waitForPasswordProtected(true, 8000))) {
+      throw new Error("the app lock did not turn on");
+    }
+    if (!(await waitForText(window, "settings-password-note", "App lock is on", 3000))) {
+      throw new Error("the app lock confirmation did not appear");
+    }
+    console.log("[smoke] settings lock on");
+
+    await window.webContents.executeJavaScript(
+      'document.getElementById("settings-back")?.click()',
+      true,
+    );
+    if (!(await waitForScreen(window, "main", 3000))) {
+      throw new Error("could not return to the dashboard list");
+    }
+
+    await window.webContents.executeJavaScript(
+      'document.getElementById("lock-button")?.click()',
+      true,
+    );
+    if (!(await waitForScreen(window, "lock", 5000))) {
+      throw new Error("the lock screen did not open");
+    }
+
+    await window.webContents.executeJavaScript(
+      `(() => {
+        const node = document.getElementById("lock-password");
+        if (node) node.value = "smoke-pass";
+        document.getElementById("lock-form")?.requestSubmit();
+      })()`,
+      true,
+    );
+    if (!(await waitForScreen(window, "main", 8000))) {
+      throw new Error("unlock with the new password failed");
+    }
+    console.log("[smoke] settings lock/unlock ok");
+
+    await window.webContents.executeJavaScript(
+      'document.getElementById("settings-toggle")?.click()',
+      true,
+    );
+    if (!(await waitForScreen(window, "settings", 3000))) {
+      throw new Error("settings did not reopen");
+    }
+
+    const lockUI = (await window.webContents.executeJavaScript(`({
+      oldHidden: document.getElementById("settings-old-password-field")?.hidden,
+      removeHidden: document.getElementById("settings-password-remove")?.hidden,
+    })`)) as { oldHidden: boolean; removeHidden: boolean };
+    if (lockUI.oldHidden !== false || lockUI.removeHidden !== false) {
+      throw new Error("the app lock controls are not visible");
+    }
+
+    await window.webContents.executeJavaScript(
+      `(() => {
+        window.confirm = () => true;
+        const node = document.getElementById("settings-old-password");
+        if (node) node.value = "smoke-pass";
+        document.getElementById("settings-password-remove")?.click();
+      })()`,
+      true,
+    );
+    if (!(await waitForPasswordProtected(false, 8000))) {
+      throw new Error("the app lock did not turn off");
+    }
+    if (!(await waitForText(window, "settings-password-note", "App lock is off", 3000))) {
+      throw new Error("the app lock removal confirmation did not appear");
+    }
+    console.log("[smoke] settings lock off");
+
+    app.quit();
+  } catch (error) {
+    console.error(`[smoke] settings failed: ${errorMessage(error)}`);
+    process.exitCode = 1;
+    app.quit();
+  }
+}
+
+async function waitForScreen(
+  window: BrowserWindow,
+  name: string,
+  timeoutMs: number,
+): Promise<boolean> {
+  return waitForCondition(async () => {
+    const screen = (await window.webContents.executeJavaScript(
+      'document.body.dataset.screen || ""',
+    )) as string;
+    return screen === name;
+  }, timeoutMs);
+}
+
+async function waitForText(
+  window: BrowserWindow,
+  id: string,
+  expected: string,
+  timeoutMs: number,
+): Promise<boolean> {
+  return waitForCondition(async () => {
+    const text = (await window.webContents.executeJavaScript(
+      `document.getElementById(${JSON.stringify(id)})?.textContent || ""`,
+    )) as string;
+    return text.includes(expected);
+  }, timeoutMs);
+}
+
+async function waitForProfileSaveIdle(
+  window: BrowserWindow,
+  timeoutMs: number,
+): Promise<boolean> {
+  return waitForCondition(async () => {
+    const idle = (await window.webContents.executeJavaScript(
+      '(() => { const button = document.querySelector(".settings-profile-save"); return !!button && !button.disabled; })()',
+    )) as boolean;
+    return idle;
+  }, timeoutMs);
+}
+
+async function waitForProfileName(name: string, timeoutMs: number): Promise<boolean> {
+  return waitForCondition(async () => {
+    const state = await control?.status();
+    return state?.profiles[0]?.name === name;
+  }, timeoutMs);
+}
+
+async function waitForPasswordProtected(
+  protectedState: boolean,
+  timeoutMs: number,
+): Promise<boolean> {
+  return waitForCondition(async () => {
+    const state = await control?.status();
+    return state?.password_protected === protectedState;
+  }, timeoutMs);
+}
+
+async function waitForCondition(
+  check: () => Promise<boolean>,
+  timeoutMs: number,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await check()) {
+      return true;
+    }
+    await delay(50);
+  }
+  return false;
 }
 
 async function waitForDashboardLoad(timeoutMs: number): Promise<boolean> {

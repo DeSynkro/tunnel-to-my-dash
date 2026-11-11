@@ -28,6 +28,7 @@ const screens = {
   setup: element<HTMLElement>("screen-setup"),
   lock: element<HTMLElement>("screen-lock"),
   main: element<HTMLElement>("screen-main"),
+  settings: element<HTMLElement>("screen-settings"),
 };
 
 const lockButton = element<HTMLButtonElement>("lock-button");
@@ -45,6 +46,8 @@ const setupLock = element<HTMLInputElement>("setup-lock");
 const setupPasswordField = element<HTMLElement>("setup-password-field");
 const setupPassword = element<HTMLInputElement>("setup-password");
 const setupPasswordHint = element<HTMLElement>("setup-password-hint");
+const setupPasswordConfirmField = element<HTMLElement>("setup-password-confirm-field");
+const setupPasswordConfirm = element<HTMLInputElement>("setup-password-confirm");
 const setupError = element<HTMLElement>("setup-error");
 const setupSubmit = element<HTMLButtonElement>("setup-submit");
 
@@ -68,8 +71,24 @@ const mainNote = element<HTMLElement>("main-note");
 const securityState = element<HTMLElement>("security-state");
 const appVersion = element<HTMLElement>("app-version");
 
+const settingsToggle = element<HTMLButtonElement>("settings-toggle");
+const settingsBack = element<HTMLButtonElement>("settings-back");
+const settingsProfiles = element<HTMLElement>("settings-profiles");
+const settingsLockState = element<HTMLElement>("settings-lock-state");
+const settingsPasswordForm = element<HTMLFormElement>("settings-password-form");
+const settingsOldPasswordField = element<HTMLElement>("settings-old-password-field");
+const settingsOldPassword = element<HTMLInputElement>("settings-old-password");
+const settingsNewPassword = element<HTMLInputElement>("settings-new-password");
+const settingsNewPasswordConfirm = element<HTMLInputElement>("settings-new-password-confirm");
+const settingsPasswordHint = element<HTMLElement>("settings-password-hint");
+const settingsPasswordError = element<HTMLElement>("settings-password-error");
+const settingsPasswordNote = element<HTMLElement>("settings-password-note");
+const settingsPasswordSubmit = element<HTMLButtonElement>("settings-password-submit");
+const settingsPasswordRemove = element<HTMLButtonElement>("settings-password-remove");
+
 let status: Status | null = null;
 let addFormOpen = false;
+let settingsOpen = false;
 
 function api(): TtmdBridge {
   if (!bridge) {
@@ -161,11 +180,16 @@ async function refresh(): Promise<void> {
       return;
     }
     if (status.locked) {
+      settingsOpen = false;
       showScreen("lock");
       lockPassword.focus();
       return;
     }
-    showMain();
+    if (settingsOpen) {
+      showSettings();
+    } else {
+      showMain();
+    }
   } catch (error) {
     showError(message(error));
   }
@@ -176,6 +200,7 @@ function showMain(): void {
     return;
   }
 
+  settingsOpen = false;
   showScreen("main");
   lockButton.hidden = !status.password_protected;
 
@@ -264,6 +289,116 @@ function profileCard(profile: ProfileSummary): HTMLElement {
   return card;
 }
 
+function showSettings(): void {
+  if (!status || status.locked) {
+    return;
+  }
+  settingsOpen = true;
+  renderSettings();
+  showScreen("settings");
+}
+
+function renderSettings(): void {
+  if (!status) {
+    return;
+  }
+
+  settingsProfiles.replaceChildren(
+    ...status.profiles.map((profile) => settingsProfileCard(profile)),
+  );
+
+  settingsLockState.textContent = status.password_protected
+    ? "App lock is on. The vault needs your password after a restart."
+    : "App lock is off. The vault opens with a 0600 key file in the app data folder.";
+  settingsOldPasswordField.hidden = !status.password_protected;
+  settingsPasswordRemove.hidden = !status.password_protected;
+  settingsPasswordSubmit.textContent = status.password_protected
+    ? "Change password"
+    : "Turn on app lock";
+
+  settingsPasswordForm.reset();
+  setFormError(settingsPasswordError, "");
+  settingsPasswordNote.hidden = true;
+  settingsPasswordHint.hidden = true;
+  settingsPasswordHint.textContent = "";
+}
+
+function settingsProfileCard(profile: ProfileSummary): HTMLElement {
+  const card = document.createElement("article");
+  card.className = "settings-profile";
+
+  const nameField = document.createElement("label");
+  nameField.className = "field";
+  const nameLabel = document.createElement("span");
+  nameLabel.textContent = "Profile name";
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.maxLength = 64;
+  nameInput.value = profile.name;
+  nameInput.className = "settings-profile-name";
+  nameField.append(nameLabel, nameInput);
+
+  const urlField = document.createElement("label");
+  urlField.className = "field";
+  const urlLabel = document.createElement("span");
+  urlLabel.textContent = "Dashboard URL";
+  const urlInput = document.createElement("input");
+  urlInput.type = "url";
+  urlInput.value = profile.dashboard_url;
+  urlInput.className = "settings-profile-url";
+  urlField.append(urlLabel, urlInput);
+
+  const formError = document.createElement("p");
+  formError.className = "form-error";
+  formError.hidden = true;
+
+  const actions = document.createElement("div");
+  actions.className = "actions";
+  const save = makeButton("Save profile", "settings-profile-save");
+  const note = document.createElement("span");
+  note.className = "hint settings-profile-note";
+  note.hidden = true;
+  actions.append(save, note);
+
+  save.addEventListener("click", async () => {
+    const name = nameInput.value.trim();
+    const url = urlInput.value.trim();
+    setFormError(formError, "");
+    note.hidden = true;
+
+    if (!name) {
+      setFormError(formError, "Give the profile a name.");
+      return;
+    }
+    if (!url) {
+      setFormError(formError, "Enter the dashboard URL.");
+      return;
+    }
+
+    setBusy(save, true, "Saving…");
+    try {
+      const updated = await api().updateProfile(profile.id, {
+        name,
+        dashboard_url: url,
+        allow_external: profile.allow_external,
+        external_origins: profile.external_origins,
+      });
+      profile.name = updated.name;
+      profile.dashboard_url = updated.dashboard_url;
+      status = await api().getStatus();
+      note.textContent = "Saved.";
+      note.hidden = false;
+    } catch (error) {
+      setFormError(formError, message(error));
+    } finally {
+      setBusy(save, false);
+    }
+  });
+
+  card.append(nameField, urlField, formError, actions);
+  return card;
+}
+
 async function submitSetup(event: SubmitEvent): Promise<void> {
   event.preventDefault();
   setFormError(setupError, "");
@@ -273,6 +408,7 @@ async function submitSetup(event: SubmitEvent): Promise<void> {
   const url = setupURL.value.trim();
   const wantsPassword = setupLock.checked;
   const password = setupPassword.value;
+  const passwordConfirm = setupPasswordConfirm.value;
 
   if (!name) {
     setFormError(setupError, "Give the profile a name.");
@@ -288,6 +424,10 @@ async function submitSetup(event: SubmitEvent): Promise<void> {
   }
   if (wantsPassword && !password) {
     setFormError(setupError, "Enter a password, or turn the app lock off.");
+    return;
+  }
+  if (wantsPassword && password !== passwordConfirm) {
+    setFormError(setupError, "Passwords do not match.");
     return;
   }
 
@@ -314,6 +454,7 @@ async function submitSetup(event: SubmitEvent): Promise<void> {
 
     setupForm.reset();
     setupPasswordField.hidden = true;
+    setupPasswordConfirmField.hidden = true;
     setupPasswordHint.hidden = true;
     setupFile.textContent = "No file chosen";
     await refresh();
@@ -392,29 +533,122 @@ async function submitUnlock(event: SubmitEvent): Promise<void> {
   }
 }
 
-function updatePasswordHint(): void {
-  const length = setupPassword.value.length;
-  if (!setupLock.checked || length === 0) {
-    setupPasswordHint.hidden = true;
-    setupPasswordHint.textContent = "";
+async function submitSettingsPassword(event: SubmitEvent): Promise<void> {
+  event.preventDefault();
+  if (!status) {
+    return;
+  }
+  setFormError(settingsPasswordError, "");
+  settingsPasswordNote.hidden = true;
+
+  const current = settingsOldPassword.value;
+  const next = settingsNewPassword.value;
+  const confirm = settingsNewPasswordConfirm.value;
+
+  if (status.password_protected && !current) {
+    setFormError(settingsPasswordError, "Enter your current password.");
+    return;
+  }
+  if (!next) {
+    setFormError(settingsPasswordError, "Enter a new password.");
+    return;
+  }
+  if (next !== confirm) {
+    setFormError(settingsPasswordError, "Passwords do not match.");
     return;
   }
 
-  setupPasswordHint.hidden = false;
-  if (length < 8) {
-    setupPasswordHint.textContent =
-      "Weak. Fine for a casual lock, not for a stolen device.";
-  } else if (length < 12) {
-    setupPasswordHint.textContent = "Okay. Longer is better.";
-  } else {
-    setupPasswordHint.textContent = "Good.";
+  const turningOn = !status.password_protected;
+  let changed = false;
+  setBusy(settingsPasswordSubmit, true, turningOn ? "Turning on…" : "Changing…");
+  try {
+    await api().changePassword(status.password_protected ? current : "", next);
+    status = await api().getStatus();
+    changed = true;
+  } catch (error) {
+    setFormError(settingsPasswordError, message(error));
+  } finally {
+    setBusy(settingsPasswordSubmit, false);
   }
+
+  if (!changed) {
+    return;
+  }
+  renderSettings();
+  settingsPasswordNote.textContent = turningOn
+    ? "App lock is on. The vault now needs this password after a restart."
+    : "Password changed.";
+  settingsPasswordNote.hidden = false;
+}
+
+async function removeAppLock(): Promise<void> {
+  if (!status?.password_protected) {
+    return;
+  }
+  setFormError(settingsPasswordError, "");
+  settingsPasswordNote.hidden = true;
+
+  const current = settingsOldPassword.value;
+  if (!current) {
+    setFormError(settingsPasswordError, "Enter your current password first.");
+    return;
+  }
+  if (
+    !window.confirm(
+      "Turn off the app lock? The vault key will be stored in a 0600 file in the app data folder.",
+    )
+  ) {
+    return;
+  }
+
+  let changed = false;
+  setBusy(settingsPasswordRemove, true, "Turning off…");
+  try {
+    await api().changePassword(current, "");
+    status = await api().getStatus();
+    changed = true;
+  } catch (error) {
+    setFormError(settingsPasswordError, message(error));
+  } finally {
+    setBusy(settingsPasswordRemove, false);
+  }
+
+  if (!changed) {
+    return;
+  }
+  renderSettings();
+  settingsPasswordNote.textContent =
+    "App lock is off. The vault opens with its key file.";
+  settingsPasswordNote.hidden = false;
+}
+
+function setPasswordHint(target: HTMLElement, length: number): void {
+  if (length === 0) {
+    target.hidden = true;
+    target.textContent = "";
+    return;
+  }
+
+  target.hidden = false;
+  if (length < 8) {
+    target.textContent = "Weak. Fine for a casual lock, not for a stolen device.";
+  } else if (length < 12) {
+    target.textContent = "Okay. Longer is better.";
+  } else {
+    target.textContent = "Good.";
+  }
+}
+
+function updatePasswordHint(): void {
+  setPasswordHint(setupPasswordHint, setupLock.checked ? setupPassword.value.length : 0);
 }
 
 setupLock.addEventListener("change", () => {
   setupPasswordField.hidden = !setupLock.checked;
+  setupPasswordConfirmField.hidden = !setupLock.checked;
   if (!setupLock.checked) {
     setupPassword.value = "";
+    setupPasswordConfirm.value = "";
   }
   updatePasswordHint();
 });
@@ -454,6 +688,26 @@ addCancel.addEventListener("click", () => {
 
 addForm.addEventListener("submit", (event) => {
   void submitAdd(event);
+});
+
+settingsToggle.addEventListener("click", () => {
+  showSettings();
+});
+
+settingsBack.addEventListener("click", () => {
+  showMain();
+});
+
+settingsPasswordForm.addEventListener("submit", (event) => {
+  void submitSettingsPassword(event);
+});
+
+settingsPasswordRemove.addEventListener("click", () => {
+  void removeAppLock();
+});
+
+settingsNewPassword.addEventListener("input", () => {
+  setPasswordHint(settingsPasswordHint, settingsNewPassword.value.length);
 });
 
 lockButton.addEventListener("click", async () => {

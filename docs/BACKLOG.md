@@ -18,11 +18,6 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 
 ## App behaviour
 
-- Add a Settings page from the main screen. It should cover changing the
-  profile and dashboard URL, changing or removing the app password, and
-  enabling or disabling the app lock.
-- Add a confirm-password field to first-run setup and password changes. This
-  prevents typos and lockouts.
 - Offer a deliberate "open in normal browser" path for public dashboard
   links, instead of leaving them dead.
 - Let users choose whether dashboard links open in the same window or in a
@@ -30,6 +25,9 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 
 ## Done
 
+- Settings screen: rename profiles, change dashboard URLs, change the app
+  password, and turn the app lock on or off.
+- Confirm-password field in first-run setup and in password changes.
 - Dashboard toolbar with back, forward, reload, home and App, plus the
   current host label. The bar is 36px high.
 - Back-to-app button returns to the profile list; closing the dashboard
@@ -41,7 +39,7 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 
 - External-content toggle and per-origin panel.
 - Profile switcher UI.
-- Jellyfin and OpenCode checks.
+- Jellyfin playback test inside the app.
 - Friendly tunnel error pages and reconnect.
 - GPG-signed release artifacts.
 - Automated network audit in CI.

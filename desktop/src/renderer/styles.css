@@ -140,6 +140,12 @@ h3 {
   margin-bottom: 6px;
 }
 
+.section-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 /* Forms */
 
 .form {
@@ -346,6 +352,49 @@ button.danger {
   border: 1px dashed var(--border);
   color: var(--muted);
   font-size: 14px;
+}
+
+/* Settings */
+
+.settings-block {
+  margin-top: 30px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.settings-block:first-of-type {
+  margin-top: 8px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.settings-block h3 {
+  margin-bottom: 6px;
+}
+
+.settings-block > .body {
+  margin-bottom: 16px;
+}
+
+.settings-profiles {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-profile {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.settings-profile .actions {
+  align-items: center;
+}
+
+.settings-profile-note {
+  color: var(--accent);
 }
 
 /* Bottom sections */

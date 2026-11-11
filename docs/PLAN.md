@@ -456,6 +456,8 @@ content is a later phase.
 - [x] Closing the dashboard disconnects the tunnel.
 - [x] Dashboard toolbar with back, forward, reload, home and App; private
   LAN links navigate in the same view and public URLs stay blocked.
+- [x] Settings page for profile names, dashboard URLs and the app lock, with
+  confirm-password checks on setup and password changes.
 - [x] No Node in the shell renderer or dashboard; no permission prompts.
 - [x] `make check` passes and the desktop code type-checks.
 - [x] No unexpected outbound traffic beyond the WireGuard endpoint.

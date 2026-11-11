@@ -87,6 +87,10 @@
               <input id="setup-password" type="password" autocomplete="new-password" />
               <span class="hint" id="setup-password-hint" hidden></span>
             </label>
+            <label class="field" id="setup-password-confirm-field" hidden>
+              <span>Confirm password</span>
+              <input id="setup-password-confirm" type="password" autocomplete="new-password" />
+            </label>
           </fieldset>
 
           <p class="form-error" id="setup-error" hidden></p>
@@ -119,7 +123,10 @@
             <p class="eyebrow">Tunnels</p>
             <h2>Your dashboards</h2>
           </div>
-          <button type="button" class="ghost" id="add-profile-toggle">Add profile</button>
+          <div class="section-actions">
+            <button type="button" class="ghost" id="settings-toggle">Settings</button>
+            <button type="button" class="ghost" id="add-profile-toggle">Add profile</button>
+          </div>
         </div>
 
         <div class="profiles" id="profile-list"></div>
@@ -162,6 +169,64 @@
         <div class="security">
           <p class="eyebrow">Security</p>
           <p class="body" id="security-state"></p>
+        </div>
+      </section>
+
+      <section id="screen-settings" class="screen" hidden>
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Settings</p>
+            <h2>App and profiles</h2>
+          </div>
+          <button type="button" class="ghost" id="settings-back">Back to dashboards</button>
+        </div>
+
+        <div class="settings-block">
+          <h3>Profiles</h3>
+          <p class="body">
+            Rename a profile or change where its dashboard opens. The WireGuard
+            config stays as it is.
+          </p>
+          <div class="settings-profiles" id="settings-profiles"></div>
+        </div>
+
+        <div class="settings-block">
+          <p class="eyebrow">App lock</p>
+          <h3>Password</h3>
+          <p class="body" id="settings-lock-state"></p>
+
+          <form id="settings-password-form" class="form narrow" autocomplete="off">
+            <label class="field" id="settings-old-password-field" hidden>
+              <span>Current password</span>
+              <input id="settings-old-password" type="password" autocomplete="current-password" />
+            </label>
+            <label class="field">
+              <span>New password</span>
+              <input id="settings-new-password" type="password" autocomplete="new-password" />
+              <span class="hint" id="settings-password-hint" hidden></span>
+            </label>
+            <label class="field">
+              <span>Confirm new password</span>
+              <input
+                id="settings-new-password-confirm"
+                type="password"
+                autocomplete="new-password"
+              />
+            </label>
+            <p class="form-error" id="settings-password-error" hidden></p>
+            <p class="note" id="settings-password-note" hidden></p>
+            <div class="actions">
+              <button type="submit" id="settings-password-submit">Change password</button>
+              <button
+                type="button"
+                class="ghost danger"
+                id="settings-password-remove"
+                hidden
+              >
+                Turn off app lock
+              </button>
+            </div>
+          </form>
         </div>
       </section>
 
