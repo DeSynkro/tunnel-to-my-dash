@@ -385,9 +385,9 @@ Argon2id-derived key; keyfile mode stores it in `vault.key` with `0600`.
 
 ### Acceptance
 
-- `make check` passes.
-- A password vault round-trips profiles after lock and unlock.
-- Wrong passwords and tampered ciphertext are rejected.
-- Keyfile mode works with `0600` and rejects looser permissions.
-- Export and import round-trip without exposing keys.
-- No OS keyring, no plaintext private keys on disk.
+- [x] `make check` passes.
+- [x] A password vault round-trips profiles after lock and unlock.
+- [x] Wrong passwords and tampered ciphertext are rejected.
+- [x] Keyfile mode works with `0600` and rejects looser permissions.
+- [x] Export and import round-trip without exposing keys.
+- [x] No OS keyring, no plaintext private keys on disk.

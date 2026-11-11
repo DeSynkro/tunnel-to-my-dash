@@ -38,16 +38,19 @@ with ProtonVPN active.
 
 ## Phase 2 — Vault, configuration and app lock core
 
-- [ ] Argon2id + XChaCha20-Poly1305 vault
-- [ ] Create, unlock, change password, export, import
-- [ ] Password mode and convenience mode
-- [ ] Config storage and validation
-- [ ] Profile records with stable IDs, even if the first UI creates one
-- [ ] Failed-attempt delay and lock semantics
-- [ ] Tests for wrong passwords, tampering and permissions
+- [x] Argon2id + XChaCha20-Poly1305 vault
+- [x] Create, unlock, change password, export, import
+- [x] Password mode and convenience mode
+- [x] Config storage and validation
+- [x] Profile records with stable IDs, even if the first UI creates one
+- [x] Failed-attempt delay and lock semantics
+- [x] Tests for wrong passwords, tampering and permissions
 
 Done when the core can store a tunnel config, lock and unlock it, and export
 an encrypted copy, with no keyring dependency.
+
+Phase 2 complete: password and keyfile vaults, profile CRUD, password changes,
+export/import, lockout and tamper checks.
 
 ## Phase 3 — Electron shell
 

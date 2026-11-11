@@ -7,8 +7,8 @@ application and uses that tunnel for one thing: browsing your local network.
 It does not create a system VPN, ask for root, or change your routing table.
 Your normal VPN keeps running.
 
-Status: early development. The repository currently contains the design,
-roadmap, security notes and build scaffolding. The tunnel and UI come next.
+Status: early development. The tunnel, LAN-only proxy and encrypted vault
+core are working. The desktop UI comes next.
 
 ## Why
 
