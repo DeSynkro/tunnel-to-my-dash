@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo/banner.svg" alt="Tunnel to My Dash — a cream house with a tunnel arch" width="960">
+</p>
+
 # Tunnel to My Dash
 
 Open your home dashboard from anywhere without switching off your VPN.

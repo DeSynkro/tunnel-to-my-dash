@@ -596,6 +596,7 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
     minWidth: 800,
     minHeight: 600,
     title: "Tunnel to My Dash",
+    icon: path.join(__dirname, "icon.png"),
     backgroundColor: "#0e1012",
   });
 
@@ -733,6 +734,7 @@ function createWindow(): void {
     show: false,
     center: true,
     title: "Tunnel to My Dash",
+    icon: path.join(__dirname, "icon.png"),
     backgroundColor: "#0e1012",
     autoHideMenuBar: true,
     webPreferences: {
