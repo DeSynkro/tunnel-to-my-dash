@@ -38,9 +38,10 @@ the app's own traffic uses the tunnel.
   are blocked.
 - Secrets live in an encrypted vault. The app lock is optional; the same
   password unlocks the vault.
-- Saved dashboard logins stay in the vault. A key button in the dashboard
-  toolbar copies a username or password without showing it to the page, and
-  the clipboard clears after 30 seconds.
+- Saved dashboard logins stay in the vault. When you sign in to a service, the
+  app offers to save the login; a key button in the toolbar copies it later
+  without showing it to the page. The clipboard clears after 30 seconds.
+  There is no autofill.
 - LAN-only by default. A per-profile external-content switch can allow all
   public origins or an exact origin list for fonts and widgets; those use the
   normal network or VPN, never the tunnel.

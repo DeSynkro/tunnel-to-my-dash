@@ -66,6 +66,13 @@ Out of scope:
   to a renderer.
 - The clipboard is cleared after 30 seconds if it still matches the copied
   value, and cleared immediately when the dashboard locks or the app quits.
+- Login capture uses the same isolated preload. It reads the username,
+  password, page title and origin on a submit, Enter or login-button event and
+  sends them to the main process. The password stays in main memory for the
+  native prompt and is never shown in the dialog.
+- Candidates from subframes, non-private origins, a locked vault or malformed
+  payloads are discarded. Exact duplicates are ignored; an existing origin and
+  username with a new password prompts to update.
 - There is no autofill and no password reveal in the UI. Editing a saved login
   leaves the stored password untouched unless a new one is typed.
 
@@ -83,7 +90,9 @@ Out of scope:
 ## Browser hardening
 
 - Dashboard content runs in a separate Electron session with no Node
-  integration, no preload bridge and no file access.
+  integration, no file access and no API exposed to the page. A minimal
+  isolated preload watches login submissions and reports a candidate to the
+  main process; page scripts cannot call into it.
 - Context isolation and the Chromium sandbox stay enabled.
 - Remote debugging is disabled in release builds.
 - New windows and popups are denied.

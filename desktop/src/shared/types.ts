@@ -85,6 +85,13 @@ export interface ToolbarPanelState {
   open: boolean;
 }
 
+export interface LoginCandidate {
+  url: string;
+  title: string;
+  username: string;
+  password: string;
+}
+
 export interface ConfigFile {
   name: string;
   text: string;

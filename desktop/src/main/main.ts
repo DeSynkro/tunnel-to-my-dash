@@ -1,9 +1,10 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import {
   app,
   BaseWindow,
   BrowserWindow,
   clipboard,
+  dialog,
   ipcMain,
   Menu,
   powerMonitor,
@@ -17,6 +18,7 @@ import type {
   ConnectResult,
   CredentialField,
   CredentialSummary,
+  LoginCandidate,
   PointerPayload,
 } from "../shared/types";
 import { ControlClient } from "./control-client";
@@ -120,6 +122,8 @@ let idleMonitor: ReturnType<typeof setInterval> | null = null;
 let clipboardTimer: ReturnType<typeof setTimeout> | null = null;
 let clipboardValue = "";
 let quitting = false;
+const skippedLogins = new Set<string>();
+let loginPromptOpen = false;
 
 type ToolbarRect = { x: number; y: number; width: number; height: number };
 
@@ -409,6 +413,23 @@ ipcMain.handle(
   },
 );
 
+ipcMain.on(IPC.loginCandidate, (event, payload: unknown) => {
+  if (!dashboardView || event.sender !== dashboardView.webContents) {
+    return;
+  }
+  if (event.senderFrame !== dashboardView.webContents.mainFrame) {
+    return;
+  }
+  if (dashboardLocked || !dashboardProfileID || !control) {
+    return;
+  }
+  const candidate = loginCandidateArg(payload);
+  if (!candidate) {
+    return;
+  }
+  void handleLoginCandidate(candidate);
+});
+
 function startIdleMonitor(): void {
   stopIdleMonitor();
   idleMonitor = setInterval(() => {
@@ -550,6 +571,7 @@ async function startCore(): Promise<void> {
 function dashboardWebPreferences(partition: string): WebPreferences {
   return {
     partition,
+    preload: path.join(__dirname, "dashboard-preload.js"),
     contextIsolation: true,
     sandbox: true,
     nodeIntegration: false,
@@ -589,6 +611,176 @@ async function loadToolbarCredentials(): Promise<void> {
     return;
   }
   dashboardToolbar.webContents.send(IPC.toolbarCredentials, { credentials });
+}
+
+function loginCandidateArg(value: unknown): LoginCandidate | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+  const raw = value as Record<string, unknown>;
+  if (
+    typeof raw.url !== "string" ||
+    typeof raw.title !== "string" ||
+    typeof raw.username !== "string" ||
+    typeof raw.password !== "string"
+  ) {
+    return null;
+  }
+  if (raw.password === "" || raw.password.length > 4096) {
+    return null;
+  }
+  if (
+    raw.username.length > 256 ||
+    raw.title.length > 200 ||
+    raw.url.length > 2048
+  ) {
+    return null;
+  }
+
+  let url: URL;
+  try {
+    url = new URL(raw.url);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return null;
+  }
+  if (!isPrivateHttpUrl(url.toString())) {
+    return null;
+  }
+
+  return {
+    url: url.origin,
+    title: raw.title.trim(),
+    username: raw.username.trim(),
+    password: raw.password,
+  };
+}
+
+function credentialName(title: string, url: string): string {
+  let name = title.replace(/\s+/g, " ").trim();
+  name = name
+    .replace(/\s*[-|·•]\s*(login|log in|sign in)\s*$/i, "")
+    .replace(/^(login|log in|sign in)\s*[-|·•]\s*/i, "")
+    .trim();
+  if (!name || /^(login|log in|sign in)$/i.test(name)) {
+    try {
+      name = new URL(url).host;
+    } catch {
+      name = url;
+    }
+  }
+  return name.slice(0, 64);
+}
+
+async function handleLoginCandidate(candidate: LoginCandidate): Promise<void> {
+  if (loginPromptOpen) {
+    return;
+  }
+  const profileID = dashboardProfileID;
+  const client = control;
+  if (!profileID || !client) {
+    return;
+  }
+
+  const skipKey = `${candidate.url}\n${candidate.username}\n${createHash(
+    "sha256",
+  )
+    .update(candidate.password)
+    .digest("hex")}`;
+  if (skippedLogins.has(skipKey)) {
+    return;
+  }
+
+  let existing: CredentialSummary | null = null;
+  try {
+    const credentials = await client.listCredentials(profileID);
+    for (const credential of credentials) {
+      if (credential.url !== candidate.url) {
+        continue;
+      }
+      if ((credential.username ?? "") !== candidate.username) {
+        continue;
+      }
+      const secret = await client.credentialSecret(profileID, credential.id);
+      if (secret.password === candidate.password) {
+        return;
+      }
+      existing = credential;
+      break;
+    }
+  } catch (error) {
+    console.error(`[credentials] lookup: ${errorMessage(error)}`);
+    return;
+  }
+
+  const name = credentialName(candidate.title, candidate.url);
+  let response = 0;
+  if (process.env.TTMD_SAVE_PROMPT === "accept") {
+    response = 0;
+  } else if (process.env.TTMD_SAVE_PROMPT === "decline") {
+    response = 1;
+  } else {
+    loginPromptOpen = true;
+    try {
+      const options = {
+        type: "question" as const,
+        buttons: ["Save password", "Not now"],
+        defaultId: 0,
+        cancelId: 1,
+        noLink: true,
+        title: existing ? "Update saved password?" : "Save password?",
+        message: existing
+          ? `Update the saved password for “${existing.name}”?`
+          : `Save login for “${name}”?`,
+        detail: candidate.username
+          ? `${candidate.url}\nUsername: ${candidate.username}`
+          : candidate.url,
+      };
+      const parent = dashboardWindow;
+      const result = parent
+        ? await dialog.showMessageBox(parent, options)
+        : await dialog.showMessageBox(options);
+      response = result.response;
+    } catch (error) {
+      console.error(`[credentials] prompt: ${errorMessage(error)}`);
+      return;
+    } finally {
+      loginPromptOpen = false;
+    }
+  }
+
+  if (!dashboardProfileID || dashboardProfileID !== profileID) {
+    return;
+  }
+
+  if (response !== 0) {
+    skippedLogins.add(skipKey);
+    return;
+  }
+
+  try {
+    if (existing) {
+      await client.updateCredential(profileID, existing.id, {
+        name: existing.name,
+        url: candidate.url,
+        username: candidate.username,
+        password: candidate.password,
+      });
+    } else {
+      await client.addCredential(profileID, {
+        name,
+        url: candidate.url,
+        username: candidate.username,
+        password: candidate.password,
+      });
+    }
+    void loadToolbarCredentials();
+    console.log(`[credentials] saved ${candidate.url}`);
+  } catch (error) {
+    console.error(`[credentials] save: ${errorMessage(error)}`);
+  }
 }
 
 const navigation: NavigationActions = {
@@ -639,6 +831,7 @@ async function lockDashboard(): Promise<void> {
   dashboardLocked = true;
   stopToolbarPoll();
   closeToolbarPanel();
+  skippedLogins.clear();
   await clearClipboardIfOurs();
 
   let snapshot = "";
@@ -720,6 +913,8 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   dashboardProfileID = profileID;
   toolbarPanelOpen = false;
   toolbarPanelHeight = 0;
+  skippedLogins.clear();
+  loginPromptOpen = false;
   console.log(`[dashboard] proxy=${result.proxy}`);
 
   const partition = `persist:profile-${profileID}`;
@@ -854,6 +1049,8 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
     dashboardProfileID = null;
     toolbarPanelOpen = false;
     toolbarPanelHeight = 0;
+    skippedLogins.clear();
+    loginPromptOpen = false;
 
     if (control) {
       void control.disconnect().catch(() => undefined);
@@ -945,7 +1142,8 @@ function createWindow(): void {
     process.env.TTMD_SMOKE === "idlelock" ||
     process.env.TTMD_SMOKE === "toolbarfixed" ||
     process.env.TTMD_SMOKE === "refocus" ||
-    process.env.TTMD_SMOKE === "credentials"
+    process.env.TTMD_SMOKE === "credentials" ||
+    process.env.TTMD_SMOKE === "capture"
   ) {
     mainWindow.webContents.once("did-finish-load", () => {
       if (mainWindow) {
@@ -969,6 +1167,7 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
   const toolbarFixedSmoke = process.env.TTMD_SMOKE === "toolbarfixed";
   const refocusSmoke = process.env.TTMD_SMOKE === "refocus";
   const credentialsSmoke = process.env.TTMD_SMOKE === "credentials";
+  const captureSmoke = process.env.TTMD_SMOKE === "capture";
   const deadline =
     Date.now() +
     (full ||
@@ -982,7 +1181,8 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
     idleLockSmoke ||
     toolbarFixedSmoke ||
     refocusSmoke ||
-    credentialsSmoke
+    credentialsSmoke ||
+    captureSmoke
       ? 60_000
       : 12_000);
   let submitted = false;
@@ -1026,6 +1226,11 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
 
   if (credentialsSmoke) {
     await runCredentialsSmoke(window);
+    return;
+  }
+
+  if (captureSmoke) {
+    await runCaptureSmoke(window);
     return;
   }
 
@@ -1848,6 +2053,190 @@ async function runCredentialsSmoke(window: BrowserWindow): Promise<void> {
     app.quit();
   } catch (error) {
     console.error(`[smoke] credentials failed: ${errorMessage(error)}`);
+    process.exitCode = 1;
+    app.quit();
+  }
+}
+
+async function runCaptureSmoke(window: BrowserWindow): Promise<void> {
+  try {
+    console.log("[smoke] capture start");
+    if (!(await waitForScreen(window, "main", 5000))) {
+      throw new Error("the dashboard list did not load");
+    }
+    if (!(await waitForProfileButton(window, 3000))) {
+      throw new Error("the profile card did not render");
+    }
+    if (!control) {
+      throw new Error("the core is not ready");
+    }
+    const client = control;
+    const profileID = (await client.status()).active_profile ?? "";
+    if (!profileID) {
+      throw new Error("no active profile");
+    }
+
+    await window.webContents.executeJavaScript(
+      'document.querySelector(".profile-actions button")?.click()',
+      true,
+    );
+    if (!(await waitForDashboard(5000)) || !(await waitForDashboardLoad(30_000))) {
+      throw new Error("the dashboard did not open");
+    }
+    const toolbar = dashboardToolbar;
+    const view = dashboardView;
+    if (!toolbar || !view) {
+      throw new Error("the dashboard views did not open");
+    }
+
+    if (
+      !(await waitForCondition(async () => {
+        const hidden = (await toolbar.webContents.executeJavaScript(
+          'document.getElementById("passwords")?.hidden',
+        )) as boolean;
+        return hidden === false;
+      }, 5000))
+    ) {
+      throw new Error("the passwords button did not appear");
+    }
+
+    await toolbar.webContents.executeJavaScript(
+      'document.getElementById("passwords")?.click()',
+      true,
+    );
+    const warned = (await toolbar.webContents.executeJavaScript(
+      'document.getElementById("passwords")?.classList.contains("warn")',
+    )) as boolean;
+    if (!warned) {
+      throw new Error("the empty passwords button did not flash");
+    }
+    if (
+      !(await waitForCondition(async () => {
+        const open = (await toolbar.webContents.executeJavaScript(
+          'document.getElementById("passwords-toast")?.classList.contains("open")',
+        )) as boolean;
+        return open === true;
+      }, 3000))
+    ) {
+      throw new Error("the empty passwords toast did not open");
+    }
+    const toastText = (await toolbar.webContents.executeJavaScript(
+      'document.getElementById("passwords-toast")?.textContent || ""',
+    )) as string;
+    if (!toastText.includes("No stored passwords")) {
+      throw new Error(`the empty toast read: ${toastText}`);
+    }
+    console.log("[smoke] capture empty toast");
+
+    if (
+      !(await waitForCondition(async () => {
+        const open = (await toolbar.webContents.executeJavaScript(
+          'document.getElementById("passwords-toast")?.classList.contains("open")',
+        )) as boolean;
+        return open === false;
+      }, 5000))
+    ) {
+      throw new Error("the empty passwords toast did not close");
+    }
+
+    const submitLogin = (password: string): Promise<unknown> =>
+      view.webContents.executeJavaScript(
+        `(() => {
+          const form = document.createElement("form");
+          const user = document.createElement("input");
+          user.name = "username";
+          user.autocomplete = "username";
+          user.value = "alex";
+          const pass = document.createElement("input");
+          pass.type = "password";
+          pass.name = "password";
+          pass.value = ${JSON.stringify(password)};
+          form.append(user, pass);
+          document.body.append(form);
+          form.dispatchEvent(
+            new Event("submit", { bubbles: true, cancelable: true }),
+          );
+        })()`,
+        true,
+      );
+
+    await submitLogin("hunter2");
+    if (
+      !(await waitForCondition(async () => {
+        const list = await client.listCredentials(profileID);
+        return list.length === 1;
+      }, 5000))
+    ) {
+      throw new Error("the login was not captured");
+    }
+    let list = await client.listCredentials(profileID);
+    const saved = list[0];
+    const expectedOrigin = new URL(dashboardHomeURL).origin;
+    if (saved.url !== expectedOrigin || saved.username !== "alex" || !saved.name) {
+      throw new Error(`captured credential = ${JSON.stringify(saved)}`);
+    }
+    let secret = await client.credentialSecret(profileID, saved.id);
+    if (secret.password !== "hunter2") {
+      throw new Error("the captured password was stored incorrectly");
+    }
+    console.log("[smoke] capture saved");
+
+    if (
+      !(await waitForCondition(async () => {
+        const count = (await toolbar.webContents.executeJavaScript(
+          'document.getElementById("passwords-count")?.textContent || ""',
+        )) as string;
+        return count.includes("1 saved");
+      }, 3000))
+    ) {
+      throw new Error("the toolbar did not receive the saved login");
+    }
+
+    await delay(1700);
+    await submitLogin("hunter2");
+    await delay(800);
+    list = await client.listCredentials(profileID);
+    if (list.length !== 1) {
+      throw new Error("the same login was saved twice");
+    }
+
+    await submitLogin("new-secret");
+    if (
+      !(await waitForCondition(async () => {
+        const current = await client.listCredentials(profileID);
+        if (current.length !== 1) {
+          return false;
+        }
+        const currentSecret = await client.credentialSecret(
+          profileID,
+          current[0].id,
+        );
+        return currentSecret.password === "new-secret";
+      }, 5000))
+    ) {
+      throw new Error("the updated password was not saved");
+    }
+    list = await client.listCredentials(profileID);
+    if (list.length !== 1) {
+      throw new Error("the update created a second login");
+    }
+    secret = await client.credentialSecret(profileID, list[0].id);
+    if (secret.password !== "new-secret") {
+      throw new Error("the updated password was stored incorrectly");
+    }
+    console.log("[smoke] capture updated");
+
+    const leaked = (await toolbar.webContents.executeJavaScript(
+      'document.body.innerText.includes("hunter2") || document.body.innerText.includes("new-secret")',
+    )) as boolean;
+    if (leaked) {
+      throw new Error("a password appeared in the toolbar DOM");
+    }
+    console.log("[smoke] capture toolbar clean");
+
+    app.quit();
+  } catch (error) {
+    console.error(`[smoke] capture failed: ${errorMessage(error)}`);
     process.exitCode = 1;
     app.quit();
   }

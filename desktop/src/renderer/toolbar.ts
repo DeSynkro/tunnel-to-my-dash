@@ -30,9 +30,13 @@ const passwordsButton = element<HTMLButtonElement>("passwords");
 const passwordsPanel = element<HTMLElement>("passwords-panel");
 const passwordsList = element<HTMLElement>("passwords-list");
 const passwordsCount = element<HTMLElement>("passwords-count");
+const passwordsToast = element<HTMLElement>("passwords-toast");
 
 let credentials: CredentialSummary[] = [];
 let panelOpen = false;
+let toastOpen = false;
+let toastTimer: number | null = null;
+let warnTimer: number | null = null;
 
 appButton.addEventListener("click", () => {
   void bridge.backToApp();
@@ -53,6 +57,12 @@ home.addEventListener("click", () => {
   void bridge.home();
 });
 passwordsButton.addEventListener("click", () => {
+  if (credentials.length === 0) {
+    showEmptyToast();
+    return;
+  }
+
+  hideToast(false);
   if (panelOpen) {
     hidePanel();
     return;
@@ -61,7 +71,7 @@ passwordsButton.addEventListener("click", () => {
 });
 
 function renderCredentials(): void {
-  passwordsButton.hidden = credentials.length === 0;
+  passwordsButton.hidden = false;
   passwordsCount.textContent =
     credentials.length === 0 ? "" : `${credentials.length} saved`;
   passwordsList.replaceChildren();
@@ -82,13 +92,16 @@ function renderCredentials(): void {
 
     const actions = document.createElement("div");
     actions.className = "credential-actions";
-    const user = document.createElement("button");
-    user.type = "button";
-    user.textContent = "Username";
-    user.title = "Copy username";
-    user.addEventListener("click", () => {
-      void copyCredential(credential.id, "username", user);
-    });
+    if (credential.username) {
+      const user = document.createElement("button");
+      user.type = "button";
+      user.textContent = "Username";
+      user.title = "Copy username";
+      user.addEventListener("click", () => {
+        void copyCredential(credential.id, "username", user);
+      });
+      actions.append(user);
+    }
     const password = document.createElement("button");
     password.type = "button";
     password.textContent = "Password";
@@ -96,7 +109,7 @@ function renderCredentials(): void {
     password.addEventListener("click", () => {
       void copyCredential(credential.id, "password", password);
     });
-    actions.append(user, password);
+    actions.append(password);
 
     row.append(info, actions);
     passwordsList.append(row);
@@ -155,17 +168,70 @@ function hidePanel(notify = true): void {
   }
 }
 
+function showEmptyToast(): void {
+  if (toastOpen) {
+    return;
+  }
+
+  hidePanel();
+  toastOpen = true;
+  passwordsButton.classList.add("warn");
+  if (warnTimer !== null) {
+    window.clearTimeout(warnTimer);
+  }
+  warnTimer = window.setTimeout(() => {
+    warnTimer = null;
+    passwordsButton.classList.remove("warn");
+  }, 700);
+
+  passwordsToast.hidden = false;
+  const height = Math.ceil(passwordsToast.getBoundingClientRect().height);
+  void bridge
+    .openPanel(height)
+    .then(() => {
+      passwordsToast.classList.add("open");
+      if (toastTimer !== null) {
+        window.clearTimeout(toastTimer);
+      }
+      toastTimer = window.setTimeout(() => hideToast(), 2400);
+    })
+    .catch(() => {
+      toastOpen = false;
+      passwordsToast.hidden = true;
+    });
+}
+
+function hideToast(notify = true): void {
+  if (!toastOpen) {
+    return;
+  }
+
+  toastOpen = false;
+  if (toastTimer !== null) {
+    window.clearTimeout(toastTimer);
+    toastTimer = null;
+  }
+  passwordsToast.classList.remove("open");
+  passwordsToast.hidden = true;
+  if (notify) {
+    void bridge.closePanel();
+  }
+}
+
 bridge.onCredentials((state) => {
   credentials = state.credentials;
   renderCredentials();
   if (credentials.length === 0) {
     hidePanel();
+  } else {
+    hideToast();
   }
 });
 
 bridge.onPanelState((state) => {
   if (!state.open) {
     hidePanel(false);
+    hideToast(false);
   }
 });
 
@@ -182,6 +248,7 @@ bridge.onState((state) => {
   document.body.dataset.mode = state.mode;
   if (state.mode === "peek") {
     hidePanel(false);
+    hideToast(false);
   }
 
   try {

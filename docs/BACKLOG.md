@@ -25,6 +25,11 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
   profile screen and copied from a key panel in the dashboard toolbar. The
   password only travels from the core to the clipboard, clears after 30
   seconds if unchanged, and clears on lock. No autofill.
+- Login save prompt: submitting a login in the dashboard offers a native Save
+  password dialog with the service name and origin. Exact duplicates are
+  ignored, a changed password offers an update, and Not now is remembered for
+  the session. With nothing saved, the toolbar key button flashes red and
+  shows an empty-state bubble.
 - Brand integration: the house mark in the masthead and lock screen, the
   window and AppImage icon rendered from the logo, the README banner, and the
   neutral graphite + amber palette with green/red status dots across the main

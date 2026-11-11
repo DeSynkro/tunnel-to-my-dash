@@ -33,6 +33,7 @@ export const IPC = {
   toolbarCopyCredential: "ttmd:toolbar-copy-credential",
   toolbarPanel: "ttmd:toolbar-panel",
   toolbarPanelState: "ttmd:toolbar-panel-state",
+  loginCandidate: "ttmd:login-candidate",
   dashboardUnlock: "ttmd:dashboard-unlock",
   dashboardLocked: "ttmd:dashboard-locked",
   quit: "ttmd:quit",

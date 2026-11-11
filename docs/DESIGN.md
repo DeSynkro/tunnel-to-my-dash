@@ -274,6 +274,18 @@ The toolbar panel pins the floating bar open while it is visible and closes
 on an outside click, Escape, navigation, window blur or lock. Editing a saved
 login leaves the stored password untouched unless a new one is typed.
 
+While a dashboard page is open, a minimal isolated preload watches login
+submissions: a form submit, Enter in a password field or a click on a login
+button. It reads the username, password, page title and origin, and sends
+them to the main process. The main process ignores subframes, non-private
+origins, locked vaults and malformed payloads, then offers a native Save
+password dialog showing the service name and URL — never the password.
+Saving uses the active profile, sets the URL to the page origin and names the
+login from the page title, falling back to the host. Exact matches are
+ignored, an existing origin and username with a new password prompts to
+update, and Not now is remembered for the session. There is still no
+autofill.
+
 ## Privacy and security
 
 - No telemetry, analytics, crash uploads, accounts or update pings.
@@ -282,8 +294,10 @@ login leaves the stored password untouched unless a new one is typed.
   connections.
 - Permissions (camera, microphone, geolocation, notifications, clipboard)
   are denied unless a future feature explicitly needs one.
-- The dashboard view has no Node integration, no preload bridge, no file
-  access and no popups. Navigation is restricted to private addresses.
+- The dashboard view has no Node integration, no file access and no popups.
+  A minimal isolated preload watches login submissions and reports a
+  candidate to the main process; it exposes no API to the page. Navigation is
+  restricted to private addresses.
 - If the tunnel drops, LAN requests fail. There is no direct fallback.
 - The app does not listen on the network; it is not a remote-access server.
 

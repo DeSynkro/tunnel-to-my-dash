@@ -5,6 +5,8 @@
   --muted: #a9a49a;
   --faint: #7b756c;
   --border: rgba(240, 229, 212, 0.1);
+  --bad: #ff5c5c;
+  --bad-soft: rgba(255, 92, 92, 0.16);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -263,4 +265,45 @@ body[data-mode="peek"] .panel {
   border-color: var(--border);
   background: rgba(236, 231, 221, 0.08);
   color: var(--text);
+}
+
+#passwords.warn:not(:disabled) {
+  border-color: rgba(255, 92, 92, 0.5);
+  color: #ff8a8a;
+  box-shadow: 0 0 0 3px var(--bad-soft);
+}
+
+.toast {
+  position: absolute;
+  top: 40px;
+  right: 10px;
+  max-width: 320px;
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 92, 92, 0.32);
+  border-radius: 10px;
+  background: rgba(14, 14, 14, 0.97);
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    opacity 120ms var(--ease),
+    transform 120ms var(--ease);
+}
+
+.toast.open {
+  opacity: 1;
+  transform: none;
+}
+
+.toast[hidden] {
+  display: none;
+}
+
+body[data-mode="peek"] .toast {
+  display: none;
 }

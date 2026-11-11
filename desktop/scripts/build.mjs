@@ -47,6 +47,16 @@ await build({
 
 await build({
   ...shared,
+  entryPoints: [path.join(root, "src/dashboard-preload.ts")],
+  outfile: path.join(dist, "dashboard-preload.js"),
+  platform: "node",
+  format: "cjs",
+  target: "node22",
+  external: ["electron"],
+});
+
+await build({
+  ...shared,
   entryPoints: [path.join(root, "src/lock-preload.ts")],
   outfile: path.join(dist, "lock-preload.js"),
   platform: "node",
