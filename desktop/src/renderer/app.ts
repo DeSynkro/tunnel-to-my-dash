@@ -123,6 +123,7 @@ let editingProfileID: string | null = null;
 const reachability: Record<string, boolean> = {};
 let reachabilityChecking: string | null = null;
 let autoChecked = false;
+let suppressAutoOpenOnce = false;
 let appSettings: AppSettings = { open_last_dashboard: false };
 
 function api(): TtmdBridge {
@@ -741,8 +742,10 @@ async function submitUnlock(event: SubmitEvent): Promise<void> {
 
   try {
     await api().unlock(lockPassword.value);
+    const autoOpen = !suppressAutoOpenOnce;
+    suppressAutoOpenOnce = false;
     lockForm.reset();
-    await refresh(true);
+    await refresh(autoOpen);
   } catch (error) {
     setFormError(lockError, message(error));
   } finally {
@@ -1011,6 +1014,9 @@ if (bridge) {
     .catch(() => undefined);
   bridge.onStatusChanged(() => {
     void refresh();
+  });
+  bridge.onSuppressAutoOpen(() => {
+    suppressAutoOpenOnce = true;
   });
   void init();
 } else {

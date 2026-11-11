@@ -105,11 +105,13 @@ a defense against an attacker who can copy the files and run an offline
 password search. A weak password such as `123` is still weak, and the UI says
 so.
 
-The dashboard padlock shows an opaque local lock view, hides the dashboard
-view, mutes its audio and disconnects the tunnel. Unlocking reconnects and
-reloads the configured dashboard. The idle lock uses the same path and pauses
-while the dashboard is audible, so media playback is not cut off. Closing the
-dashboard window quits the app instead of leaving a hidden tunnel behind.
+The dashboard padlock shows an opaque local lock view over a blurred snapshot
+of the page, hides the live dashboard view, mutes its audio and disconnects the
+tunnel. The snapshot is held in memory only and is never written to disk.
+Unlocking reconnects and reloads the configured dashboard. The idle lock uses
+the same path and pauses while the dashboard is audible, so media playback is
+not cut off. Closing the dashboard window quits the app instead of leaving a
+hidden tunnel behind.
 
 ## Audit checklist
 

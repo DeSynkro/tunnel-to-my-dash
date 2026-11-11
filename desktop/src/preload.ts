@@ -27,6 +27,13 @@ const api: TtmdBridge = {
       ipcRenderer.removeListener(IPC.statusChanged, listener);
     };
   },
+  onSuppressAutoOpen: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on(IPC.suppressAutoOpen, listener);
+    return () => {
+      ipcRenderer.removeListener(IPC.suppressAutoOpen, listener);
+    };
+  },
   quit: () => ipcRenderer.invoke(IPC.quit),
   version: () => ipcRenderer.invoke(IPC.version),
 };

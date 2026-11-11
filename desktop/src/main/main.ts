@@ -76,6 +76,7 @@ let dashboardPartition = "";
 let dashboardPasswordProtected = false;
 let dashboardLocked = false;
 let dashboardClosingToMain = false;
+let suppressAutoOpenOnce = false;
 
 const toolbarHeight = 36;
 const toolbarRevealDelay = 350;
@@ -302,6 +303,9 @@ const navigation: NavigationActions = {
   backToApp: () => {
     if (dashboardWindow) {
       dashboardClosingToMain = true;
+      if (dashboardLocked) {
+        suppressAutoOpenOnce = true;
+      }
       dashboardWindow.close();
     }
   },
@@ -324,6 +328,17 @@ async function lockDashboard(): Promise<void> {
 
   dashboardLocked = true;
   stopToolbarPoll();
+
+  let snapshot = "";
+  try {
+    const image = await dashboardView.webContents.capturePage();
+    if (!image.isEmpty()) {
+      snapshot = `data:image/jpeg;base64,${image.toJPEG(70).toString("base64")}`;
+    }
+  } catch (error) {
+    console.error(`[lock] snapshot: ${errorMessage(error)}`);
+  }
+
   try {
     await control?.lock();
   } catch (error) {
@@ -335,7 +350,7 @@ async function lockDashboard(): Promise<void> {
   dashboardView.webContents.setAudioMuted(true);
   dashboardLock.setVisible(true);
   dashboardLock.webContents.focus();
-  dashboardLock.webContents.send(IPC.dashboardLocked);
+  dashboardLock.webContents.send(IPC.dashboardLocked, snapshot);
 }
 
 async function unlockDashboard(password: string): Promise<void> {
@@ -498,8 +513,18 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
 
     if (toMain) {
       if (mainWindow) {
+        const suppress = suppressAutoOpenOnce;
+        suppressAutoOpenOnce = false;
         mainWindow.show();
-        mainWindow.webContents.send(IPC.statusChanged);
+        void (async () => {
+          if (suppress) {
+            const status = await control?.status().catch(() => null);
+            if (status?.locked) {
+              mainWindow?.webContents.send(IPC.suppressAutoOpen);
+            }
+          }
+          mainWindow?.webContents.send(IPC.statusChanged);
+        })();
       }
     } else {
       app.quit();
@@ -567,6 +592,7 @@ function createWindow(): void {
     process.env.TTMD_SMOKE === "autoopen" ||
     process.env.TTMD_SMOKE === "closequit" ||
     process.env.TTMD_SMOKE === "lock" ||
+    process.env.TTMD_SMOKE === "lockback" ||
     process.env.TTMD_SMOKE === "idlelock"
   ) {
     mainWindow.webContents.once("did-finish-load", () => {
@@ -586,6 +612,7 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
   const autoOpenSmoke = process.env.TTMD_SMOKE === "autoopen";
   const closeQuitSmoke = process.env.TTMD_SMOKE === "closequit";
   const lockSmoke = process.env.TTMD_SMOKE === "lock";
+  const lockBackSmoke = process.env.TTMD_SMOKE === "lockback";
   const idleLockSmoke = process.env.TTMD_SMOKE === "idlelock";
   const deadline =
     Date.now() +
@@ -596,6 +623,7 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
     autoOpenSmoke ||
     closeQuitSmoke ||
     lockSmoke ||
+    lockBackSmoke ||
     idleLockSmoke
       ? 60_000
       : 12_000);
@@ -615,6 +643,11 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
 
   if (lockSmoke) {
     await runLockSmoke(window);
+    return;
+  }
+
+  if (lockBackSmoke) {
+    await runLockBackSmoke(window);
     return;
   }
 
@@ -896,6 +929,9 @@ async function runCloseQuitSmoke(window: BrowserWindow): Promise<void> {
     if (!(await waitForScreen(window, "main", 5000))) {
       throw new Error("the dashboard list did not load");
     }
+    if (!(await waitForProfileButton(window, 3000))) {
+      throw new Error("the profile card did not render");
+    }
     await window.webContents.executeJavaScript(
       'document.querySelector(".profile-actions button")?.click()',
       true,
@@ -945,6 +981,9 @@ async function runLockSmoke(window: BrowserWindow): Promise<void> {
       await delay(100);
     }
 
+    if (!(await waitForProfileButton(window, 3000))) {
+      throw new Error("the profile card did not render");
+    }
     await window.webContents.executeJavaScript(
       'document.querySelector(".profile-actions button")?.click()',
       true,
@@ -971,6 +1010,11 @@ async function runLockSmoke(window: BrowserWindow): Promise<void> {
     if (!(await waitForLockView(true, 5000))) {
       throw new Error("the lock overlay did not open");
     }
+    const backdrop = await waitForBackdrop(3000);
+    console.log(`[smoke] lock backdrop=${backdrop}`);
+    if (!backdrop) {
+      throw new Error("the dashboard snapshot did not reach the lock overlay");
+    }
     console.log("[smoke] dashboard locked");
 
     await dashboardLock?.webContents.executeJavaScript(
@@ -996,6 +1040,92 @@ async function runLockSmoke(window: BrowserWindow): Promise<void> {
     process.exitCode = 1;
     app.quit();
   }
+}
+
+async function runLockBackSmoke(window: BrowserWindow): Promise<void> {
+  try {
+    console.log("[smoke] lockback start");
+    let unlocked = false;
+    const start = Date.now();
+
+    while (Date.now() - start < 20_000 && !dashboardWindow) {
+      const screen = (await window.webContents.executeJavaScript(
+        'document.body.dataset.screen || ""',
+      )) as string;
+
+      if (screen === "lock" && !unlocked) {
+        await window.webContents.executeJavaScript(
+          `(() => {
+            const node = document.getElementById("lock-password");
+            if (node) node.value = "smoke-pass";
+            document.getElementById("lock-form")?.requestSubmit();
+          })()`,
+          true,
+        );
+        unlocked = true;
+      } else if (screen === "error") {
+        throw new Error("lockback reached the error screen");
+      }
+
+      await delay(100);
+    }
+
+    if (!(await waitForDashboard(5000)) || !(await waitForDashboardLoad(30_000))) {
+      throw new Error("the auto-opened dashboard did not open");
+    }
+
+    await dashboardToolbar?.webContents.executeJavaScript(
+      'document.getElementById("lock")?.click()',
+      true,
+    );
+    if (!(await waitForLockView(true, 5000))) {
+      throw new Error("the dashboard lock overlay did not open");
+    }
+
+    await dashboardLock?.webContents.executeJavaScript(
+      'document.getElementById("lock-back")?.click()',
+      true,
+    );
+    if (!(await waitForDashboardClosed(5000))) {
+      throw new Error("Back to dashboards did not close the dashboard");
+    }
+    if (!(await waitForScreen(window, "lock", 5000))) {
+      throw new Error("the main lock screen did not appear");
+    }
+    console.log("[smoke] lockback at main lock screen");
+
+    await window.webContents.executeJavaScript(
+      `(() => {
+        const node = document.getElementById("lock-password");
+        if (node) node.value = "smoke-pass";
+        document.getElementById("lock-form")?.requestSubmit();
+      })()`,
+      true,
+    );
+    if (!(await waitForScreen(window, "main", 8000))) {
+      throw new Error("the main unlock did not complete");
+    }
+    await delay(1500);
+    if (dashboardWindow) {
+      throw new Error("unlocking returned to the dashboard after Back");
+    }
+    console.log("[smoke] lockback stayed on main menu");
+
+    app.quit();
+  } catch (error) {
+    console.error(`[smoke] lockback failed: ${errorMessage(error)}`);
+    process.exitCode = 1;
+    app.quit();
+  }
+}
+
+async function waitForBackdrop(timeoutMs: number): Promise<boolean> {
+  return waitForCondition(async () => {
+    const value = (await dashboardLock?.webContents.executeJavaScript(
+      'document.body.dataset.backdrop || ""',
+    )) as string;
+    return value === "snapshot";
+  }, timeoutMs);
 }
 
 async function runIdleLockSmoke(window: BrowserWindow): Promise<void> {
@@ -1596,6 +1726,18 @@ async function waitForExternalState(
     const countMatches =
       originCount === null || (profile?.external_origins?.length ?? 0) === originCount;
     return modeMatches && countMatches;
+  }, timeoutMs);
+}
+
+async function waitForProfileButton(
+  window: BrowserWindow,
+  timeoutMs: number,
+): Promise<boolean> {
+  return waitForCondition(async () => {
+    const ready = (await window.webContents.executeJavaScript(
+      '!!document.querySelector(".profile-actions button")',
+    )) as boolean;
+    return ready;
   }, timeoutMs);
 }
 

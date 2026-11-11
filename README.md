@@ -39,8 +39,10 @@ the app's own traffic uses the tunnel.
 - The last dashboard can open automatically after launch and after every
   unlock. Behavior settings live in `settings.json`; security policy lives in
   the vault.
-- The dashboard toolbar has a padlock lock overlay. The window X quits the app;
-  the App button returns to the dashboard list.
+- The dashboard toolbar has a padlock lock overlay with a blurred snapshot of
+  the page behind it. The window X quits the app; the App button returns to the
+  main menu. Back to dashboards from the lock overlay also lands on the main
+  menu after unlocking.
 
 More detail in [docs/DESIGN.md](docs/DESIGN.md).
 

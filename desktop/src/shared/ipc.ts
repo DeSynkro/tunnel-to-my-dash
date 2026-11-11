@@ -16,6 +16,7 @@ export const IPC = {
   updateSecurity: "ttmd:update-security",
   chooseConfig: "ttmd:choose-config",
   statusChanged: "ttmd:status-changed",
+  suppressAutoOpen: "ttmd:suppress-auto-open",
   navBack: "ttmd:nav-back",
   navForward: "ttmd:nav-forward",
   navReload: "ttmd:nav-reload",

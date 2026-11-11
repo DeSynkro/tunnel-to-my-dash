@@ -69,8 +69,10 @@ The desktop app has four parts:
   `WebContentsView` and its own Chromium session and proxy. It loads the
   configured LAN URL and nothing else as a top-level page. A 36px navigation
   bar overlays the view. The window X quits the app; the App button returns to
-  the dashboard list. A padlock shows an opaque lock overlay, hides the page,
-  disconnects the tunnel and reconnects the same dashboard after unlock.
+  the dashboard list. A padlock shows an opaque lock overlay over a blurred
+  snapshot of the page, hides the live page, disconnects the tunnel and
+  reconnects the same dashboard after unlock. Back to dashboards from that
+  overlay suppresses auto-open once so the next unlock lands on the main menu.
   Embedding the dashboard in the main shell is a later refinement.
 - **Go core.** A userspace WireGuard device, a TCP/IP stack, a localhost HTTP
   proxy, the vault, and a small control API on a `0600` Unix socket. It runs

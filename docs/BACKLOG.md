@@ -41,8 +41,10 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
   after launch and after every unlock.
 - Dashboard window X quits the whole app; the App button returns to the
   dashboard list. The toolbar now has App and a padlock on the right.
-- Padlock lock overlay: it covers the dashboard, disconnects the tunnel and
-  reloads the same dashboard after unlock. The X quits while locked.
+- Padlock lock overlay: it covers the dashboard with a blurred snapshot of
+  the page behind an opaque card, disconnects the tunnel and reloads the same
+  dashboard after unlock. The X quits while locked. Back to dashboards
+  suppresses auto-open once, so the next unlock lands on the main menu.
 - Vault security settings: Force LAN-only for all profiles and lock after
   idle with a minutes value. Idle lock pauses while the dashboard is audible.
   Force LAN-only greys out profile external options and overrides them in the

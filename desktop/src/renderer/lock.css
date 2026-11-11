@@ -4,10 +4,32 @@ body {
 }
 
 body {
+  overflow: hidden;
   background: var(--bg);
 }
 
+.lock-backdrop {
+  position: fixed;
+  inset: -32px;
+  z-index: 0;
+  background-position: center;
+  background-size: cover;
+  filter: blur(20px) brightness(0.68) saturate(0.85);
+  transform: scale(1.05);
+}
+
+.lock-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(11, 13, 18, 0.12), rgba(11, 13, 18, 0.7)),
+    rgba(11, 13, 18, 0.25);
+}
+
 .lock-shell {
+  position: relative;
+  z-index: 2;
   display: grid;
   place-items: center;
   gap: 24px;

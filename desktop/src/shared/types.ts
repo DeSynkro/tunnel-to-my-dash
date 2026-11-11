@@ -76,7 +76,7 @@ export interface LockBridge {
   unlock(password: string): Promise<void>;
   backToApp(): Promise<void>;
   quit(): Promise<void>;
-  onShown(callback: () => void): () => void;
+  onShown(callback: (snapshot: string) => void): () => void;
 }
 
 export interface TtmdBridge {
@@ -97,6 +97,7 @@ export interface TtmdBridge {
   updateSecurity(settings: SecuritySettings): Promise<Status>;
   chooseConfig(): Promise<ConfigFile | null>;
   onStatusChanged(callback: () => void): () => void;
+  onSuppressAutoOpen(callback: () => void): () => void;
   quit(): Promise<void>;
   version(): Promise<string>;
 }

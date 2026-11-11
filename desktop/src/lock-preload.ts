@@ -7,7 +7,9 @@ const api: LockBridge = {
   backToApp: () => ipcRenderer.invoke(IPC.navBackToApp),
   quit: () => ipcRenderer.invoke(IPC.quit),
   onShown: (callback) => {
-    const listener = () => callback();
+    const listener = (_event: Electron.IpcRendererEvent, snapshot: string) => {
+      callback(snapshot);
+    };
     ipcRenderer.on(IPC.dashboardLocked, listener);
     return () => {
       ipcRenderer.removeListener(IPC.dashboardLocked, listener);

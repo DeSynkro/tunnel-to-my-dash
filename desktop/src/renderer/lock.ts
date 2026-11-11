@@ -20,6 +20,7 @@ const password = element<HTMLInputElement>("lock-password");
 const error = element<HTMLElement>("lock-error");
 const submit = element<HTMLButtonElement>("lock-submit");
 const back = element<HTMLButtonElement>("lock-back");
+const backdrop = element<HTMLElement>("lock-backdrop");
 
 function message(caught: unknown): string {
   if (caught instanceof Error) {
@@ -53,7 +54,16 @@ if (!bridge) {
   error.textContent = "The lock bridge did not load";
   error.hidden = false;
 } else {
-  bridge.onShown(() => {
+  bridge.onShown((snapshot) => {
+    if (snapshot) {
+      backdrop.style.backgroundImage = `url("${snapshot}")`;
+      backdrop.hidden = false;
+      document.body.dataset.backdrop = "snapshot";
+    } else {
+      backdrop.style.backgroundImage = "";
+      backdrop.hidden = true;
+      document.body.dataset.backdrop = "plain";
+    }
     form.reset();
     error.hidden = true;
     error.textContent = "";
