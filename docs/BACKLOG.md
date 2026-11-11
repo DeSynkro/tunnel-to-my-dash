@@ -5,8 +5,6 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 
 ## Interface
 
-- Design distribution artwork around the in-app route mark: AppImage icon,
-  window icon and any store or README images.
 - Move the navigation bar into the main app window and embed the dashboard in
   the shell instead of a separate dashboard window. This is a larger UI
   refactor and belongs with the unslop pass.
@@ -25,6 +23,9 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 
 ## Done
 
+- Brand integration: the house mark in the masthead and lock screen, the
+  window and AppImage icon rendered from the logo, the README banner, and the
+  warm ink + amber palette across the main screen, toolbar and lock overlay.
 - Reachability dot: the active profile is probed automatically once at
   startup, and clicking the dot re-checks it. It dials the dashboard host and
   port through the tunnel and shows green or red with no label. The probe is
