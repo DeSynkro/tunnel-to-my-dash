@@ -71,8 +71,12 @@ const mainNote = element<HTMLElement>("main-note");
 const securityState = element<HTMLElement>("security-state");
 const appVersion = element<HTMLElement>("app-version");
 
+const rail = element<HTMLElement>("rail");
+const navDashboards = element<HTMLButtonElement>("nav-dashboards");
 const settingsToggle = element<HTMLButtonElement>("settings-toggle");
 const settingsBack = element<HTMLButtonElement>("settings-back");
+const securityDot = element<HTMLElement>("security-dot");
+const tunnelDot = element<HTMLElement>("tunnel-dot");
 const settingsProfiles = element<HTMLElement>("settings-profiles");
 const settingsLockState = element<HTMLElement>("settings-lock-state");
 const settingsPasswordForm = element<HTMLFormElement>("settings-password-form");
@@ -92,7 +96,7 @@ let settingsOpen = false;
 
 function api(): TtmdBridge {
   if (!bridge) {
-    throw new Error("The desktop bridge did not load.");
+    throw new Error("The desktop bridge did not load");
   }
   return bridge;
 }
@@ -102,6 +106,23 @@ function showScreen(name: keyof typeof screens): void {
     node.hidden = key !== name;
   }
   document.body.dataset.screen = name;
+
+  const appLayout = name === "main" || name === "settings";
+  rail.hidden = !appLayout;
+  document.body.classList.toggle("layout-app", appLayout);
+  navDashboards.classList.toggle("active", name === "main");
+  settingsToggle.classList.toggle("active", name === "settings");
+  if (name === "main") {
+    navDashboards.setAttribute("aria-current", "page");
+  } else {
+    navDashboards.removeAttribute("aria-current");
+  }
+  if (name === "settings") {
+    settingsToggle.setAttribute("aria-current", "page");
+  } else {
+    settingsToggle.removeAttribute("aria-current");
+  }
+
   lockButton.hidden = name !== "main" || !status?.password_protected;
 }
 
@@ -210,45 +231,65 @@ function showMain(): void {
   profilesEmpty.hidden = status.profiles.length > 0;
   addForm.hidden = status.profiles.length > 0 ? !addFormOpen : false;
 
+  tunnelDot.classList.toggle("on", status.connected);
   if (status.connected && status.proxy) {
-    mainNote.textContent = `Tunnel is up on ${status.proxy}.`;
+    mainNote.textContent = `Tunnel up on ${status.proxy}`;
   } else {
-    mainNote.textContent = "Open a dashboard to start the tunnel.";
+    mainNote.textContent = "Open a dashboard to start the tunnel";
   }
 
-  securityState.textContent = status.password_protected
-    ? "App lock is on. The vault needs your password after a restart."
-    : "App lock is off. The vault opens with a 0600 key file in the app data folder.";
+  renderRail();
+}
+
+function renderRail(): void {
+  if (!status) {
+    return;
+  }
+  securityState.textContent = status.password_protected ? "Password" : "Key file";
+  securityState.title = status.password_protected
+    ? "The vault needs your password after a restart"
+    : "The vault opens with a 0600 key file in the app data folder";
+  securityDot.classList.toggle("on", status.password_protected);
 }
 
 function profileCard(profile: ProfileSummary): HTMLElement {
   const card = document.createElement("article");
   card.className = "profile";
 
+  const main = document.createElement("div");
+  main.className = "profile-main";
+
   const head = document.createElement("div");
   head.className = "profile-head";
+
+  const dot = document.createElement("span");
+  dot.className = "status-dot";
+  dot.classList.toggle("on", status?.active_profile === profile.id);
+  head.append(dot);
 
   const title = document.createElement("h3");
   title.textContent = profile.name;
   head.append(title);
 
   if (status?.active_profile === profile.id) {
-    const badge = document.createElement("span");
-    badge.className = "badge";
-    badge.textContent = "Active";
-    head.append(badge);
+    const state = document.createElement("span");
+    state.className = "profile-state";
+    state.textContent = "Active";
+    head.append(state);
   }
 
   if (profile.allow_external) {
-    const badge = document.createElement("span");
-    badge.className = "badge external";
-    badge.textContent = "External";
-    head.append(badge);
+    const state = document.createElement("span");
+    state.className = "profile-state";
+    state.textContent = "External";
+    head.append(state);
   }
 
   const url = document.createElement("p");
   url.className = "profile-url";
   url.textContent = profile.dashboard_url;
+
+  main.append(head, url);
 
   const actions = document.createElement("div");
   actions.className = "profile-actions";
@@ -292,7 +333,7 @@ function profileCard(profile: ProfileSummary): HTMLElement {
   });
   actions.append(remove);
 
-  card.append(head, url, actions);
+  card.append(main, actions);
   return card;
 }
 
@@ -302,6 +343,7 @@ function showSettings(): void {
   }
   settingsOpen = true;
   renderSettings();
+  renderRail();
   showScreen("settings");
 }
 
@@ -416,11 +458,11 @@ function settingsProfileCard(profile: ProfileSummary): HTMLElement {
     note.hidden = true;
 
     if (!name) {
-      setFormError(formError, "Give the profile a name.");
+      setFormError(formError, "Give the profile a name");
       return;
     }
     if (!url) {
-      setFormError(formError, "Enter the dashboard URL.");
+      setFormError(formError, "Enter the dashboard URL");
       return;
     }
 
@@ -467,23 +509,23 @@ async function submitSetup(event: SubmitEvent): Promise<void> {
   const passwordConfirm = setupPasswordConfirm.value;
 
   if (!name) {
-    setFormError(setupError, "Give the profile a name.");
+    setFormError(setupError, "Give the profile a name");
     return;
   }
   if (!config) {
-    setFormError(setupError, "Choose a WireGuard config file or paste its contents.");
+    setFormError(setupError, "Choose a WireGuard config file or paste its contents");
     return;
   }
   if (!url) {
-    setFormError(setupError, "Enter the dashboard URL.");
+    setFormError(setupError, "Enter the dashboard URL");
     return;
   }
   if (wantsPassword && !password) {
-    setFormError(setupError, "Enter a password, or turn the app lock off.");
+    setFormError(setupError, "Enter a password, or turn the app lock off");
     return;
   }
   if (wantsPassword && password !== passwordConfirm) {
-    setFormError(setupError, "Passwords do not match.");
+    setFormError(setupError, "Passwords do not match");
     return;
   }
 
@@ -535,15 +577,15 @@ async function submitAdd(event: SubmitEvent): Promise<void> {
   const url = addURL.value.trim();
 
   if (!name) {
-    setFormError(addError, "Give the profile a name.");
+    setFormError(addError, "Give the profile a name");
     return;
   }
   if (!config) {
-    setFormError(addError, "Choose a WireGuard config file or paste its contents.");
+    setFormError(addError, "Choose a WireGuard config file or paste its contents");
     return;
   }
   if (!url) {
-    setFormError(addError, "Enter the dashboard URL.");
+    setFormError(addError, "Enter the dashboard URL");
     return;
   }
 
@@ -602,15 +644,15 @@ async function submitSettingsPassword(event: SubmitEvent): Promise<void> {
   const confirm = settingsNewPasswordConfirm.value;
 
   if (status.password_protected && !current) {
-    setFormError(settingsPasswordError, "Enter your current password.");
+    setFormError(settingsPasswordError, "Enter your current password");
     return;
   }
   if (!next) {
-    setFormError(settingsPasswordError, "Enter a new password.");
+    setFormError(settingsPasswordError, "Enter a new password");
     return;
   }
   if (next !== confirm) {
-    setFormError(settingsPasswordError, "Passwords do not match.");
+    setFormError(settingsPasswordError, "Passwords do not match");
     return;
   }
 
@@ -646,7 +688,7 @@ async function removeAppLock(): Promise<void> {
 
   const current = settingsOldPassword.value;
   if (!current) {
-    setFormError(settingsPasswordError, "Enter your current password first.");
+    setFormError(settingsPasswordError, "Enter your current password first");
     return;
   }
   if (
@@ -746,6 +788,10 @@ addForm.addEventListener("submit", (event) => {
   void submitAdd(event);
 });
 
+navDashboards.addEventListener("click", () => {
+  showMain();
+});
+
 settingsToggle.addEventListener("click", () => {
   showSettings();
 });
@@ -787,7 +833,7 @@ if (bridge) {
   bridge
     .version()
     .then((version) => {
-      appVersion.textContent = ` · v${version}`;
+      appVersion.textContent = `v${version}`;
     })
     .catch(() => undefined);
   bridge.onStatusChanged(() => {
@@ -795,5 +841,5 @@ if (bridge) {
   });
   void refresh();
 } else {
-  showError("The desktop bridge did not load.");
+  showError("The desktop bridge did not load");
 }

@@ -701,7 +701,7 @@ async function runSetupSmoke(window: BrowserWindow): Promise<void> {
       true,
     );
 
-    if (!(await waitForText(window, "setup-error", "Passwords do not match.", 3000))) {
+    if (!(await waitForText(window, "setup-error", "Passwords do not match", 3000))) {
       throw new Error("mismatched setup passwords were not rejected");
     }
     console.log("[smoke] setup confirm mismatch rejected");
@@ -772,7 +772,7 @@ async function runSettingsSmoke(window: BrowserWindow): Promise<void> {
       })()`,
       true,
     );
-    if (!(await waitForText(window, "settings-password-error", "Passwords do not match.", 3000))) {
+    if (!(await waitForText(window, "settings-password-error", "Passwords do not match", 3000))) {
       throw new Error("mismatched passwords were not rejected");
     }
     console.log("[smoke] settings confirm mismatch rejected");

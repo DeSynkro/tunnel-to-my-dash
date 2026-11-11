@@ -11,12 +11,24 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main class="shell">
+    <div class="app">
       <header class="masthead">
-        <div class="mark" aria-hidden="true">TD</div>
-        <div>
-          <h1>Tunnel to My Dash</h1>
-          <p class="tagline">Your LAN, without turning off your VPN.</p>
+        <div class="brand">
+          <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M5 7h4a4 4 0 0 1 4 4v2a4 4 0 0 0 4 4h2"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+            <circle cx="5" cy="7" r="1.5" fill="currentColor" />
+            <circle cx="19" cy="17" r="1.5" fill="currentColor" />
+          </svg>
+          <div class="brand-text">
+            <h1>Tunnel to My Dash</h1>
+            <p class="tagline">Your LAN, without turning off your VPN.</p>
+          </div>
         </div>
         <div class="header-actions">
           <button type="button" class="ghost" id="lock-button" hidden>Lock</button>
@@ -24,214 +36,270 @@
         </div>
       </header>
 
-      <section id="screen-loading" class="screen">
-        <p class="eyebrow">Starting</p>
-        <h2>Waking up the core</h2>
-        <p class="body">Connecting to the local control socket…</p>
-      </section>
-
-      <section id="screen-error" class="screen" hidden>
-        <p class="eyebrow">Problem</p>
-        <h2>Something went wrong</h2>
-        <p class="body" id="error-message"></p>
-        <div class="actions">
-          <button type="button" id="error-retry">Try again</button>
-        </div>
-      </section>
-
-      <section id="screen-setup" class="screen" hidden>
-        <p class="eyebrow">First run</p>
-        <h2>Set up your tunnel</h2>
-        <p class="body">
-          Import the WireGuard config for this machine and point the app at your
-          dashboard. Everything stays in the encrypted vault.
-        </p>
-
-        <form id="setup-form" class="form" autocomplete="off">
-          <label class="field">
-            <span>Profile name</span>
-            <input id="setup-name" type="text" value="Home" maxlength="64" required />
-          </label>
-
-          <div class="field">
-            <span>WireGuard config</span>
-            <div class="row">
-              <button type="button" class="ghost" id="setup-choose">Choose file…</button>
-              <span class="hint" id="setup-file">No file chosen</span>
+      <div class="workspace">
+        <aside class="rail" id="rail" hidden>
+          <nav class="rail-nav" aria-label="Sections">
+            <button type="button" class="rail-item" id="nav-dashboards">Dashboards</button>
+            <button type="button" class="rail-item" id="settings-toggle">Settings</button>
+          </nav>
+          <div class="rail-footer">
+            <div class="rail-status">
+              <span class="status-dot" id="security-dot" aria-hidden="true"></span>
+              <span class="rail-label">App lock</span>
+              <span class="rail-value" id="security-state">Off</span>
             </div>
-            <textarea
-              id="setup-config"
-              rows="8"
-              spellcheck="false"
-              placeholder="Or paste the [Interface] / [Peer] text here"
-            ></textarea>
+            <p class="rail-note">No account.<br />No cloud.<br />No telemetry.</p>
+            <p class="rail-version" id="app-version"></p>
           </div>
+        </aside>
 
-          <label class="field">
-            <span>Dashboard URL</span>
-            <input id="setup-url" type="url" placeholder="http://192.168.0.3:3000" required />
-          </label>
+        <main class="content">
+          <section id="screen-loading" class="screen">
+            <p class="kicker">Starting</p>
+            <h2>Waking up the core</h2>
+            <p class="lead">Connecting to the local control socket</p>
+          </section>
 
-          <fieldset class="lock-options">
-            <legend>App lock</legend>
-            <label class="check">
-              <input type="checkbox" id="setup-lock" />
-              Require a password to open the app
-            </label>
-            <p class="hint">
-              Without a password, the vault key is stored in a 0600 file and the
-              app opens straight to your dashboard.
-            </p>
-            <label class="field" id="setup-password-field" hidden>
-              <span>Password</span>
-              <input id="setup-password" type="password" autocomplete="new-password" />
-              <span class="hint" id="setup-password-hint" hidden></span>
-            </label>
-            <label class="field" id="setup-password-confirm-field" hidden>
-              <span>Confirm password</span>
-              <input id="setup-password-confirm" type="password" autocomplete="new-password" />
-            </label>
-          </fieldset>
-
-          <p class="form-error" id="setup-error" hidden></p>
-          <div class="actions">
-            <button type="submit" id="setup-submit">Create and save</button>
-          </div>
-        </form>
-      </section>
-
-      <section id="screen-lock" class="screen" hidden>
-        <p class="eyebrow">Locked</p>
-        <h2>Unlock the vault</h2>
-        <p class="body">Enter your app password to reach your dashboards.</p>
-
-        <form id="lock-form" class="form narrow" autocomplete="off">
-          <label class="field">
-            <span>Password</span>
-            <input id="lock-password" type="password" autocomplete="current-password" autofocus />
-          </label>
-          <p class="form-error" id="lock-error" hidden></p>
-          <div class="actions">
-            <button type="submit">Unlock</button>
-          </div>
-        </form>
-      </section>
-
-      <section id="screen-main" class="screen" hidden>
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Tunnels</p>
-            <h2>Your dashboards</h2>
-          </div>
-          <div class="section-actions">
-            <button type="button" class="ghost" id="settings-toggle">Settings</button>
-            <button type="button" class="ghost" id="add-profile-toggle">Add profile</button>
-          </div>
-        </div>
-
-        <div class="profiles" id="profile-list"></div>
-        <p class="empty" id="profiles-empty" hidden>No profiles yet. Add one to get started.</p>
-
-        <form id="add-form" class="form panel-form" hidden>
-          <label class="field">
-            <span>Profile name</span>
-            <input id="add-name" type="text" maxlength="64" required />
-          </label>
-
-          <div class="field">
-            <span>WireGuard config</span>
-            <div class="row">
-              <button type="button" class="ghost" id="add-choose">Choose file…</button>
-              <span class="hint" id="add-file">No file chosen</span>
-            </div>
-            <textarea
-              id="add-config"
-              rows="6"
-              spellcheck="false"
-              placeholder="Paste the [Interface] / [Peer] text here"
-            ></textarea>
-          </div>
-
-          <label class="field">
-            <span>Dashboard URL</span>
-            <input id="add-url" type="url" placeholder="http://192.168.0.3:3000" required />
-          </label>
-
-          <p class="form-error" id="add-error" hidden></p>
-          <div class="actions">
-            <button type="submit" id="add-submit">Save profile</button>
-            <button type="button" class="ghost" id="add-cancel">Cancel</button>
-          </div>
-        </form>
-
-        <p class="note" id="main-note">The dashboard window is the next step.</p>
-
-        <div class="security">
-          <p class="eyebrow">Security</p>
-          <p class="body" id="security-state"></p>
-        </div>
-      </section>
-
-      <section id="screen-settings" class="screen" hidden>
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Settings</p>
-            <h2>App and profiles</h2>
-          </div>
-          <button type="button" class="ghost" id="settings-back">Back to dashboards</button>
-        </div>
-
-        <div class="settings-block">
-          <h3>Profiles</h3>
-          <p class="body">
-            Rename a profile or change where its dashboard opens. The WireGuard
-            config stays as it is.
-          </p>
-          <div class="settings-profiles" id="settings-profiles"></div>
-        </div>
-
-        <div class="settings-block">
-          <p class="eyebrow">App lock</p>
-          <h3>Password</h3>
-          <p class="body" id="settings-lock-state"></p>
-
-          <form id="settings-password-form" class="form narrow" autocomplete="off">
-            <label class="field" id="settings-old-password-field" hidden>
-              <span>Current password</span>
-              <input id="settings-old-password" type="password" autocomplete="current-password" />
-            </label>
-            <label class="field">
-              <span>New password</span>
-              <input id="settings-new-password" type="password" autocomplete="new-password" />
-              <span class="hint" id="settings-password-hint" hidden></span>
-            </label>
-            <label class="field">
-              <span>Confirm new password</span>
-              <input
-                id="settings-new-password-confirm"
-                type="password"
-                autocomplete="new-password"
-              />
-            </label>
-            <p class="form-error" id="settings-password-error" hidden></p>
-            <p class="note" id="settings-password-note" hidden></p>
+          <section id="screen-error" class="screen" hidden>
+            <p class="kicker">Problem</p>
+            <h2>Something went wrong</h2>
+            <p class="lead" id="error-message"></p>
             <div class="actions">
-              <button type="submit" id="settings-password-submit">Change password</button>
-              <button
-                type="button"
-                class="ghost danger"
-                id="settings-password-remove"
-                hidden
-              >
-                Turn off app lock
-              </button>
+              <button type="button" id="error-retry">Try again</button>
             </div>
-          </form>
-        </div>
-      </section>
+          </section>
 
-      <footer>No account. No cloud. No telemetry.<span id="app-version"></span></footer>
-    </main>
+          <section id="screen-setup" class="screen" hidden>
+            <div class="setup">
+              <div class="setup-intro">
+                <p class="kicker">First run</p>
+                <h2>Set up your tunnel</h2>
+                <p class="lead">
+                  Import the WireGuard config for this machine and point the app
+                  at your dashboard. Everything stays in the encrypted vault.
+                </p>
+                <div class="route" aria-hidden="true">
+                  <span class="route-end">This app</span>
+                  <span class="route-track"><span class="route-dot"></span></span>
+                  <span class="route-end">Home LAN</span>
+                </div>
+                <ul class="plain-list">
+                  <li>No root and no system VPN changes</li>
+                  <li>WireGuard keys stay in the vault</li>
+                  <li>LAN-only until you allow an origin</li>
+                </ul>
+                <p class="footnote">No account. No cloud. No telemetry.</p>
+              </div>
+
+              <form id="setup-form" class="form panel setup-form" autocomplete="off">
+                <h3>New profile</h3>
+
+                <label class="field">
+                  <span>Profile name</span>
+                  <input id="setup-name" type="text" value="Home" maxlength="64" required />
+                </label>
+
+                <div class="field">
+                  <span>WireGuard config</span>
+                  <div class="row">
+                    <button type="button" class="ghost" id="setup-choose">Choose file</button>
+                    <span class="hint" id="setup-file">No file chosen</span>
+                  </div>
+                  <textarea
+                    id="setup-config"
+                    rows="5"
+                    spellcheck="false"
+                    placeholder="Or paste the [Interface] / [Peer] text here"
+                  ></textarea>
+                </div>
+
+                <label class="field">
+                  <span>Dashboard URL</span>
+                  <input id="setup-url" type="url" placeholder="http://192.168.0.3:3000" required />
+                </label>
+
+                <fieldset class="lock-options">
+                  <legend>App lock</legend>
+                  <label class="check">
+                    <input type="checkbox" id="setup-lock" />
+                    Require a password to open the app
+                  </label>
+                  <p class="hint">
+                    Without a password, the vault key is stored in a 0600 file and
+                    the app opens straight to your dashboard.
+                  </p>
+                  <label class="field" id="setup-password-field" hidden>
+                    <span>Password</span>
+                    <input id="setup-password" type="password" autocomplete="new-password" />
+                    <span class="hint" id="setup-password-hint" hidden></span>
+                  </label>
+                  <label class="field" id="setup-password-confirm-field" hidden>
+                    <span>Confirm password</span>
+                    <input
+                      id="setup-password-confirm"
+                      type="password"
+                      autocomplete="new-password"
+                    />
+                  </label>
+                </fieldset>
+
+                <p class="form-error" id="setup-error" hidden></p>
+                <div class="actions">
+                  <button type="submit" id="setup-submit">Create and save</button>
+                </div>
+              </form>
+            </div>
+          </section>
+
+          <section id="screen-lock" class="screen" hidden>
+            <div class="lock panel">
+              <div class="route small" aria-hidden="true">
+                <span class="route-end">This app</span>
+                <span class="route-track"><span class="route-dot"></span></span>
+                <span class="route-end">Vault</span>
+              </div>
+              <p class="kicker">Locked</p>
+              <h2>Unlock the vault</h2>
+              <p class="lead">Enter your app password to reach your dashboards.</p>
+
+              <form id="lock-form" class="form" autocomplete="off">
+                <label class="field">
+                  <span>Password</span>
+                  <input
+                    id="lock-password"
+                    type="password"
+                    autocomplete="current-password"
+                    autofocus
+                  />
+                </label>
+                <p class="form-error" id="lock-error" hidden></p>
+                <div class="actions">
+                  <button type="submit">Unlock</button>
+                </div>
+              </form>
+              <p class="footnote">No account. No cloud. No telemetry.</p>
+            </div>
+          </section>
+
+          <section id="screen-main" class="screen" hidden>
+            <div class="page-head">
+              <div>
+                <p class="kicker">Local network</p>
+                <h2>Your dashboards</h2>
+              </div>
+              <button type="button" class="ghost" id="add-profile-toggle">Add profile</button>
+            </div>
+
+            <div class="status-strip">
+              <span class="status-dot" id="tunnel-dot" aria-hidden="true"></span>
+              <span id="main-note">Open a dashboard to start the tunnel</span>
+            </div>
+
+            <div class="profiles" id="profile-list"></div>
+            <p class="empty" id="profiles-empty" hidden>
+              No profiles yet. Add one to start.
+            </p>
+
+            <p class="footnote">
+              The tunnel opens with the dashboard and closes when you leave it.
+            </p>
+
+            <form id="add-form" class="form panel-form" hidden>
+              <h3>New profile</h3>
+              <label class="field">
+                <span>Profile name</span>
+                <input id="add-name" type="text" maxlength="64" required />
+              </label>
+
+              <div class="field">
+                <span>WireGuard config</span>
+                <div class="row">
+                  <button type="button" class="ghost" id="add-choose">Choose file</button>
+                  <span class="hint" id="add-file">No file chosen</span>
+                </div>
+                <textarea
+                  id="add-config"
+                  rows="6"
+                  spellcheck="false"
+                  placeholder="Paste the [Interface] / [Peer] text here"
+                ></textarea>
+              </div>
+
+              <label class="field">
+                <span>Dashboard URL</span>
+                <input id="add-url" type="url" placeholder="http://192.168.0.3:3000" required />
+              </label>
+
+              <p class="form-error" id="add-error" hidden></p>
+              <div class="actions">
+                <button type="submit" id="add-submit">Save profile</button>
+                <button type="button" class="ghost" id="add-cancel">Cancel</button>
+              </div>
+            </form>
+          </section>
+
+          <section id="screen-settings" class="screen" hidden>
+            <div class="page-head">
+              <div>
+                <h2>Settings</h2>
+              </div>
+              <button type="button" class="ghost" id="settings-back">Back to dashboards</button>
+            </div>
+
+            <div class="settings-block">
+              <h3>Profiles</h3>
+              <p class="lead">
+                Rename a profile or change where its dashboard opens. The
+                WireGuard config stays as it is.
+              </p>
+              <div class="settings-profiles" id="settings-profiles"></div>
+            </div>
+
+            <div class="settings-block">
+              <h3>App lock</h3>
+              <p class="lead" id="settings-lock-state"></p>
+
+              <form id="settings-password-form" class="form panel-form" autocomplete="off">
+                <label class="field" id="settings-old-password-field" hidden>
+                  <span>Current password</span>
+                  <input
+                    id="settings-old-password"
+                    type="password"
+                    autocomplete="current-password"
+                  />
+                </label>
+                <label class="field">
+                  <span>New password</span>
+                  <input id="settings-new-password" type="password" autocomplete="new-password" />
+                  <span class="hint" id="settings-password-hint" hidden></span>
+                </label>
+                <label class="field">
+                  <span>Confirm new password</span>
+                  <input
+                    id="settings-new-password-confirm"
+                    type="password"
+                    autocomplete="new-password"
+                  />
+                </label>
+                <p class="form-error" id="settings-password-error" hidden></p>
+                <p class="note" id="settings-password-note" hidden></p>
+                <div class="actions">
+                  <button type="submit" id="settings-password-submit">Change password</button>
+                  <button
+                    type="button"
+                    class="ghost danger"
+                    id="settings-password-remove"
+                    hidden
+                  >
+                    Turn off app lock
+                  </button>
+                </div>
+              </form>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
     <script src="./app.js"></script>
   </body>
 </html>

@@ -85,6 +85,16 @@ Startup sequence:
    The first request triggers the WireGuard handshake.
 4. On dashboard close, lock, or crash, stop the core and drop the tunnel.
 
+### Interface
+
+The shell uses one ink neutral ramp, a mint accent for live status and focus,
+and off-white primary actions. Addresses, versions and route labels use the
+system mono. On the main and settings screens a 200px rail carries the
+Dashboards and Settings entries, the app-lock state and the version. Setup is
+an asymmetric split; lock is a compact card. The route mark and route line are
+the repeating signature detail. Short labels are sentence case, and spacing
+stays on a 4px scale.
+
 ## The tunnel
 
 The core uses `wireguard-go` with a gVisor netstack. WireGuard normally wants

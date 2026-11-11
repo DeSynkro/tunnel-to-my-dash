@@ -5,10 +5,8 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 
 ## Interface
 
-- Rebuild the UI with a proper design pass: more distinctive, professional and
-  less like a utility template. This is the "unslop" pass.
-- Design a new logo and distribution artwork: AppImage icon, window icon and
-  any store or README images.
+- Design distribution artwork around the in-app route mark: AppImage icon,
+  window icon and any store or README images.
 - Move the navigation bar into the main app window and embed the dashboard in
   the shell instead of a separate dashboard window. This is a larger UI
   refactor and belongs with the unslop pass.
@@ -22,6 +20,9 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 
 ## Done
 
+- Interface pass: app-scale rail layout, ink neutral palette, off-white
+  primary actions, sentence-case labels, 4px spacing and a route-line
+  signature. The in-app wordmark and route mark are in place.
 - Auto-hiding dashboard toolbar: it hides after the pointer leaves the top
   edge and reappears after a short hover. The dashboard view fills the window
   and the bar overlays it.

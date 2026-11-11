@@ -1,10 +1,10 @@
 :root {
   color-scheme: dark;
-  --bg: #15191c;
-  --border: #2a3035;
-  --text: #e7e4df;
-  --muted: #a6adb3;
-  --faint: #646c73;
+  --bg: #0b0d12;
+  --border: rgba(233, 235, 239, 0.08);
+  --text: #e9ebef;
+  --muted: #a2a8b3;
+  --faint: #737a87;
 }
 
 * {
@@ -47,19 +47,24 @@ button {
   height: 26px;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 2px;
+  border-radius: 6px;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
 }
 
 button:hover:not(:disabled) {
-  background: #1d2226;
+  background: #171b23;
   color: var(--text);
 }
 
+button:focus-visible {
+  outline: 2px solid #7fd1b9;
+  outline-offset: 1px;
+}
+
 button:disabled {
-  opacity: 0.35;
+  opacity: 0.4;
   cursor: default;
 }
 
@@ -94,7 +99,7 @@ svg {
   overflow: hidden;
   color: var(--faint);
   font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
-  font-size: 10px;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
