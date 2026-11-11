@@ -488,10 +488,6 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
           }
 
           if (full) {
-            await window.webContents.executeJavaScript(
-              'document.querySelector(".dot-button")?.click()',
-              true,
-            );
             const reachable = await waitForReachability(window, 10_000);
             console.log(`[smoke] reachability checked=${reachable}`);
             if (!reachable) {

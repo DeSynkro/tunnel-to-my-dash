@@ -210,12 +210,16 @@ func (s *Service) handleActivateProfile(w http.ResponseWriter, r *http.Request) 
 
 func (s *Service) handleCheckProfile(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	reachable, err := s.checkProfile(r.PathValue("id"))
+	opts, address, err := s.probeTarget(r.PathValue("id"))
+	s.mu.Unlock()
 	if err != nil {
 		writeError(w, err)
 		return
+	}
+
+	reachable := true
+	if err := s.connector.Probe(opts, "tcp", address, 3*time.Second); err != nil {
+		reachable = false
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"reachable": reachable})
 }

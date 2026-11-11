@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/desynkro/tunnel-to-my-dash/core/internal/config"
 	"github.com/desynkro/tunnel-to-my-dash/core/internal/external"
@@ -264,34 +263,33 @@ func (s *Service) connect(id string) (string, string, error) {
 	return proxy, profile.DashboardURL, nil
 }
 
-func (s *Service) checkProfile(id string) (bool, error) {
+// probeTarget prepares a reachability check while the service lock is held.
+// The caller releases the lock before dialing so a slow probe never blocks
+// settings or profile changes.
+func (s *Service) probeTarget(id string) (ConnectOptions, string, error) {
 	if err := s.requireUnlocked(); err != nil {
-		return false, err
+		return ConnectOptions{}, "", err
 	}
 
 	profile, ok := s.store.Profile(id)
 	if !ok {
-		return false, vault.ErrProfileNotFound
+		return ConnectOptions{}, "", vault.ErrProfileNotFound
 	}
 	tunnelCfg, err := config.ParseTunnel(profile.TunnelConfig)
 	if err != nil {
-		return false, fmt.Errorf("tunnel config: %w", err)
+		return ConnectOptions{}, "", fmt.Errorf("tunnel config: %w", err)
 	}
 	address, err := dashboardAddress(profile.DashboardURL)
 	if err != nil {
-		return false, fmt.Errorf("dashboard URL: %w", err)
+		return ConnectOptions{}, "", fmt.Errorf("dashboard URL: %w", err)
 	}
 
-	err = s.connector.Probe(ConnectOptions{
+	return ConnectOptions{
 		Tunnel:          tunnelCfg,
 		AllowExternal:   profile.AllowExternal,
 		ExternalMode:    profile.EffectiveExternalMode(),
 		ExternalOrigins: profile.ExternalOrigins,
-	}, "tcp", address, 5*time.Second)
-	if err != nil {
-		return false, nil
-	}
-	return true, nil
+	}, address, nil
 }
 
 func dashboardAddress(raw string) (string, error) {

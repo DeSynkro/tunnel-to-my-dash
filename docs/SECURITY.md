@@ -81,10 +81,10 @@ connection, the system VPN, or the host's LAN interface. If the proxy cannot
 classify a destination, it refuses it. The only direct destinations are the
 exact external origins a profile has opted into.
 
-The reachability probe dials only the selected profile's dashboard host and
-port, and only through the tunnel. It is serialized with a real connection so
-two WireGuard devices never use one profile at once, and it closes as soon as
-the dial finishes.
+The reachability probe runs for the active profile at startup and on demand.
+It dials only that profile's dashboard host and port, and only through the
+tunnel. It is serialized with a real connection so two WireGuard devices never
+use one profile at once, and it closes as soon as the dial finishes.
 
 ## App lock limitations
 

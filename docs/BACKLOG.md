@@ -31,7 +31,8 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 
 ## Done
 
-- Reachability dot: clicking the profile dot probes the dashboard host and
+- Reachability dot: the active profile is probed automatically once at
+  startup, and clicking the dot re-checks it. It dials the dashboard host and
   port through the tunnel and shows green or red with no label. The probe is
   serialized with a real connection and closes immediately.
 - Interface pass: app-scale rail layout, ink neutral palette, off-white

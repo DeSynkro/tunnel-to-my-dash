@@ -34,8 +34,8 @@ the app's own traffic uses the tunnel.
 - LAN-only by default. A per-profile external-content switch can allow all
   public origins or an exact origin list for fonts and widgets; those use the
   normal network or VPN, never the tunnel.
-- Click the profile status dot to probe the dashboard through the tunnel;
-  green is reachable, red is not.
+- The active profile is checked once at startup. Click its status dot to
+  re-check; green is reachable, red is not.
 
 More detail in [docs/DESIGN.md](docs/DESIGN.md).
 

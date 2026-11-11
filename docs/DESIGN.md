@@ -91,9 +91,10 @@ The shell uses one ink neutral ramp, a mint accent for live status and focus,
 and off-white primary actions. Addresses, versions and route labels use the
 system mono. On the main, profile and settings screens a 200px rail carries
 the Dashboards and Settings entries, the app-lock state and the version.
-Setup is an asymmetric split; lock is a compact card. The profile status dot
-is also a button: it dials the dashboard host and port through the tunnel and
-turns green or red, with no label. The route mark and route line are
+Setup is an asymmetric split; lock is a compact card. The active profile is
+probed once at startup; the profile status dot is also a button for a manual
+re-check. It dials the dashboard host and port through the tunnel and turns
+green or red, with no label. The route mark and route line are
 the repeating signature detail. Short labels are sentence case, and spacing
 stays on a 4px scale.
 

@@ -111,6 +111,7 @@ let settingsOpen = false;
 let editingProfileID: string | null = null;
 const reachability: Record<string, boolean> = {};
 let reachabilityChecking: string | null = null;
+let autoChecked = false;
 
 function api(): TtmdBridge {
   if (!bridge) {
@@ -262,6 +263,11 @@ function showMain(): void {
   }
 
   renderRail();
+
+  if (!autoChecked && status.active_profile) {
+    autoChecked = true;
+    void checkReachability(status.active_profile);
+  }
 }
 
 function renderRail(): void {
