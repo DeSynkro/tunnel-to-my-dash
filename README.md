@@ -26,9 +26,9 @@ the app's own traffic uses the tunnel.
 - A small Go core runs a userspace WireGuard device and a TCP/IP stack, so no
   root or system VPN slot is needed.
 - A localhost HTTP proxy feeds the app's browser view through that tunnel.
-- The browser view is Chromium (via Electron), with a small toolbar and
-  in-place navigation. By default it can only reach private addresses; public
-  pages are blocked.
+- The browser view is Chromium (via Electron), with a small auto-hiding
+  toolbar and in-place navigation. By default it can only reach private
+  addresses; public pages are blocked.
 - Secrets live in an encrypted vault. The app lock is optional; the same
   password unlocks the vault.
 - LAN-only by default. A per-profile external-content switch can allow exact

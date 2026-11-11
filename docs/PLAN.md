@@ -458,8 +458,8 @@ with opt-in exact external origins for fonts and widgets.
 - [x] Lock and unlock work.
 - [x] Connect opens the dashboard while ProtonVPN is active.
 - [x] Closing the dashboard disconnects the tunnel.
-- [x] Dashboard toolbar with back, forward, reload, home and App; private
-  LAN links navigate in the same view and public URLs stay blocked.
+- [x] Auto-hiding dashboard toolbar with back, forward, reload, home and App;
+  private LAN links navigate in the same view and public URLs stay blocked.
 - [x] Settings page for profile names, dashboard URLs and the app lock, with
   confirm-password checks on setup and password changes.
 - [x] External content is off by default; allowed origins load directly and

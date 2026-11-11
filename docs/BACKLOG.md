@@ -9,9 +9,6 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
   less like a utility template. This is the "unslop" pass.
 - Design a new logo and distribution artwork: AppImage icon, window icon and
   any store or README images.
-- Auto-hide the dashboard toolbar when the pointer is away from the top edge,
-  and reveal it on hover after a short delay. Needs cursor polling or a
-  hover strip that does not block clicks on the page.
 - Move the navigation bar into the main app window and embed the dashboard in
   the shell instead of a separate dashboard window. This is a larger UI
   refactor and belongs with the unslop pass.
@@ -25,6 +22,9 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 
 ## Done
 
+- Auto-hiding dashboard toolbar: it hides after the pointer leaves the top
+  edge and reappears after a short hover. The dashboard view fills the window
+  and the bar overlays it.
 - Per-profile external-content switch with an exact-origin panel. Allowed
   origins use the normal network or VPN, never the tunnel; everything else
   stays blocked.

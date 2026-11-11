@@ -65,10 +65,11 @@ The desktop app has four parts:
 
 - **Electron main process.** Window, lock screen, settings, data directory,
   and the lifecycle of the Go core. No remote content runs with Node access.
-- **Dashboard view.** A separate sandboxed `BrowserWindow` with its own
-  Chromium session and proxy. It loads the configured LAN URL and nothing
-  else as a top-level page. The first desktop version uses a child window; a
-  single-window `WebContentsView` with a toolbar is a later refinement.
+- **Dashboard view.** A separate `BaseWindow` with a sandboxed
+  `WebContentsView` and its own Chromium session and proxy. It loads the
+  configured LAN URL and nothing else as a top-level page. A 36px navigation
+  bar overlays the view and hides when the pointer leaves the top edge.
+  Embedding the dashboard in the main shell is a later refinement.
 - **Go core.** A userspace WireGuard device, a TCP/IP stack, a localhost HTTP
   proxy, the vault, and a small control API on a `0600` Unix socket. It runs
   as an ordinary user.

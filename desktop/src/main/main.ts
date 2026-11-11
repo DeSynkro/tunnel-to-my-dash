@@ -4,6 +4,7 @@ import {
   BaseWindow,
   BrowserWindow,
   Menu,
+  screen,
   session,
   WebContentsView,
   type WebPreferences,
@@ -69,6 +70,93 @@ let dashboardToolbar: WebContentsView | null = null;
 let dashboardHomeURL = "";
 
 const toolbarHeight = 36;
+const toolbarRevealDelay = 350;
+const toolbarHideDelay = 900;
+const toolbarPollInterval = 150;
+
+let toolbarVisible = true;
+let toolbarHoveredAt = 0;
+let toolbarLeftAt = 0;
+let toolbarInitialUntil = 0;
+let toolbarPoll: ReturnType<typeof setInterval> | null = null;
+
+function setToolbarVisible(visible: boolean): void {
+  if (!dashboardToolbar || toolbarVisible === visible) {
+    return;
+  }
+  toolbarVisible = visible;
+  dashboardToolbar.setVisible(visible);
+}
+
+function stopToolbarPoll(): void {
+  if (toolbarPoll) {
+    clearInterval(toolbarPoll);
+    toolbarPoll = null;
+  }
+  toolbarHoveredAt = 0;
+  toolbarLeftAt = 0;
+  toolbarInitialUntil = 0;
+}
+
+function startToolbarPoll(): void {
+  stopToolbarPoll();
+  toolbarVisible = true;
+  toolbarInitialUntil = Date.now() + 1500;
+  dashboardToolbar?.setVisible(true);
+
+  toolbarPoll = setInterval(() => {
+    if (!dashboardWindow || !dashboardToolbar) {
+      return;
+    }
+
+    if (!dashboardWindow.isFocused()) {
+      setToolbarVisible(false);
+      toolbarHoveredAt = 0;
+      toolbarLeftAt = 0;
+      return;
+    }
+
+    const bounds = dashboardWindow.getContentBounds();
+    const point = screen.getCursorScreenPoint();
+    const x = point.x - bounds.x;
+    const y = point.y - bounds.y;
+    const inside = x >= 0 && x < bounds.width && y >= 0 && y < bounds.height;
+    const toolbarFocused = dashboardToolbar.webContents.isFocused();
+    const hotZone = toolbarVisible ? toolbarHeight + 4 : 8;
+    const overHotZone = inside && (y <= hotZone || toolbarFocused);
+    const now = Date.now();
+
+    if (overHotZone) {
+      toolbarLeftAt = 0;
+      if (!toolbarVisible) {
+        if (toolbarHoveredAt === 0) {
+          toolbarHoveredAt = now;
+        }
+        if (now - toolbarHoveredAt >= toolbarRevealDelay) {
+          toolbarHoveredAt = 0;
+          setToolbarVisible(true);
+        }
+      }
+      return;
+    }
+
+    toolbarHoveredAt = 0;
+    if (!toolbarVisible) {
+      return;
+    }
+    if (now < toolbarInitialUntil) {
+      toolbarLeftAt = 0;
+      return;
+    }
+    if (toolbarLeftAt === 0) {
+      toolbarLeftAt = now;
+    }
+    if (now - toolbarLeftAt >= toolbarHideDelay) {
+      toolbarLeftAt = 0;
+      setToolbarVisible(false);
+    }
+  }, toolbarPollInterval);
+}
 
 function resolveCorePath(): string {
   if (process.env.TTMD_CORE) {
@@ -196,12 +284,7 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   const layout = (): void => {
     const { width, height } = window.getContentBounds();
     toolbar.setBounds({ x: 0, y: 0, width, height: toolbarHeight });
-    view.setBounds({
-      x: 0,
-      y: toolbarHeight,
-      width,
-      height: Math.max(0, height - toolbarHeight),
-    });
+    view.setBounds({ x: 0, y: 0, width, height });
   };
   window.on("resize", layout);
   layout();
@@ -211,6 +294,7 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   dashboardToolbar = toolbar;
   dashboardHomeURL = result.dashboard_url;
 
+  startToolbarPoll();
   void toolbar.webContents.loadFile(path.join(__dirname, "renderer/toolbar.html"));
   toolbar.webContents.on("did-finish-load", sendNavState);
 
@@ -232,6 +316,7 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   });
 
   window.on("closed", () => {
+    stopToolbarPoll();
     dashboardWindow = null;
     dashboardView = null;
     dashboardToolbar = null;
@@ -246,6 +331,7 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   });
 
   mainWindow?.hide();
+  window.focus();
 
   try {
     await view.webContents.loadURL(result.dashboard_url);
@@ -300,7 +386,8 @@ function createWindow(): void {
     process.env.TTMD_SMOKE === "full" ||
     process.env.TTMD_SMOKE === "idle" ||
     process.env.TTMD_SMOKE === "settings" ||
-    process.env.TTMD_SMOKE === "setup"
+    process.env.TTMD_SMOKE === "setup" ||
+    process.env.TTMD_SMOKE === "toolbar"
   ) {
     mainWindow.webContents.once("did-finish-load", () => {
       if (mainWindow) {
@@ -315,7 +402,9 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
   const idle = process.env.TTMD_SMOKE === "idle";
   const settings = process.env.TTMD_SMOKE === "settings";
   const setupSmoke = process.env.TTMD_SMOKE === "setup";
-  const deadline = Date.now() + (full || settings || setupSmoke ? 60_000 : 12_000);
+  const toolbarSmoke = process.env.TTMD_SMOKE === "toolbar";
+  const deadline =
+    Date.now() + (full || settings || setupSmoke || toolbarSmoke ? 60_000 : 12_000);
   let submitted = false;
   let dashboardTried = false;
   let dashboardClosed = false;
@@ -357,6 +446,21 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
         }
         if (state.screen === "error" || state.screen === "lock" || state.screen === "main") {
           console.error(`[smoke] setup needs an empty data directory, got screen=${state.screen}`);
+          process.exitCode = 1;
+          app.quit();
+          return;
+        }
+        await delay(100);
+        continue;
+      }
+
+      if (toolbarSmoke) {
+        if (state.screen === "main") {
+          await runToolbarSmoke(window);
+          return;
+        }
+        if (state.screen === "error" || state.screen === "lock" || state.screen === "setup") {
+          console.error(`[smoke] toolbar needs a seeded, unlocked vault, got screen=${state.screen}`);
           process.exitCode = 1;
           app.quit();
           return;
@@ -518,6 +622,57 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
   console.error("[smoke] the UI did not settle in time");
   process.exitCode = 1;
   app.quit();
+}
+
+async function runToolbarSmoke(window: BrowserWindow): Promise<void> {
+  try {
+    await window.webContents.executeJavaScript(
+      'document.querySelector(".profile-actions button")?.click()',
+      true,
+    );
+    if (!(await waitForDashboard(5000))) {
+      throw new Error("the dashboard window did not open");
+    }
+    if (!(await waitForDashboardLoad(30_000))) {
+      throw new Error("the dashboard did not finish loading");
+    }
+
+    console.log("[smoke] toolbar watching");
+    console.log(
+      `[smoke] toolbar window=${JSON.stringify(dashboardWindow?.getContentBounds())}`,
+    );
+    let last = dashboardToolbar?.getVisible() ?? false;
+    console.log(`[smoke] toolbar visible=${last}`);
+    let sawHidden = !last;
+    let sawShownAgain = false;
+
+    const end = Date.now() + 8000;
+    while (Date.now() < end) {
+      await delay(100);
+      const current = dashboardToolbar?.getVisible() ?? false;
+      if (current === last) {
+        continue;
+      }
+      last = current;
+      console.log(`[smoke] toolbar visible=${current}`);
+      if (!current) {
+        sawHidden = true;
+      } else if (sawHidden) {
+        sawShownAgain = true;
+      }
+    }
+
+    console.log(`[smoke] toolbar hidden=${sawHidden} revealed=${sawShownAgain}`);
+    if (!sawHidden || !sawShownAgain) {
+      throw new Error("the toolbar did not hide and reveal");
+    }
+
+    app.quit();
+  } catch (error) {
+    console.error(`[smoke] toolbar failed: ${errorMessage(error)}`);
+    process.exitCode = 1;
+    app.quit();
+  }
 }
 
 async function runSetupSmoke(window: BrowserWindow): Promise<void> {
