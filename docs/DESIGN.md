@@ -98,15 +98,15 @@ Startup sequence:
 
 ### Interface
 
-The shell uses one ink neutral ramp, a mint accent for live status and focus,
-and off-white primary actions. Addresses, versions and route labels use the
+The shell uses one warm ink neutral ramp, an amber accent for live status and
+focus, and cream primary actions. Addresses, versions and route labels use the
 system mono. On the main, profile and settings screens a 200px rail carries
 the Dashboards and Settings entries, the app-lock state and the version.
 Setup is an asymmetric split; lock is a compact card. Settings uses cards:
 Behavior and Security on top and App lock full width, with the storage note
 below. The active profile is probed once at startup; the profile status dot is
 also a button for a manual re-check. It dials the dashboard host and port
-through the tunnel and turns green or red, with no label. The route mark and
+through the tunnel and turns green or red, with no label. The house mark and
 route line are the repeating signature detail. Short labels are sentence case,
 and spacing stays on a 4px scale.
 
@@ -290,8 +290,8 @@ with an amber tunnel glow. The logo set in `logo/` is the source of truth;
 derived PNGs are committed so a build does not depend on an SVG rasteriser.
 
 - The masthead and lock screen use `icon-small.svg` as their mark (28px and
-  22px). The HTML wordmark and tagline stay; the wide wordmark SVG is for the
-  README banner.
+  22px). The HTML wordmark and tagline stay; the README uses the full banner
+  composition.
 - A 512px PNG rendered from `icon.svg` replaces `desktop/build/icon.png`. It
   is the window icon and the AppImage `.desktop` icon.
 - `logo/banner.svg` sits at the top of the README.
@@ -317,10 +317,11 @@ Non-goals: no light theme, no typography change, no tray or launch-at-login
 work, and no Android icon work yet. `icon-light.svg` and `icon-ios.svg` stay
 unused for now.
 
-Verification: text keeps AA contrast on its surfaces, the mark stays legible at
-22-28px, screenshots cover the main menu, settings, both toolbar modes and the
-lock overlay, and the packaged AppImage passes the full, settings, toolbar,
-fixed, refocus, lock and lock-back flows.
+Verification: body and secondary text keep AA contrast on their surfaces;
+faint metadata stays decorative and is no dimmer than before. The mark stays
+legible at 22-28px, screenshots cover the main menu, settings, both toolbar
+modes and the lock overlay, and the packaged AppImage passes the full,
+settings, toolbar, fixed, refocus, lock and lock-back flows.
 
 ## Decisions
 

@@ -509,7 +509,7 @@ button {
   padding: 0 16px;
   border: 1px solid transparent;
   border-radius: 8px;
-  background: var(--text);
+  background: #efe7d6;
   color: var(--bg);
   font: inherit;
   font-size: 13px;

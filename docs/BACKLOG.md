@@ -5,6 +5,9 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 
 ## Interface
 
+- Give the peek pill a visible edge over light dashboards. Its light fill
+  disappears against a white page; a darker fill or a thin border would fix
+  it without changing the dark-theme look.
 - Move the navigation bar into the main app window and embed the dashboard in
   the shell instead of a separate dashboard window. This is a larger UI
   refactor and belongs with the unslop pass.

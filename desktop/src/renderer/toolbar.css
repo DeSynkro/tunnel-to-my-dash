@@ -141,7 +141,7 @@ svg {
   min-width: 0;
   margin-left: auto;
   overflow: hidden;
-  color: var(--faint);
+  color: var(--muted);
   font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
   font-size: 11px;
   text-overflow: ellipsis;

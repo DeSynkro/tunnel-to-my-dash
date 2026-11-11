@@ -106,7 +106,7 @@ one. The app does not phone home for updates.
 - Auto-hide can be turned off in Settings if you prefer the floating toolbar
   always visible.
 - Launch at login, start minimized and close to tray are deferred until the
-  tray icon and distribution artwork exist.
+  tray icon exists.
 - Windows and Android packaging come after the Linux AppImage.
 - Jellyfin playback inside the app is still untested; Jellyfin, OpenCode and
   the laptop dashboard answered over HTTP through the tunnel.
