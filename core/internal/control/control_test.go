@@ -16,7 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/desynkro/tunnel-to-my-dash/core/internal/config"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -26,12 +25,14 @@ type fakeConnector struct {
 	disconnects int
 	proxy       string
 	err         error
+	last        ConnectOptions
 }
 
-func (f *fakeConnector) Connect(cfg config.Tunnel) (string, error) {
+func (f *fakeConnector) Connect(opts ConnectOptions) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.connects++
+	f.last = opts
 	if f.err != nil {
 		return "", f.err
 	}
@@ -188,9 +189,11 @@ func TestControlFlow(t *testing.T) {
 	}
 
 	profileBody := ProfileInput{
-		Name:         "Home",
-		TunnelConfig: validTunnel(t),
-		DashboardURL: "http://192.168.0.3:3000",
+		Name:            "Home",
+		TunnelConfig:    validTunnel(t),
+		DashboardURL:    "http://192.168.0.3:3000",
+		AllowExternal:   true,
+		ExternalOrigins: []string{" HTTPS://Fonts.GoogleAPIs.com/ ", "https://fonts.googleapis.com"},
 	}
 	resp, data = call(t, client, http.MethodPost, "/profiles", profileBody)
 	if resp.StatusCode != http.StatusCreated {
@@ -205,6 +208,10 @@ func TestControlFlow(t *testing.T) {
 	}
 	if profile.ID == "" || profile.Name != "Home" {
 		t.Fatalf("profile = %+v", profile)
+	}
+	if !profile.AllowExternal || len(profile.ExternalOrigins) != 1 ||
+		profile.ExternalOrigins[0] != "https://fonts.googleapis.com" {
+		t.Fatalf("external profile = %+v", profile)
 	}
 
 	resp, data = call(t, client, http.MethodGet, "/status", nil)
@@ -232,9 +239,14 @@ func TestControlFlow(t *testing.T) {
 	}
 	connector.mu.Lock()
 	connects := connector.connects
+	last := connector.last
 	connector.mu.Unlock()
 	if connects != 1 {
 		t.Fatalf("connector connects = %d, want 1", connects)
+	}
+	if !last.AllowExternal || len(last.ExternalOrigins) != 1 ||
+		last.ExternalOrigins[0] != "https://fonts.googleapis.com" {
+		t.Fatalf("connector options = %+v", last)
 	}
 
 	_, data = call(t, client, http.MethodGet, "/status", nil)
@@ -338,6 +350,17 @@ func TestControlErrors(t *testing.T) {
 	})
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("invalid profile status = %d: %s", resp.StatusCode, data)
+	}
+
+	resp, data = call(t, client, http.MethodPost, "/profiles", ProfileInput{
+		Name:            "Home",
+		TunnelConfig:    validTunnel(t),
+		DashboardURL:    "http://192.168.0.3:3000",
+		AllowExternal:   true,
+		ExternalOrigins: []string{"https://fonts.example/path"},
+	})
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("invalid external origin status = %d: %s", resp.StatusCode, data)
 	}
 
 	resp, _ = call(t, client, http.MethodPost, "/connect", connectRequest{ProfileID: "missing"})

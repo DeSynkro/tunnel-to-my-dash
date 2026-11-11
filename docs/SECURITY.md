@@ -67,13 +67,19 @@ Out of scope:
 - HTTP and HTTPS requests are forced through the localhost proxy.
 - Loopback destinations are blocked so a page cannot reach the app's own
   control socket or proxy.
-- External content is subresource-only and opt-in.
+- External content is opt-in, exact-origin and subresource-only. Top-level
+  navigation is always private.
+- External names are resolved by the proxy and dialed only when the result is
+  a public address. Loopback, private, link-local and CGNAT results are
+  refused.
+- External traffic uses a direct dialer, never the WireGuard tunnel.
 
 ## Fail-closed behaviour
 
 If the tunnel is down, LAN requests fail. There is no fallback to a direct
 connection, the system VPN, or the host's LAN interface. If the proxy cannot
-classify a destination, it refuses it.
+classify a destination, it refuses it. The only direct destinations are the
+exact external origins a profile has opted into.
 
 ## App lock limitations
 
@@ -91,6 +97,10 @@ so.
 - [x] Verify Chromium background networking and service hooks are disabled.
 - [x] Verify the dashboard cannot navigate to a public page.
 - [x] Verify loopback and public destinations are refused by the proxy.
+- [x] Verify an allowed external origin loads directly and an unlisted origin
+      gets a 403.
+- [x] Verify top-level navigation to an external origin is blocked even when
+      that origin is allowed for subresources.
 - [x] Verify no TUN device is created and no elevated privileges are used.
 - [x] Verify the AppImage runs with the Chromium sandbox enabled. The
       packaged build loaded the dashboard without `--no-sandbox`; only the

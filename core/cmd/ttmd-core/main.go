@@ -67,7 +67,7 @@ func runServe(args []string, stdout io.Writer) int {
 		return 1
 	}
 
-	instance, err := app.Start(tunnelCfg)
+	instance, err := app.Start(tunnelCfg, app.Options{})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1

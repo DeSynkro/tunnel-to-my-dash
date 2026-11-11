@@ -68,7 +68,7 @@ func TestEndToEnd(t *testing.T) {
 		Addresses:     []net.IPNet{mustIPNet(t, "10.66.0.2/24")},
 		MTU:           1420,
 		ListenPort:    portB,
-	})
+	}, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestEndToEnd(t *testing.T) {
 }
 
 func TestStartRejectsBadConfig(t *testing.T) {
-	if _, err := Start(config.Tunnel{}); err == nil {
+	if _, err := Start(config.Tunnel{}, Options{}); err == nil {
 		t.Fatal("expected an error")
 	}
 }

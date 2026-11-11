@@ -5,9 +5,16 @@ import (
 	"sync"
 
 	"github.com/desynkro/tunnel-to-my-dash/core/internal/config"
+	"github.com/desynkro/tunnel-to-my-dash/core/internal/external"
 	"github.com/desynkro/tunnel-to-my-dash/core/internal/proxy"
 	"github.com/desynkro/tunnel-to-my-dash/core/internal/tunnel"
 )
+
+// Options controls which non-LAN origins, if any, may bypass the tunnel.
+type Options struct {
+	AllowExternal   bool
+	ExternalOrigins []string
+}
 
 type App struct {
 	tunnel *tunnel.Device
@@ -16,7 +23,12 @@ type App struct {
 	once   sync.Once
 }
 
-func Start(cfg config.Tunnel) (*App, error) {
+func Start(cfg config.Tunnel, opts Options) (*App, error) {
+	origins, err := external.ParseAll(opts.ExternalOrigins)
+	if err != nil {
+		return nil, err
+	}
+
 	device, err := tunnel.Start(tunnel.Config{
 		PrivateKey:    cfg.PrivateKey,
 		PeerPublicKey: cfg.PeerPublicKey,
@@ -30,7 +42,11 @@ func Start(cfg config.Tunnel) (*App, error) {
 		return nil, err
 	}
 
-	server := proxy.New(device, proxy.LANPolicy{})
+	policy := proxy.ExternalPolicy{
+		Allow:   opts.AllowExternal,
+		Origins: origins,
+	}
+	server := proxy.New(device, proxy.DirectDialer{}, policy)
 	addr, err := server.Start()
 	if err != nil {
 		device.Close()

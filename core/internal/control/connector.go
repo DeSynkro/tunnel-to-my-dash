@@ -7,8 +7,14 @@ import (
 	"github.com/desynkro/tunnel-to-my-dash/core/internal/config"
 )
 
+type ConnectOptions struct {
+	Tunnel          config.Tunnel
+	AllowExternal   bool
+	ExternalOrigins []string
+}
+
 type Connector interface {
-	Connect(cfg config.Tunnel) (proxyAddr string, err error)
+	Connect(opts ConnectOptions) (proxyAddr string, err error)
 	Disconnect() error
 }
 
@@ -21,7 +27,7 @@ func NewAppConnector() *AppConnector {
 	return &AppConnector{}
 }
 
-func (c *AppConnector) Connect(cfg config.Tunnel) (string, error) {
+func (c *AppConnector) Connect(opts ConnectOptions) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -30,7 +36,10 @@ func (c *AppConnector) Connect(cfg config.Tunnel) (string, error) {
 		c.current = nil
 	}
 
-	instance, err := app.Start(cfg)
+	instance, err := app.Start(opts.Tunnel, app.Options{
+		AllowExternal:   opts.AllowExternal,
+		ExternalOrigins: opts.ExternalOrigins,
+	})
 	if err != nil {
 		return "", err
 	}

@@ -221,7 +221,7 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
     return { action: "deny" };
   });
   view.webContents.on("will-navigate", (event, url) => {
-    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    if (!isPrivateHttpUrl(url)) {
       event.preventDefault();
     }
   });
@@ -415,6 +415,21 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
               `[smoke] dashboard loaded title=${JSON.stringify(state.title)} body=${state.bodyLength} errorPage=${state.errorPage}`,
             );
             if (state.errorPage) {
+              process.exitCode = 1;
+            }
+          }
+
+          if (full && dashboardView) {
+            const topLevelBefore = dashboardView.webContents.getURL();
+            await dashboardView.webContents.executeJavaScript(
+              'location.href = "https://example.com/"',
+              true,
+            );
+            await delay(500);
+            const topLevelAfter = dashboardView.webContents.getURL();
+            const topLevelBlocked = topLevelAfter === topLevelBefore;
+            console.log(`[smoke] top-level external blocked=${topLevelBlocked}`);
+            if (!topLevelBlocked) {
               process.exitCode = 1;
             }
           }
@@ -646,6 +661,50 @@ async function runSettingsSmoke(window: BrowserWindow): Promise<void> {
 
     await window.webContents.executeJavaScript(
       `(() => {
+        const check = document.querySelector(".settings-profile-external");
+        if (check) {
+          check.checked = true;
+          check.dispatchEvent(new Event("change"));
+        }
+        const origins = document.querySelector(".settings-profile-origins");
+        if (origins) {
+          origins.value = "https://fonts.googleapis.com\\nhttps://cdn.jsdelivr.net";
+        }
+        document.querySelector(".settings-profile-save")?.click();
+      })()`,
+      true,
+    );
+    if (!(await waitForExternalState(true, 2, 5000))) {
+      throw new Error("external origins were not saved");
+    }
+    if (!(await waitForProfileSaveIdle(window, 3000))) {
+      throw new Error("the profile save button stayed busy after saving external origins");
+    }
+    console.log("[smoke] settings external origins saved");
+
+    await window.webContents.executeJavaScript(
+      `(() => {
+        const check = document.querySelector(".settings-profile-external");
+        if (check) {
+          check.checked = false;
+          check.dispatchEvent(new Event("change"));
+        }
+        const origins = document.querySelector(".settings-profile-origins");
+        if (origins) origins.value = "";
+        document.querySelector(".settings-profile-save")?.click();
+      })()`,
+      true,
+    );
+    if (!(await waitForExternalState(false, 0, 5000))) {
+      throw new Error("external content did not turn off");
+    }
+    if (!(await waitForProfileSaveIdle(window, 3000))) {
+      throw new Error("the profile save button stayed busy after turning external content off");
+    }
+    console.log("[smoke] settings external off");
+
+    await window.webContents.executeJavaScript(
+      `(() => {
         const set = (id, value) => {
           const node = document.getElementById(id);
           if (node) node.value = value;
@@ -770,6 +829,21 @@ async function waitForProfileSaveIdle(
       '(() => { const button = document.querySelector(".settings-profile-save"); return !!button && !button.disabled; })()',
     )) as boolean;
     return idle;
+  }, timeoutMs);
+}
+
+async function waitForExternalState(
+  allow: boolean,
+  originCount: number,
+  timeoutMs: number,
+): Promise<boolean> {
+  return waitForCondition(async () => {
+    const state = await control?.status();
+    const profile = state?.profiles[0];
+    return (
+      profile?.allow_external === allow &&
+      (profile.external_origins?.length ?? 0) === originCount
+    );
   }, timeoutMs);
 }
 

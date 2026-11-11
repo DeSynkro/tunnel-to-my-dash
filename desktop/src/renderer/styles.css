@@ -334,6 +334,11 @@ button.danger {
   text-transform: uppercase;
 }
 
+.badge.external {
+  border-color: var(--border);
+  color: var(--muted);
+}
+
 .profile-actions {
   display: flex;
   gap: 8px;
@@ -395,6 +400,31 @@ button.danger {
 
 .settings-profile-note {
   color: var(--accent);
+}
+
+.settings-external {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-soft);
+  background: var(--panel-2);
+}
+
+.settings-external .check {
+  font-weight: 600;
+}
+
+.settings-external .hint {
+  line-height: 1.5;
+}
+
+.settings-origins {
+  margin-top: 4px;
+}
+
+.settings-origins textarea {
+  min-height: 82px;
+  font-size: 12px;
 }
 
 /* Bottom sections */

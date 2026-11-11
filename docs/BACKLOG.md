@@ -25,6 +25,9 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 
 ## Done
 
+- Per-profile external-content switch with an exact-origin panel. Allowed
+  origins use the normal network or VPN, never the tunnel; everything else
+  stays blocked.
 - Settings screen: rename profiles, change dashboard URLs, change the app
   password, and turn the app lock on or off.
 - Confirm-password field in first-run setup and in password changes.
@@ -37,7 +40,6 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 
 ## Later
 
-- External-content toggle and per-origin panel.
 - Profile switcher UI.
 - Jellyfin playback test inside the app.
 - Friendly tunnel error pages and reconnect.

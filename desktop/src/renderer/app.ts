@@ -239,6 +239,13 @@ function profileCard(profile: ProfileSummary): HTMLElement {
     head.append(badge);
   }
 
+  if (profile.allow_external) {
+    const badge = document.createElement("span");
+    badge.className = "badge external";
+    badge.textContent = "External";
+    head.append(badge);
+  }
+
   const url = document.createElement("p");
   url.className = "profile-url";
   url.textContent = profile.dashboard_url;
@@ -348,6 +355,48 @@ function settingsProfileCard(profile: ProfileSummary): HTMLElement {
   urlInput.className = "settings-profile-url";
   urlField.append(urlLabel, urlInput);
 
+  const externalBlock = document.createElement("div");
+  externalBlock.className = "settings-external";
+
+  const externalLabel = document.createElement("label");
+  externalLabel.className = "check";
+  externalLabel.title =
+    "Off by default. External requests use your normal network or VPN, not the LAN tunnel.";
+  const externalInput = document.createElement("input");
+  externalInput.type = "checkbox";
+  externalInput.className = "settings-profile-external";
+  externalInput.checked = profile.allow_external;
+  const externalText = document.createElement("span");
+  externalText.textContent = "Allow external content";
+  externalLabel.append(externalInput, externalText);
+
+  const externalHint = document.createElement("p");
+  externalHint.className = "hint";
+  externalHint.textContent =
+    "Loads only the exact origins below. Everything else stays blocked.";
+
+  const originsField = document.createElement("label");
+  originsField.className = "field settings-origins";
+  originsField.hidden = !profile.allow_external;
+  const originsLabel = document.createElement("span");
+  originsLabel.textContent = "Allowed external origins";
+  const originsInput = document.createElement("textarea");
+  originsInput.rows = 3;
+  originsInput.spellcheck = false;
+  originsInput.className = "settings-profile-origins";
+  originsInput.placeholder = "https://fonts.googleapis.com\nhttps://cdn.jsdelivr.net";
+  originsInput.value = (profile.external_origins ?? []).join("\n");
+  const originsHint = document.createElement("span");
+  originsHint.className = "hint";
+  originsHint.textContent = "One origin per line. Paths and wildcards are not allowed.";
+  originsField.append(originsLabel, originsInput, originsHint);
+
+  externalInput.addEventListener("change", () => {
+    originsField.hidden = !externalInput.checked;
+  });
+
+  externalBlock.append(externalLabel, externalHint, originsField);
+
   const formError = document.createElement("p");
   formError.className = "form-error";
   formError.hidden = true;
@@ -375,16 +424,23 @@ function settingsProfileCard(profile: ProfileSummary): HTMLElement {
       return;
     }
 
+    const externalOrigins = originsInput.value
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
     setBusy(save, true, "Saving…");
     try {
       const updated = await api().updateProfile(profile.id, {
         name,
         dashboard_url: url,
-        allow_external: profile.allow_external,
-        external_origins: profile.external_origins,
+        allow_external: externalInput.checked,
+        external_origins: externalOrigins,
       });
       profile.name = updated.name;
       profile.dashboard_url = updated.dashboard_url;
+      profile.allow_external = updated.allow_external;
+      profile.external_origins = updated.external_origins;
       status = await api().getStatus();
       note.textContent = "Saved.";
       note.hidden = false;
@@ -395,7 +451,7 @@ function settingsProfileCard(profile: ProfileSummary): HTMLElement {
     }
   });
 
-  card.append(nameField, urlField, formError, actions);
+  card.append(nameField, urlField, externalBlock, formError, actions);
   return card;
 }
 

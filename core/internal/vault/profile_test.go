@@ -249,20 +249,31 @@ func TestProfilesAreCopies(t *testing.T) {
 	s, _ := newKeyFileVault(t)
 
 	profile := newProfile(t, "Home")
-	profile.ExternalOrigins = []string{"fonts.example"}
+	profile.ExternalOrigins = []string{"https://fonts.example"}
 	if _, err := s.AddProfile(profile); err != nil {
 		t.Fatal(err)
 	}
 
 	got := s.Profiles()
 	got[0].Name = "Changed"
-	got[0].ExternalOrigins[0] = "changed.example"
+	got[0].ExternalOrigins[0] = "https://changed.example"
 
 	again := s.Profiles()
 	if again[0].Name != "Home" {
 		t.Fatalf("stored name = %q", again[0].Name)
 	}
-	if again[0].ExternalOrigins[0] != "fonts.example" {
+	if again[0].ExternalOrigins[0] != "https://fonts.example" {
 		t.Fatalf("stored origin = %q", again[0].ExternalOrigins[0])
+	}
+}
+
+func TestProfileRejectsInvalidExternalOrigin(t *testing.T) {
+	s, _ := newKeyFileVault(t)
+
+	profile := newProfile(t, "Home")
+	profile.AllowExternal = true
+	profile.ExternalOrigins = []string{"https://fonts.example/path"}
+	if _, err := s.AddProfile(profile); !errors.Is(err, ErrInvalidProfile) {
+		t.Fatalf("AddProfile error = %v, want ErrInvalidProfile", err)
 	}
 }

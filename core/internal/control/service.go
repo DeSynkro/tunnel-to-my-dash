@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/desynkro/tunnel-to-my-dash/core/internal/config"
+	"github.com/desynkro/tunnel-to-my-dash/core/internal/external"
 	"github.com/desynkro/tunnel-to-my-dash/core/internal/vault"
 )
 
@@ -145,12 +146,16 @@ func (s *Service) addProfile(input ProfileInput) (ProfileSummary, error) {
 		return ProfileSummary{}, err
 	}
 
+	origins, err := normalizeOrigins(input.ExternalOrigins)
+	if err != nil {
+		return ProfileSummary{}, err
+	}
 	profile, err := s.store.AddProfile(vault.Profile{
 		Name:            input.Name,
 		TunnelConfig:    input.TunnelConfig,
 		DashboardURL:    input.DashboardURL,
 		AllowExternal:   input.AllowExternal,
-		ExternalOrigins: input.ExternalOrigins,
+		ExternalOrigins: origins,
 	})
 	if err != nil {
 		return ProfileSummary{}, err
@@ -167,6 +172,10 @@ func (s *Service) updateProfile(id string, input ProfileInput) (ProfileSummary, 
 	if !ok {
 		return ProfileSummary{}, vault.ErrProfileNotFound
 	}
+	origins, err := normalizeOrigins(input.ExternalOrigins)
+	if err != nil {
+		return ProfileSummary{}, err
+	}
 	if input.Name != "" {
 		profile.Name = input.Name
 	}
@@ -177,7 +186,7 @@ func (s *Service) updateProfile(id string, input ProfileInput) (ProfileSummary, 
 		profile.TunnelConfig = input.TunnelConfig
 	}
 	profile.AllowExternal = input.AllowExternal
-	profile.ExternalOrigins = input.ExternalOrigins
+	profile.ExternalOrigins = origins
 
 	if err := s.store.UpdateProfile(profile); err != nil {
 		return ProfileSummary{}, err
@@ -220,7 +229,11 @@ func (s *Service) connect(id string) (string, string, error) {
 	}
 
 	_ = s.disconnectLocked()
-	proxy, err := s.connector.Connect(tunnelCfg)
+	proxy, err := s.connector.Connect(ConnectOptions{
+		Tunnel:          tunnelCfg,
+		AllowExternal:   profile.AllowExternal,
+		ExternalOrigins: profile.ExternalOrigins,
+	})
 	if err != nil {
 		return "", "", err
 	}
@@ -264,6 +277,14 @@ func (s *Service) close() {
 	if s.store != nil {
 		s.store.Lock()
 	}
+}
+
+func normalizeOrigins(raw []string) ([]string, error) {
+	origins, err := external.ParseAll(raw)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", vault.ErrInvalidProfile, err)
+	}
+	return external.Strings(origins), nil
 }
 
 func summarize(p vault.Profile) ProfileSummary {

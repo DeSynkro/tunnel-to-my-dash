@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/desynkro/tunnel-to-my-dash/core/internal/config"
+	"github.com/desynkro/tunnel-to-my-dash/core/internal/external"
 )
 
 var (
@@ -39,6 +40,9 @@ func (p Profile) Validate() error {
 	}
 	if err := (config.App{DashboardURL: p.DashboardURL}).Validate(); err != nil {
 		return fmt.Errorf("%w: dashboard: %v", ErrInvalidProfile, err)
+	}
+	if _, err := external.ParseAll(p.ExternalOrigins); err != nil {
+		return fmt.Errorf("%w: external origin: %v", ErrInvalidProfile, err)
 	}
 	return nil
 }

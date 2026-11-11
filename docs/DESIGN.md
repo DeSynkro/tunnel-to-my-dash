@@ -123,13 +123,13 @@ dials:
   netstack.
 - Loopback: blocked. This prevents a page from reaching the app's own control
   socket, proxy, or anything else listening on localhost.
-- Public addresses: blocked by default.
+- Public addresses: blocked unless the profile opts into an exact external
+  origin.
 - Multicast, unspecified, link-local and anything else: blocked.
 
 Top-level navigation is separate from subresources. Even when external
-content is enabled, the dashboard view cannot become a general web browser.
-Public links get a small blocked page with an option to open them in the
-system browser, which uses the normal connection.
+content is enabled, the dashboard view cannot become a general web browser;
+every top-level URL must be a private address. Public links stay blocked.
 
 The proxy supports plain HTTP, HTTPS via `CONNECT`, WebSockets and streaming
 responses. TLS is passed through end to end; the app does not intercept or
@@ -146,25 +146,21 @@ Dashboards often pull fonts, icons or widget data from public origins. Strict
 LAN-only mode blocks those and the page falls back to system fonts or empty
 widgets.
 
-The internet toggle is off by default. When it is on:
+External content is a per-profile switch, off by default. When it is on:
 
-- External requests are allowed only for subresources, never as the page.
-- An optional "ask before contacting a new site" switch groups the origins
-  from the first page load into one prompt: allow all, review each, or block
-  all. Approved origins are remembered.
-- An external sites panel lists what has been contacted and allows individual
-  origins to be blocked later.
-- HTTP requests have `Referer` and `Cookie` removed. HTTPS requests are
-  protected by Chromium's third-party cookie blocking plus a no-referrer
-  policy on the dashboard response; TLS itself is not intercepted.
-- Allowed origins still see the request and the user's IP. The UI says so
-  rather than implying otherwise.
+- The user lists exact origins in Settings. Paths, credentials and wildcards
+  are rejected, so a rule cannot silently widen.
+- Only those origins are dialed, and they go over the normal network or VPN,
+  never through the WireGuard tunnel. Everything else stays blocked.
+- The proxy resolves external names itself and dials only public addresses.
+  A name that resolves to loopback, a private range or CGNAT is refused.
+- Top-level navigation stays private-only. External origins are for
+  subresources such as fonts, icons and widgets.
+- Allowed origins still see the request and the user's IP. The settings panel
+  says so rather than implying otherwise.
 
 If the dashboard fetches its widgets on the server side, the browser never
-contacts those services and the toggle is irrelevant.
-
-The first desktop release stays LAN-only. The internet toggle and external-site
-panel land together with the external proxy path.
+contacts those services and the switch is irrelevant.
 
 ## Secrets, app lock and portable data
 

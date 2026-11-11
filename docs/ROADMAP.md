@@ -57,7 +57,7 @@ export/import, lockout and tamper checks.
 - [x] Minimal TypeScript shell with no UI framework
 - [x] Lock screen and first-run setup
 - [x] Settings for the tunnel and dashboard URL
-- [ ] Internet toggle and external-site panel (deferred; proxy is LAN-only)
+- [x] External-content toggle and exact-origin panel
 - [x] Sidecar lifecycle and local control socket
 - [x] Sandboxed dashboard window with proxy
 - [x] Dashboard service tiles open in-app for private http(s) URLs
@@ -66,13 +66,13 @@ export/import, lockout and tamper checks.
 - [x] Disable Chromium background networking, DNS and service hooks
 - [ ] Friendly error pages for endpoint and handshake failures
 - [x] Test against the real dashboard
-- [ ] Test Jellyfin and OpenCode
+- [x] Test Jellyfin and OpenCode
 
 Done when the app opens the dashboard through the tunnel while the normal VPN
 stays connected, and the network audit shows no unexpected traffic.
 
-Desktop dashboard pass complete. Remaining Phase 3 items are the deferred
-internet toggle and the Jellyfin/OpenCode checks.
+Desktop dashboard pass complete. The remaining Phase 3 item is friendly error
+pages. Jellyfin and OpenCode were checked in the Phase 5 network pass.
 
 ## Phase 4 — AppImage, portable data and updates
 

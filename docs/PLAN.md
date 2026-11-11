@@ -395,15 +395,15 @@ Argon2id-derived key; keyfile mode stores it in `vault.key` with `0600`.
 ## Phase 3 — Electron shell
 
 Goal: a working Linux desktop app that creates or unlocks the vault, imports
-a profile, starts the tunnel and opens the dashboard. Still LAN-only; external
-content is a later phase.
+a profile, starts the tunnel and opens the dashboard. LAN-only by default,
+with opt-in exact external origins for fonts and widgets.
 
 ### UX
 
 - First run: create the vault (optional password), import or paste a
   WireGuard config, name the profile, set the dashboard URL.
 - Lock: unlock with the password; keyfile vaults open directly.
-- Main: profile list, connect/disconnect, lock, add profile.
+- Main: profile list, connect/disconnect, lock, add profile, settings.
 - Dashboard: a sandboxed `BaseWindow` with a 36px toolbar (App, back,
   forward, reload, Home and host label) above a `WebContentsView`. Closing it
   disconnects the tunnel.
@@ -430,8 +430,9 @@ content is a later phase.
   denied, `window.open` denied.
 - Chromium background networking and known Google services disabled with
   command-line switches, then audited.
-- No external content yet. The proxy stays LAN-only; the `allow_external`
-  flag is stored for the later phase.
+- External content is off by default. A profile may opt into exact public
+  origins; those use a direct dialer and the normal network or VPN, never the
+  tunnel. Top-level navigation stays private-only.
 
 ### Tasks
 
@@ -447,6 +448,9 @@ content is a later phase.
    Commit: `Open the dashboard through the tunnel`
 - [x] 6. Hardening, no-phone-home switches and a real endpoint pass.
    Commit: `Harden the desktop shell`
+- [x] 7. External-content routing: exact origins, a public-address-only direct
+   dialer and the per-profile settings panel.
+   Commit: `Add opt-in external content`
 
 ### Acceptance
 
@@ -458,13 +462,14 @@ content is a later phase.
   LAN links navigate in the same view and public URLs stay blocked.
 - [x] Settings page for profile names, dashboard URLs and the app lock, with
   confirm-password checks on setup and password changes.
+- [x] External content is off by default; allowed origins load directly and
+  unlisted origins are refused.
 - [x] No Node in the shell renderer or dashboard; no permission prompts.
 - [x] `make check` passes and the desktop code type-checks.
 - [x] No unexpected outbound traffic beyond the WireGuard endpoint.
 
 Desktop pass complete. Jellyfin and OpenCode were checked in the Phase 5
-network pass. Remaining: the deferred external-content toggle and friendly
-tunnel error pages.
+network pass. Remaining: friendly tunnel error pages.
 
 ## Phase 4 — Linux AppImage
 

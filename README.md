@@ -31,9 +31,9 @@ the app's own traffic uses the tunnel.
   pages are blocked.
 - Secrets live in an encrypted vault. The app lock is optional; the same
   password unlocks the vault.
-- The first desktop release is LAN-only. An internet toggle for external fonts
-  and widgets is planned; the proxy already refuses everything outside private
-  address ranges.
+- LAN-only by default. A per-profile external-content switch can allow exact
+  public origins for fonts and widgets; those use the normal network or VPN,
+  never the tunnel.
 
 More detail in [docs/DESIGN.md](docs/DESIGN.md).
 
@@ -83,8 +83,8 @@ one. The app does not phone home for updates.
 
 ## Current limits
 
-- LAN-only: external fonts and widgets are blocked until the internet toggle
-  lands.
+- LAN-only by default. External content is an opt-in, exact-origin list in
+  Settings; wildcards are not supported.
 - The dashboard opens in its own window with a toolbar; links stay in the same
   view. A same-window/new-window setting is planned.
 - Windows and Android packaging come after the Linux AppImage.
