@@ -186,6 +186,20 @@ writable. Otherwise it falls back to the per-user config directory. On
 Android, app storage is already sandboxed; portability is handled through the
 encrypted export/import bundle.
 
+## Profiles
+
+A profile bundles one tunnel config, one dashboard URL, a display name and the
+external-content settings for that dashboard. The vault stores a list of
+profiles and remembers the last active one. Only one tunnel runs at a time:
+switching stops the current tunnel, starts the selected one and loads its
+dashboard.
+
+The first release can ship with a single profile and no picker. The vault and
+core APIs use stable profile IDs from the start, so adding a switcher later is
+a UI change rather than a data migration. Each profile gets its own Chromium
+session partition, so cookies from two dashboards that happen to share the same
+LAN IP do not collide.
+
 ## Privacy and security
 
 - No telemetry, analytics, crash uploads, accounts or update pings.

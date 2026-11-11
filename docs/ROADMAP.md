@@ -42,6 +42,7 @@ with ProtonVPN active.
 - [ ] Create, unlock, change password, export, import
 - [ ] Password mode and convenience mode
 - [ ] Config storage and validation
+- [ ] Profile records with stable IDs, even if the first UI creates one
 - [ ] Failed-attempt delay and lock semantics
 - [ ] Tests for wrong passwords, tampering and permissions
 
@@ -94,7 +95,8 @@ Done when the everyday use case works without touching the system VPN.
 - Optional direct mode when already on the home LAN.
 - Self-signed certificate trust for LAN HTTPS services.
 - mDNS names such as `homeassistant.local`.
-- Multiple saved tunnels or dashboards, if they earn their place.
+- Profile switcher for multiple tunnels/dashboards. The vault schema supports
+  this from Phase 2; the picker is a UI feature.
 
 ## Open questions
 
