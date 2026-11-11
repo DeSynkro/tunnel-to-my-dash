@@ -47,6 +47,16 @@ await build({
 
 await build({
   ...shared,
+  entryPoints: [path.join(root, "src/lock-preload.ts")],
+  outfile: path.join(dist, "lock-preload.js"),
+  platform: "node",
+  format: "cjs",
+  target: "node22",
+  external: ["electron"],
+});
+
+await build({
+  ...shared,
   entryPoints: [path.join(root, "src/renderer/app.ts")],
   outfile: path.join(dist, "renderer/app.js"),
   platform: "browser",
@@ -63,7 +73,18 @@ await build({
   target: "chrome120",
 });
 
+await build({
+  ...shared,
+  entryPoints: [path.join(root, "src/renderer/lock.ts")],
+  outfile: path.join(dist, "renderer/lock.js"),
+  platform: "browser",
+  format: "iife",
+  target: "chrome120",
+});
+
 await copyFile(path.join(root, "src/renderer/index.html"), path.join(dist, "renderer/index.html"));
 await copyFile(path.join(root, "src/renderer/styles.css"), path.join(dist, "renderer/styles.css"));
 await copyFile(path.join(root, "src/renderer/toolbar.html"), path.join(dist, "renderer/toolbar.html"));
 await copyFile(path.join(root, "src/renderer/toolbar.css"), path.join(dist, "renderer/toolbar.css"));
+await copyFile(path.join(root, "src/renderer/lock.html"), path.join(dist, "renderer/lock.html"));
+await copyFile(path.join(root, "src/renderer/lock.css"), path.join(dist, "renderer/lock.css"));

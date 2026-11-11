@@ -1,0 +1,36 @@
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+}
+
+.lock-shell {
+  display: grid;
+  place-items: center;
+  gap: 24px;
+  min-height: 100vh;
+  padding: 32px;
+}
+
+.lock-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.lock-brand .brand-mark {
+  width: 22px;
+  height: 22px;
+  color: var(--accent);
+}
+
+.lock-shell .lock {
+  width: min(380px, 100%);
+  margin: 0;
+}

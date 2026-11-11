@@ -4,6 +4,12 @@ export interface AppSettings {
   open_last_dashboard: boolean;
 }
 
+export interface SecuritySettings {
+  force_lan_only: boolean;
+  lock_after_idle: boolean;
+  idle_minutes: number;
+}
+
 export interface ProfileSummary {
   id: string;
   name: string;
@@ -32,6 +38,7 @@ export interface Status {
   connected: boolean;
   proxy?: string;
   dashboard_url?: string;
+  security: SecuritySettings;
 }
 
 export interface ConnectResult {
@@ -52,6 +59,7 @@ export interface NavState {
   canGoBack: boolean;
   canGoForward: boolean;
   url: string;
+  passwordProtected: boolean;
 }
 
 export interface NavigationBridge {
@@ -60,7 +68,15 @@ export interface NavigationBridge {
   reload(): Promise<void>;
   home(): Promise<void>;
   backToApp(): Promise<void>;
+  lock(): Promise<void>;
   onState(callback: (state: NavState) => void): () => void;
+}
+
+export interface LockBridge {
+  unlock(password: string): Promise<void>;
+  backToApp(): Promise<void>;
+  quit(): Promise<void>;
+  onShown(callback: () => void): () => void;
 }
 
 export interface TtmdBridge {
@@ -78,6 +94,7 @@ export interface TtmdBridge {
   disconnect(): Promise<Status>;
   getSettings(): Promise<AppSettings>;
   updateSettings(patch: Partial<AppSettings>): Promise<AppSettings>;
+  updateSecurity(settings: SecuritySettings): Promise<Status>;
   chooseConfig(): Promise<ConfigFile | null>;
   onStatusChanged(callback: () => void): () => void;
   quit(): Promise<void>;

@@ -18,6 +18,7 @@ const api: TtmdBridge = {
   disconnect: () => ipcRenderer.invoke(IPC.disconnect),
   getSettings: () => ipcRenderer.invoke(IPC.getSettings),
   updateSettings: (patch) => ipcRenderer.invoke(IPC.updateSettings, patch),
+  updateSecurity: (settings) => ipcRenderer.invoke(IPC.updateSecurity, settings),
   chooseConfig: () => ipcRenderer.invoke(IPC.chooseConfig),
   onStatusChanged: (callback) => {
     const listener = () => callback();

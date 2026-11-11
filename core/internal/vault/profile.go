@@ -39,9 +39,10 @@ func (p Profile) EffectiveExternalMode() string {
 }
 
 type Data struct {
-	Version       int       `json:"version"`
-	ActiveProfile string    `json:"active_profile,omitempty"`
-	Profiles      []Profile `json:"profiles"`
+	Version       int              `json:"version"`
+	ActiveProfile string           `json:"active_profile,omitempty"`
+	Profiles      []Profile        `json:"profiles"`
+	Security      SecuritySettings `json:"security,omitempty"`
 }
 
 func (p Profile) Validate() error {

@@ -4,6 +4,7 @@ import type {
   ExternalMode,
   ProfileInput,
   ProfileSummary,
+  SecuritySettings,
   Status,
   TtmdBridge,
 } from "../shared/types";
@@ -96,6 +97,13 @@ const profileCancel = element<HTMLButtonElement>("profile-cancel");
 
 const settingsOpenLast = element<HTMLInputElement>("settings-open-last");
 const settingsBehaviorError = element<HTMLElement>("settings-behavior-error");
+const settingsForceLan = element<HTMLInputElement>("settings-force-lan");
+const settingsIdleLock = element<HTMLInputElement>("settings-idle-lock");
+const settingsIdleMinutes = element<HTMLSelectElement>("settings-idle-minutes");
+const settingsIdleMinutesField = element<HTMLElement>("settings-idle-minutes-field");
+const settingsIdleHint = element<HTMLElement>("settings-idle-hint");
+const settingsSecurityError = element<HTMLElement>("settings-security-error");
+const profileExternalOverride = element<HTMLElement>("profile-external-override");
 const settingsLockState = element<HTMLElement>("settings-lock-state");
 const settingsPasswordForm = element<HTMLFormElement>("settings-password-form");
 const settingsOldPasswordField = element<HTMLElement>("settings-old-password-field");
@@ -295,6 +303,23 @@ async function autoOpenLastDashboard(): Promise<void> {
   }
 }
 
+function externalModeLabel(profile: ProfileSummary): string {
+  if (status?.security?.force_lan_only) {
+    return "LAN only (app override)";
+  }
+
+  const mode: ExternalMode =
+    profile.external_mode ?? (profile.allow_external ? "origins" : "off");
+  if (mode === "all") {
+    return "External: all";
+  }
+  if (mode === "origins") {
+    const count = profile.external_origins?.length ?? 0;
+    return count === 1 ? "External: 1 origin" : `External: ${count} origins`;
+  }
+  return "LAN only";
+}
+
 function renderRail(): void {
   if (!status) {
     return;
@@ -346,7 +371,11 @@ function profileCard(profile: ProfileSummary): HTMLElement {
   url.className = "profile-url";
   url.textContent = profile.dashboard_url;
 
-  main.append(head, url);
+  const mode = document.createElement("p");
+  mode.className = "profile-mode";
+  mode.textContent = externalModeLabel(profile);
+
+  main.append(head, url, mode);
 
   const actions = document.createElement("div");
   actions.className = "profile-actions";
@@ -422,6 +451,7 @@ function renderSettings(): void {
 
   settingsOpenLast.checked = appSettings.open_last_dashboard;
   setFormError(settingsBehaviorError, "");
+  renderSecuritySettings();
 
   settingsPasswordForm.reset();
   setFormError(settingsPasswordError, "");
@@ -455,6 +485,46 @@ async function checkReachability(profileID: string): Promise<void> {
   }
 }
 
+function renderSecuritySettings(): void {
+  const security: SecuritySettings = status?.security ?? {
+    force_lan_only: false,
+    lock_after_idle: false,
+    idle_minutes: 15,
+  };
+  const passwordProtected = status?.password_protected ?? false;
+
+  settingsForceLan.checked = security.force_lan_only;
+  settingsIdleLock.checked = security.lock_after_idle;
+  settingsIdleMinutes.value = String(security.idle_minutes || 15);
+  settingsIdleMinutesField.hidden = !security.lock_after_idle;
+  settingsIdleLock.disabled = !passwordProtected;
+  settingsIdleMinutes.disabled = !passwordProtected || !security.lock_after_idle;
+  settingsIdleHint.textContent = passwordProtected
+    ? "Locks the vault after a period without input."
+    : "Set an app password first.";
+  setFormError(settingsSecurityError, "");
+}
+
+async function applySecurity(patch: Partial<SecuritySettings>): Promise<void> {
+  if (!status) {
+    return;
+  }
+
+  const current: SecuritySettings = status.security ?? {
+    force_lan_only: false,
+    lock_after_idle: false,
+    idle_minutes: 15,
+  };
+  const next: SecuritySettings = { ...current, ...patch };
+  try {
+    status = await api().updateSecurity(next);
+  } catch (error) {
+    setFormError(settingsSecurityError, message(error));
+  } finally {
+    renderSecuritySettings();
+  }
+}
+
 function showProfile(profileID: string): void {
   const profile = status?.profiles.find((p) => p.id === profileID);
   if (!status || !profile) {
@@ -473,6 +543,18 @@ function showProfile(profileID: string): void {
   profileExternalOrigins.checked = mode === "origins";
   profileOrigins.value = (profile.external_origins ?? []).join("\n");
   updateProfileOriginsVisibility();
+
+  const override = status.security?.force_lan_only === true;
+  profileExternalOverride.hidden = !override;
+  const options = profileExternalOff.closest("fieldset");
+  if (options instanceof HTMLFieldSetElement) {
+    options.disabled = override;
+    options.title = override ? "Force LAN-only is on in Settings" : "";
+    for (const control of options.querySelectorAll("input, textarea")) {
+      (control as HTMLInputElement | HTMLTextAreaElement).disabled = override;
+    }
+  }
+
   setFormError(profileError, "");
 
   renderRail();
@@ -849,6 +931,18 @@ profileExternalOrigins.addEventListener("change", updateProfileOriginsVisibility
 
 settingsToggle.addEventListener("click", () => {
   showSettings();
+});
+
+settingsForceLan.addEventListener("change", () => {
+  void applySecurity({ force_lan_only: settingsForceLan.checked });
+});
+
+settingsIdleLock.addEventListener("change", () => {
+  void applySecurity({ lock_after_idle: settingsIdleLock.checked });
+});
+
+settingsIdleMinutes.addEventListener("change", () => {
+  void applySecurity({ idle_minutes: Number(settingsIdleMinutes.value) });
 });
 
 settingsOpenLast.addEventListener("change", async () => {

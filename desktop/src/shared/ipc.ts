@@ -13,6 +13,7 @@ export const IPC = {
   disconnect: "ttmd:disconnect",
   getSettings: "ttmd:get-settings",
   updateSettings: "ttmd:update-settings",
+  updateSecurity: "ttmd:update-security",
   chooseConfig: "ttmd:choose-config",
   statusChanged: "ttmd:status-changed",
   navBack: "ttmd:nav-back",
@@ -20,7 +21,10 @@ export const IPC = {
   navReload: "ttmd:nav-reload",
   navHome: "ttmd:nav-home",
   navBackToApp: "ttmd:nav-back-to-app",
+  navLock: "ttmd:nav-lock",
   navState: "ttmd:nav-state",
+  dashboardUnlock: "ttmd:dashboard-unlock",
+  dashboardLocked: "ttmd:dashboard-locked",
   quit: "ttmd:quit",
   version: "ttmd:version",
 } as const;

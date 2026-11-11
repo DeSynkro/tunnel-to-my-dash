@@ -4,6 +4,7 @@ import type {
   ConnectResult,
   ProfileInput,
   ProfileSummary,
+  SecuritySettings,
   Status,
 } from "../shared/types";
 
@@ -31,6 +32,10 @@ export class ControlClient {
       old_password: oldPassword,
       new_password: newPassword,
     });
+  }
+
+  updateSecurity(settings: SecuritySettings): Promise<Status> {
+    return this.request("PUT", "/security", settings);
   }
 
   addProfile(input: ProfileInput): Promise<ProfileSummary> {

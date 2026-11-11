@@ -4,7 +4,12 @@ import path from "node:path";
 import type { ControlClient } from "./control-client";
 import type { SettingsStore } from "./settings";
 import { IPC } from "../shared/ipc";
-import type { AppSettings, ConnectResult, ProfileInput } from "../shared/types";
+import type {
+  AppSettings,
+  ConnectResult,
+  ProfileInput,
+  SecuritySettings,
+} from "../shared/types";
 
 export interface NavigationActions {
   back(): void;
@@ -12,6 +17,7 @@ export interface NavigationActions {
   reload(): void;
   home(): void;
   backToApp(): void;
+  lock(): void;
 }
 
 export interface IpcOptions {
@@ -20,6 +26,7 @@ export interface IpcOptions {
   getWindow: () => BrowserWindow | null;
   navigation: NavigationActions;
   settings: SettingsStore;
+  unlockDashboard: (password: string) => Promise<void>;
   openDashboard: (profileID: string, result: ConnectResult) => Promise<void>;
 }
 
@@ -69,6 +76,9 @@ export function registerIpc(options: IpcOptions): void {
   ipcMain.handle(IPC.updateSettings, (_event, patch: unknown) =>
     options.settings.update(settingsPatch(patch)),
   );
+  ipcMain.handle(IPC.updateSecurity, (_event, settings: unknown) =>
+    control().updateSecurity(securityArg(settings)),
+  );
 
   ipcMain.handle(IPC.chooseConfig, async () => {
     const window = options.getWindow();
@@ -105,6 +115,10 @@ export function registerIpc(options: IpcOptions): void {
   ipcMain.handle(IPC.navReload, () => options.navigation.reload());
   ipcMain.handle(IPC.navHome, () => options.navigation.home());
   ipcMain.handle(IPC.navBackToApp, () => options.navigation.backToApp());
+  ipcMain.handle(IPC.navLock, () => options.navigation.lock());
+  ipcMain.handle(IPC.dashboardUnlock, (_event, password: unknown) =>
+    options.unlockDashboard(stringArg(password)),
+  );
 
   ipcMain.handle(IPC.quit, () => {
     app.quit();
@@ -118,6 +132,25 @@ function stringArg(value: unknown): string {
     throw new Error("Invalid request.");
   }
   return value;
+}
+
+function securityArg(value: unknown): SecuritySettings {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Invalid security settings");
+  }
+  const raw = value as Record<string, unknown>;
+  if (
+    typeof raw.force_lan_only !== "boolean" ||
+    typeof raw.lock_after_idle !== "boolean" ||
+    typeof raw.idle_minutes !== "number"
+  ) {
+    throw new Error("Invalid security settings");
+  }
+  return {
+    force_lan_only: raw.force_lan_only,
+    lock_after_idle: raw.lock_after_idle,
+    idle_minutes: raw.idle_minutes,
+  };
 }
 
 function settingsPatch(value: unknown): Partial<AppSettings> {

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; font-src 'self'"
+    />
+    <title>Locked</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./lock.css" />
+  </head>
+  <body>
+    <main class="lock-shell">
+      <div class="lock-brand">
+        <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M5 7h4a4 4 0 0 1 4 4v2a4 4 0 0 0 4 4h2"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+          />
+          <circle cx="5" cy="7" r="1.5" fill="currentColor" />
+          <circle cx="19" cy="17" r="1.5" fill="currentColor" />
+        </svg>
+        <span>Tunnel to My Dash</span>
+      </div>
+
+      <section class="lock panel" aria-labelledby="lock-title">
+        <div class="route small" aria-hidden="true">
+          <span class="route-end">This app</span>
+          <span class="route-track"><span class="route-dot"></span></span>
+          <span class="route-end">Vault</span>
+        </div>
+
+        <p class="kicker">Locked</p>
+        <h2 id="lock-title">Unlock the vault</h2>
+        <p class="lead">Enter your app password to return to this dashboard.</p>
+
+        <form id="lock-form" class="form" autocomplete="off">
+          <label class="field">
+            <span>Password</span>
+            <input
+              id="lock-password"
+              type="password"
+              autocomplete="current-password"
+              autofocus
+            />
+          </label>
+          <p class="form-error" id="lock-error" hidden></p>
+          <div class="actions">
+            <button type="submit" id="lock-submit">Unlock</button>
+            <button type="button" class="ghost" id="lock-back">Back to dashboards</button>
+          </div>
+        </form>
+      </section>
+    </main>
+    <script src="./lock.js"></script>
+  </body>
+</html>

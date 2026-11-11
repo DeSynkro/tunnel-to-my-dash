@@ -31,15 +31,16 @@ type ProfileSummary struct {
 }
 
 type Status struct {
-	HasVault          bool             `json:"has_vault"`
-	Locked            bool             `json:"locked"`
-	PasswordProtected bool             `json:"password_protected"`
-	Error             string           `json:"error,omitempty"`
-	Profiles          []ProfileSummary `json:"profiles"`
-	ActiveProfile     string           `json:"active_profile,omitempty"`
-	Connected         bool             `json:"connected"`
-	Proxy             string           `json:"proxy,omitempty"`
-	DashboardURL      string           `json:"dashboard_url,omitempty"`
+	HasVault          bool                   `json:"has_vault"`
+	Locked            bool                   `json:"locked"`
+	PasswordProtected bool                   `json:"password_protected"`
+	Error             string                 `json:"error,omitempty"`
+	Profiles          []ProfileSummary       `json:"profiles"`
+	ActiveProfile     string                 `json:"active_profile,omitempty"`
+	Connected         bool                   `json:"connected"`
+	Proxy             string                 `json:"proxy,omitempty"`
+	DashboardURL      string                 `json:"dashboard_url,omitempty"`
+	Security          vault.SecuritySettings `json:"security"`
 }
 
 type Service struct {
@@ -88,11 +89,13 @@ func (s *Service) statusLocked() Status {
 		Connected:    s.connected,
 		Proxy:        s.proxy,
 		DashboardURL: s.dashboardURL,
+		Security:     vault.DefaultSecuritySettings(),
 	}
 
 	if s.store != nil {
 		st.Locked = !s.store.Unlocked()
 		st.PasswordProtected = s.store.PasswordProtected()
+		st.Security = s.store.SecuritySettings()
 		if !st.Locked {
 			for _, p := range s.store.Profiles() {
 				st.Profiles = append(st.Profiles, summarize(p))
@@ -143,6 +146,13 @@ func (s *Service) changePassword(oldPassword, newPassword string) error {
 		return err
 	}
 	return s.store.ChangePassword(oldPassword, newPassword)
+}
+
+func (s *Service) updateSecurity(settings vault.SecuritySettings) error {
+	if err := s.requireUnlocked(); err != nil {
+		return err
+	}
+	return s.store.SetSecuritySettings(settings)
 }
 
 func (s *Service) addProfile(input ProfileInput) (ProfileSummary, error) {
@@ -242,11 +252,19 @@ func (s *Service) connect(id string) (string, string, error) {
 		return "", "", fmt.Errorf("tunnel config: %w", err)
 	}
 
+	security := s.store.SecuritySettings()
+	allowExternal := profile.AllowExternal
+	externalMode := profile.EffectiveExternalMode()
+	if security.ForceLANOnly {
+		allowExternal = false
+		externalMode = external.ModeOff
+	}
+
 	_ = s.disconnectLocked()
 	proxy, err := s.connector.Connect(ConnectOptions{
 		Tunnel:          tunnelCfg,
-		AllowExternal:   profile.AllowExternal,
-		ExternalMode:    profile.EffectiveExternalMode(),
+		AllowExternal:   allowExternal,
+		ExternalMode:    externalMode,
 		ExternalOrigins: profile.ExternalOrigins,
 	})
 	if err != nil {

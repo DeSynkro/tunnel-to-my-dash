@@ -374,6 +374,80 @@ func TestControlFlow(t *testing.T) {
 	}
 }
 
+func TestSecuritySettings(t *testing.T) {
+	connector := &fakeConnector{proxy: "127.0.0.1:43210"}
+	client := startControl(t, connector)
+
+	resp, _ := call(t, client, http.MethodPost, "/vault/create", passwordRequest{Password: "pw"})
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("create status = %d", resp.StatusCode)
+	}
+
+	resp, data := call(t, client, http.MethodPost, "/profiles", ProfileInput{
+		Name:            "Home",
+		TunnelConfig:    validTunnel(t),
+		DashboardURL:    "http://192.168.0.3:3000",
+		AllowExternal:   true,
+		ExternalMode:    "origins",
+		ExternalOrigins: []string{"https://example.com"},
+	})
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("profile status = %d: %s", resp.StatusCode, data)
+	}
+	var profile ProfileSummary
+	if err := json.Unmarshal(data, &profile); err != nil {
+		t.Fatal(err)
+	}
+
+	_, data = call(t, client, http.MethodGet, "/status", nil)
+	status := decodeStatus(t, data)
+	if status.Security.ForceLANOnly || status.Security.LockAfterIdle || status.Security.IdleMinutes != 15 {
+		t.Fatalf("default security = %+v", status.Security)
+	}
+
+	resp, data = call(t, client, http.MethodPut, "/security", securityRequest{
+		ForceLANOnly:  true,
+		LockAfterIdle: true,
+		IdleMinutes:   30,
+	})
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("security status = %d: %s", resp.StatusCode, data)
+	}
+	status = decodeStatus(t, data)
+	if !status.Security.ForceLANOnly || !status.Security.LockAfterIdle ||
+		status.Security.IdleMinutes != 30 {
+		t.Fatalf("security = %+v", status.Security)
+	}
+
+	resp, _ = call(t, client, http.MethodPost, "/connect", connectRequest{ProfileID: profile.ID})
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("connect status = %d", resp.StatusCode)
+	}
+	connector.mu.Lock()
+	last := connector.last
+	connector.mu.Unlock()
+	if last.ExternalMode != "off" || last.AllowExternal {
+		t.Fatalf("forced LAN-only options = %+v", last)
+	}
+
+	resp, data = call(t, client, http.MethodPut, "/security", securityRequest{
+		IdleMinutes: 15,
+	})
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("security reset status = %d: %s", resp.StatusCode, data)
+	}
+	resp, _ = call(t, client, http.MethodPost, "/connect", connectRequest{ProfileID: profile.ID})
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("second connect status = %d", resp.StatusCode)
+	}
+	connector.mu.Lock()
+	last = connector.last
+	connector.mu.Unlock()
+	if last.ExternalMode != "origins" || !last.AllowExternal {
+		t.Fatalf("profile options after reset = %+v", last)
+	}
+}
+
 func TestControlErrors(t *testing.T) {
 	connector := &fakeConnector{proxy: "127.0.0.1:1"}
 	client := startControl(t, connector)
@@ -390,6 +464,11 @@ func TestControlErrors(t *testing.T) {
 	})
 	if resp.StatusCode != http.StatusLocked {
 		t.Fatalf("add profile without vault status = %d", resp.StatusCode)
+	}
+
+	resp, _ = call(t, client, http.MethodPut, "/security", securityRequest{IdleMinutes: 15})
+	if resp.StatusCode != http.StatusLocked {
+		t.Fatalf("security without vault status = %d", resp.StatusCode)
 	}
 
 	resp, _ = call(t, client, http.MethodPost, "/vault/create", passwordRequest{Password: "pw"})
@@ -415,6 +494,11 @@ func TestControlErrors(t *testing.T) {
 	})
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("invalid external origin status = %d: %s", resp.StatusCode, data)
+	}
+
+	resp, _ = call(t, client, http.MethodPut, "/security", securityRequest{IdleMinutes: 7})
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("invalid security status = %d", resp.StatusCode)
 	}
 
 	resp, _ = call(t, client, http.MethodPost, "/connect", connectRequest{ProfileID: "missing"})

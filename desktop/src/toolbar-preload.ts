@@ -8,6 +8,7 @@ const api: NavigationBridge = {
   reload: () => ipcRenderer.invoke(IPC.navReload),
   home: () => ipcRenderer.invoke(IPC.navHome),
   backToApp: () => ipcRenderer.invoke(IPC.navBackToApp),
+  lock: () => ipcRenderer.invoke(IPC.navLock),
   onState: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, state: NavState) => callback(state);
     ipcRenderer.on(IPC.navState, listener);

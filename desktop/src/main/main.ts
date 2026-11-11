@@ -4,6 +4,7 @@ import {
   BaseWindow,
   BrowserWindow,
   Menu,
+  powerMonitor,
   screen,
   session,
   WebContentsView,
@@ -69,7 +70,11 @@ let mainWindow: BrowserWindow | null = null;
 let dashboardWindow: BaseWindow | null = null;
 let dashboardView: WebContentsView | null = null;
 let dashboardToolbar: WebContentsView | null = null;
+let dashboardLock: WebContentsView | null = null;
 let dashboardHomeURL = "";
+let dashboardPartition = "";
+let dashboardPasswordProtected = false;
+let dashboardLocked = false;
 let dashboardClosingToMain = false;
 
 const toolbarHeight = 36;
@@ -82,6 +87,7 @@ let toolbarHoveredAt = 0;
 let toolbarLeftAt = 0;
 let toolbarInitialUntil = 0;
 let toolbarPoll: ReturnType<typeof setInterval> | null = null;
+let idleMonitor: ReturnType<typeof setInterval> | null = null;
 
 function setToolbarVisible(visible: boolean): void {
   if (!dashboardToolbar || toolbarVisible === visible) {
@@ -99,6 +105,62 @@ function stopToolbarPoll(): void {
   toolbarHoveredAt = 0;
   toolbarLeftAt = 0;
   toolbarInitialUntil = 0;
+}
+
+function startIdleMonitor(): void {
+  stopIdleMonitor();
+  idleMonitor = setInterval(() => {
+    void checkIdle();
+  }, 10_000);
+}
+
+function stopIdleMonitor(): void {
+  if (idleMonitor) {
+    clearInterval(idleMonitor);
+    idleMonitor = null;
+  }
+}
+
+async function checkIdle(): Promise<void> {
+  if (!control) {
+    return;
+  }
+
+  let status;
+  try {
+    status = await control.status();
+  } catch {
+    return;
+  }
+  if (!status.password_protected || status.locked || !status.security?.lock_after_idle) {
+    return;
+  }
+  const idleOverride = Number(process.env.TTMD_IDLE_MS ?? "");
+  const thresholdSeconds =
+    Number.isFinite(idleOverride) && idleOverride > 0
+      ? idleOverride / 1000
+      : status.security.idle_minutes * 60;
+  if (powerMonitor.getSystemIdleTime() < thresholdSeconds) {
+    return;
+  }
+
+  if (dashboardWindow) {
+    if (dashboardLocked || dashboardView?.webContents.isCurrentlyAudible()) {
+      return;
+    }
+    await lockDashboard();
+    return;
+  }
+
+  if (!mainWindow?.isVisible()) {
+    return;
+  }
+  try {
+    await control.lock();
+  } catch {
+    return;
+  }
+  mainWindow.webContents.send(IPC.statusChanged);
 }
 
 function startToolbarPoll(): void {
@@ -214,6 +276,7 @@ function sendNavState(): void {
     canGoBack: history.canGoBack(),
     canGoForward: history.canGoForward(),
     url: dashboardView.webContents.getURL(),
+    passwordProtected: dashboardPasswordProtected,
   });
 }
 
@@ -242,7 +305,73 @@ const navigation: NavigationActions = {
       dashboardWindow.close();
     }
   },
+  lock: () => {
+    void lockDashboard();
+  },
 };
+
+async function lockDashboard(): Promise<void> {
+  if (
+    !dashboardWindow ||
+    !dashboardView ||
+    !dashboardToolbar ||
+    !dashboardLock ||
+    dashboardLocked ||
+    !dashboardPasswordProtected
+  ) {
+    return;
+  }
+
+  dashboardLocked = true;
+  stopToolbarPoll();
+  try {
+    await control?.lock();
+  } catch (error) {
+    console.error(`[lock] ${errorMessage(error)}`);
+  }
+
+  dashboardView.setVisible(false);
+  dashboardToolbar.setVisible(false);
+  dashboardView.webContents.setAudioMuted(true);
+  dashboardLock.setVisible(true);
+  dashboardLock.webContents.focus();
+  dashboardLock.webContents.send(IPC.dashboardLocked);
+}
+
+async function unlockDashboard(password: string): Promise<void> {
+  if (!dashboardLocked || !control) {
+    throw new Error("The dashboard is not locked.");
+  }
+
+  await control.unlock(password);
+  const status = await control.status();
+  const profileID = status.active_profile;
+  if (!profileID) {
+    throw new Error("No dashboard profile is active");
+  }
+
+  const result = await control.connect(profileID);
+  const dashboardSession = session.fromPartition(dashboardPartition);
+  await dashboardSession.setProxy({
+    proxyRules: `http=${result.proxy};https=${result.proxy}`,
+  });
+
+  dashboardHomeURL = result.dashboard_url;
+  dashboardLocked = false;
+  dashboardLock?.setVisible(false);
+  dashboardView?.webContents.setAudioMuted(false);
+  dashboardView?.setVisible(true);
+  dashboardToolbar?.setVisible(true);
+  startToolbarPoll();
+
+  if (dashboardView) {
+    try {
+      await dashboardView.webContents.loadURL(result.dashboard_url);
+    } catch (error) {
+      console.error(`[dashboard] ${errorMessage(error)}`);
+    }
+  }
+}
 
 async function openDashboard(profileID: string, result: ConnectResult): Promise<void> {
   if (dashboardWindow) {
@@ -251,9 +380,18 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   }
 
   dashboardClosingToMain = false;
+  dashboardLocked = false;
   console.log(`[dashboard] proxy=${result.proxy}`);
 
   const partition = `persist:profile-${profileID}`;
+  dashboardPartition = partition;
+  try {
+    const vaultStatus = await control?.status();
+    dashboardPasswordProtected = vaultStatus?.password_protected ?? false;
+  } catch {
+    dashboardPasswordProtected = false;
+  }
+
   const dashboardSession = session.fromPartition(partition);
   await dashboardSession.setProxy({
     proxyRules: `http=${result.proxy};https=${result.proxy}`,
@@ -287,14 +425,28 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
       devTools: !app.isPackaged,
     },
   });
+  const lock = new WebContentsView({
+    webPreferences: {
+      preload: path.join(__dirname, "lock-preload.js"),
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
+      webSecurity: true,
+      spellcheck: false,
+      devTools: !app.isPackaged,
+    },
+  });
+  lock.setVisible(false);
 
   window.contentView.addChildView(view);
   window.contentView.addChildView(toolbar);
+  window.contentView.addChildView(lock);
 
   const layout = (): void => {
     const { width, height } = window.getContentBounds();
     toolbar.setBounds({ x: 0, y: 0, width, height: toolbarHeight });
     view.setBounds({ x: 0, y: 0, width, height });
+    lock.setBounds({ x: 0, y: 0, width, height });
   };
   window.on("resize", layout);
   layout();
@@ -302,10 +454,12 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   dashboardWindow = window;
   dashboardView = view;
   dashboardToolbar = toolbar;
+  dashboardLock = lock;
   dashboardHomeURL = result.dashboard_url;
 
   startToolbarPoll();
   void toolbar.webContents.loadFile(path.join(__dirname, "renderer/toolbar.html"));
+  void lock.webContents.loadFile(path.join(__dirname, "renderer/lock.html"));
   toolbar.webContents.on("did-finish-load", sendNavState);
 
   view.webContents.setWindowOpenHandler(({ url }) => {
@@ -332,7 +486,11 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
     dashboardWindow = null;
     dashboardView = null;
     dashboardToolbar = null;
+    dashboardLock = null;
     dashboardHomeURL = "";
+    dashboardPartition = "";
+    dashboardPasswordProtected = false;
+    dashboardLocked = false;
 
     if (control) {
       void control.disconnect().catch(() => undefined);
@@ -407,7 +565,9 @@ function createWindow(): void {
     process.env.TTMD_SMOKE === "setup" ||
     process.env.TTMD_SMOKE === "toolbar" ||
     process.env.TTMD_SMOKE === "autoopen" ||
-    process.env.TTMD_SMOKE === "closequit"
+    process.env.TTMD_SMOKE === "closequit" ||
+    process.env.TTMD_SMOKE === "lock" ||
+    process.env.TTMD_SMOKE === "idlelock"
   ) {
     mainWindow.webContents.once("did-finish-load", () => {
       if (mainWindow) {
@@ -425,9 +585,18 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
   const toolbarSmoke = process.env.TTMD_SMOKE === "toolbar";
   const autoOpenSmoke = process.env.TTMD_SMOKE === "autoopen";
   const closeQuitSmoke = process.env.TTMD_SMOKE === "closequit";
+  const lockSmoke = process.env.TTMD_SMOKE === "lock";
+  const idleLockSmoke = process.env.TTMD_SMOKE === "idlelock";
   const deadline =
     Date.now() +
-    (full || settings || setupSmoke || toolbarSmoke || autoOpenSmoke || closeQuitSmoke
+    (full ||
+    settings ||
+    setupSmoke ||
+    toolbarSmoke ||
+    autoOpenSmoke ||
+    closeQuitSmoke ||
+    lockSmoke ||
+    idleLockSmoke
       ? 60_000
       : 12_000);
   let submitted = false;
@@ -441,6 +610,16 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
 
   if (closeQuitSmoke) {
     await runCloseQuitSmoke(window);
+    return;
+  }
+
+  if (lockSmoke) {
+    await runLockSmoke(window);
+    return;
+  }
+
+  if (idleLockSmoke) {
+    await runIdleLockSmoke(window);
     return;
   }
 
@@ -739,6 +918,134 @@ async function runCloseQuitSmoke(window: BrowserWindow): Promise<void> {
   }
 }
 
+async function runLockSmoke(window: BrowserWindow): Promise<void> {
+  try {
+    console.log("[smoke] lock start");
+
+    let unlocked = false;
+    const loginDeadline = Date.now() + 15_000;
+    while (Date.now() < loginDeadline) {
+      const screen = (await window.webContents.executeJavaScript(
+        'document.body.dataset.screen || ""',
+      )) as string;
+      if (screen === "main") {
+        break;
+      }
+      if (screen === "lock" && !unlocked) {
+        await window.webContents.executeJavaScript(
+          `(() => {
+            const node = document.getElementById("lock-password");
+            if (node) node.value = "smoke-pass";
+            document.getElementById("lock-form")?.requestSubmit();
+          })()`,
+          true,
+        );
+        unlocked = true;
+      }
+      await delay(100);
+    }
+
+    await window.webContents.executeJavaScript(
+      'document.querySelector(".profile-actions button")?.click()',
+      true,
+    );
+    if (!(await waitForDashboard(5000))) {
+      throw new Error("the dashboard window did not open");
+    }
+    if (!(await waitForDashboardLoad(30_000))) {
+      throw new Error("the dashboard did not finish loading");
+    }
+
+    const lockVisible = (await dashboardToolbar?.webContents.executeJavaScript(
+      '(() => { const node = document.getElementById("lock"); return !!node && !node.hidden; })()',
+    )) as boolean;
+    console.log(`[smoke] toolbar lock visible=${lockVisible}`);
+    if (!lockVisible) {
+      throw new Error("the toolbar lock button is hidden");
+    }
+
+    await dashboardToolbar?.webContents.executeJavaScript(
+      'document.getElementById("lock")?.click()',
+      true,
+    );
+    if (!(await waitForLockView(true, 5000))) {
+      throw new Error("the lock overlay did not open");
+    }
+    console.log("[smoke] dashboard locked");
+
+    await dashboardLock?.webContents.executeJavaScript(
+      `(() => {
+        const node = document.getElementById("lock-password");
+        if (node) node.value = "smoke-pass";
+        document.getElementById("lock-form")?.requestSubmit();
+      })()`,
+      true,
+    );
+    if (!(await waitForLockView(false, 15_000))) {
+      throw new Error("the lock overlay did not unlock");
+    }
+    await delay(500);
+    if (!(await waitForDashboardLoad(30_000))) {
+      throw new Error("the dashboard did not reload after unlock");
+    }
+    console.log("[smoke] dashboard unlocked");
+
+    app.quit();
+  } catch (error) {
+    console.error(`[smoke] lock failed: ${errorMessage(error)}`);
+    process.exitCode = 1;
+    app.quit();
+  }
+}
+
+async function runIdleLockSmoke(window: BrowserWindow): Promise<void> {
+  try {
+    console.log("[smoke] idlelock start");
+    const start = Date.now();
+    let unlocked = false;
+    let sawMain = false;
+
+    while (Date.now() - start < 30_000) {
+      const screen = (await window.webContents.executeJavaScript(
+        'document.body.dataset.screen || ""',
+      )) as string;
+
+      if (screen === "lock" && !unlocked) {
+        await window.webContents.executeJavaScript(
+          `(() => {
+            const node = document.getElementById("lock-password");
+            if (node) node.value = "smoke-pass";
+            document.getElementById("lock-form")?.requestSubmit();
+          })()`,
+          true,
+        );
+        unlocked = true;
+      } else if (screen === "main") {
+        if (!sawMain) {
+          sawMain = true;
+          console.log("[smoke] idlelock unlocked");
+        }
+      } else if (screen === "lock" && unlocked && sawMain) {
+        console.log("[smoke] idlelock locked");
+        app.quit();
+        return;
+      }
+
+      await delay(200);
+    }
+
+    throw new Error("idle lock did not trigger");
+  } catch (error) {
+    console.error(`[smoke] idlelock failed: ${errorMessage(error)}`);
+    process.exitCode = 1;
+    app.quit();
+  }
+}
+
+async function waitForLockView(visible: boolean, timeoutMs: number): Promise<boolean> {
+  return waitForCondition(async () => dashboardLock?.getVisible() === visible, timeoutMs);
+}
+
 async function runToolbarSmoke(window: BrowserWindow): Promise<void> {
   try {
     await window.webContents.executeJavaScript(
@@ -940,11 +1247,57 @@ async function runSettingsSmoke(window: BrowserWindow): Promise<void> {
     console.log("[smoke] settings lock on");
 
     await window.webContents.executeJavaScript(
+      'document.getElementById("settings-force-lan")?.click()',
+      true,
+    );
+    if (!(await waitForSecurity({ force: true }, 3000))) {
+      throw new Error("force LAN-only was not saved");
+    }
+    await window.webContents.executeJavaScript(
+      'document.getElementById("settings-idle-lock")?.click()',
+      true,
+    );
+    if (!(await waitForSecurity({ idle: true }, 3000))) {
+      throw new Error("idle lock was not saved");
+    }
+    await window.webContents.executeJavaScript(
+      `(() => {
+        const node = document.getElementById("settings-idle-minutes");
+        if (node) {
+          node.value = "30";
+          node.dispatchEvent(new Event("change"));
+        }
+      })()`,
+      true,
+    );
+    if (!(await waitForSecurity({ minutes: 30 }, 3000))) {
+      throw new Error("idle minutes were not saved");
+    }
+    console.log("[smoke] settings security saved");
+
+    await window.webContents.executeJavaScript(
       'document.getElementById("settings-back")?.click()',
       true,
     );
     if (!(await waitForScreen(window, "main", 3000))) {
       throw new Error("could not return to the dashboard list");
+    }
+    if (!(await openProfileEditor(window))) {
+      throw new Error("the profile editor did not open");
+    }
+    const overridden = (await window.webContents.executeJavaScript(
+      '(() => { const node = document.getElementById("profile-external-origins"); return !!node && node.disabled; })()',
+    )) as boolean;
+    console.log(`[smoke] profile external disabled=${overridden}`);
+    if (!overridden) {
+      throw new Error("force LAN-only did not disable profile external content");
+    }
+    await window.webContents.executeJavaScript(
+      'document.getElementById("profile-back")?.click()',
+      true,
+    );
+    if (!(await waitForScreen(window, "main", 3000))) {
+      throw new Error("could not leave the profile editor");
     }
 
     await window.webContents.executeJavaScript(
@@ -975,6 +1328,25 @@ async function runSettingsSmoke(window: BrowserWindow): Promise<void> {
     if (!(await waitForScreen(window, "settings", 3000))) {
       throw new Error("settings did not reopen");
     }
+
+    if (!(await waitForSecurity({ force: true, idle: true, minutes: 30 }, 3000))) {
+      throw new Error("security settings did not persist");
+    }
+    await window.webContents.executeJavaScript(
+      'document.getElementById("settings-force-lan")?.click()',
+      true,
+    );
+    if (!(await waitForSecurity({ force: false }, 3000))) {
+      throw new Error("force LAN-only was not turned off");
+    }
+    await window.webContents.executeJavaScript(
+      'document.getElementById("settings-idle-lock")?.click()',
+      true,
+    );
+    if (!(await waitForSecurity({ idle: false }, 3000))) {
+      throw new Error("idle lock was not turned off");
+    }
+    console.log("[smoke] settings security reset");
 
     const lockUI = (await window.webContents.executeJavaScript(`({
       oldHidden: document.getElementById("settings-old-password-field")?.hidden,
@@ -1189,6 +1561,29 @@ async function waitForProfileSaveIdle(
   }, timeoutMs);
 }
 
+async function waitForSecurity(
+  expected: { force?: boolean; idle?: boolean; minutes?: number },
+  timeoutMs: number,
+): Promise<boolean> {
+  return waitForCondition(async () => {
+    const state = await control?.status();
+    const security = state?.security;
+    if (!security) {
+      return false;
+    }
+    if (expected.force !== undefined && security.force_lan_only !== expected.force) {
+      return false;
+    }
+    if (expected.idle !== undefined && security.lock_after_idle !== expected.idle) {
+      return false;
+    }
+    if (expected.minutes !== undefined && security.idle_minutes !== expected.minutes) {
+      return false;
+    }
+    return true;
+  }, timeoutMs);
+}
+
 async function waitForExternalState(
   mode: string,
   originCount: number | null,
@@ -1372,9 +1767,11 @@ app.whenReady().then(async () => {
     getWindow: () => mainWindow,
     navigation,
     settings: settingsStore,
+    unlockDashboard,
     openDashboard,
   });
   createWindow();
+  startIdleMonitor();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -1384,6 +1781,7 @@ app.whenReady().then(async () => {
 });
 
 app.on("before-quit", () => {
+  stopIdleMonitor();
   core?.stop();
 });
 

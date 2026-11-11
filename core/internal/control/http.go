@@ -22,6 +22,12 @@ type changePasswordRequest struct {
 	NewPassword string `json:"new_password"`
 }
 
+type securityRequest struct {
+	ForceLANOnly  bool `json:"force_lan_only"`
+	LockAfterIdle bool `json:"lock_after_idle"`
+	IdleMinutes   int  `json:"idle_minutes"`
+}
+
 type connectRequest struct {
 	ProfileID string `json:"profile_id"`
 }
@@ -85,6 +91,7 @@ func (s *Service) routes() http.Handler {
 	mux.HandleFunc("POST /vault/unlock", s.handleUnlock)
 	mux.HandleFunc("POST /vault/lock", s.handleLock)
 	mux.HandleFunc("POST /vault/password", s.handleChangePassword)
+	mux.HandleFunc("PUT /security", s.handleUpdateSecurity)
 
 	mux.HandleFunc("POST /profiles", s.handleAddProfile)
 	mux.HandleFunc("PUT /profiles/{id}", s.handleUpdateProfile)
@@ -150,6 +157,25 @@ func (s *Service) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.changePassword(req.OldPassword, req.NewPassword); err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, s.statusLocked())
+}
+
+func (s *Service) handleUpdateSecurity(w http.ResponseWriter, r *http.Request) {
+	var req securityRequest
+	if !readJSON(w, r, &req) {
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.updateSecurity(vault.SecuritySettings{
+		ForceLANOnly:  req.ForceLANOnly,
+		LockAfterIdle: req.LockAfterIdle,
+		IdleMinutes:   req.IdleMinutes,
+	}); err != nil {
 		writeError(w, err)
 		return
 	}
@@ -280,7 +306,7 @@ func writeError(w http.ResponseWriter, err error) {
 		status = http.StatusNotFound
 	case errors.Is(err, vault.ErrProfileExists), errors.Is(err, vault.ErrExists):
 		status = http.StatusConflict
-	case errors.Is(err, vault.ErrInvalidProfile):
+	case errors.Is(err, vault.ErrInvalidProfile), errors.Is(err, vault.ErrInvalidSettings):
 		status = http.StatusBadRequest
 	}
 	writeJSON(w, status, map[string]string{"error": err.Error()})
