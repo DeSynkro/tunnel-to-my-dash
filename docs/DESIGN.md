@@ -97,7 +97,8 @@ The desktop app has four parts:
   security policy, and `electron/` for the Chromium profile. On Linux it lives
   beside the AppImage when that location is writable; on Windows the portable
   launcher's directory is used. Otherwise it falls back to the normal per-user
-  config directory.
+  config directory. One app instance owns a data directory; a second launch
+  focuses the existing window instead of starting another core.
 
 Startup sequence:
 

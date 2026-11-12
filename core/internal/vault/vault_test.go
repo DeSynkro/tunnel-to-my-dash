@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -45,8 +46,10 @@ func TestPasswordVaultRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := info.Mode().Perm(); got != 0o600 {
-		t.Fatalf("vault permissions = %#o, want 0600", got)
+	if runtime.GOOS != "windows" {
+		if got := info.Mode().Perm(); got != 0o600 {
+			t.Fatalf("vault permissions = %#o, want 0600", got)
+		}
 	}
 
 	opened, err := Open(path)
@@ -111,8 +114,10 @@ func TestKeyFileVault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := info.Mode().Perm(); got != 0o600 {
-		t.Fatalf("key permissions = %#o, want 0600", got)
+	if runtime.GOOS != "windows" {
+		if got := info.Mode().Perm(); got != 0o600 {
+			t.Fatalf("key permissions = %#o, want 0600", got)
+		}
 	}
 
 	s.data = testData()
@@ -132,11 +137,13 @@ func TestKeyFileVault(t *testing.T) {
 		t.Fatalf("profiles = %+v", opened.data.Profiles)
 	}
 
-	if err := os.Chmod(s.keyPath, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := Open(path); !errors.Is(err, ErrKeyPermissions) {
-		t.Fatalf("open with loose key permissions error = %v", err)
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(s.keyPath, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Open(path); !errors.Is(err, ErrKeyPermissions) {
+			t.Fatalf("open with loose key permissions error = %v", err)
+		}
 	}
 }
 

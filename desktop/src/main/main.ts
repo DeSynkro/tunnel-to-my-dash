@@ -5314,7 +5314,7 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-app.whenReady().then(async () => {
+async function startApp(): Promise<void> {
   Menu.setApplicationMenu(null);
 
   // The app UI loads local files and has no remote content. Point the default
@@ -5351,7 +5351,31 @@ app.whenReady().then(async () => {
       createWindow();
     }
   });
-});
+}
+
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) {
+  console.log("[app] another instance is already running");
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    const dashboard = dashboardWindow;
+    if (dashboard) {
+      dashboard.show();
+      dashboard.focus();
+      return;
+    }
+    if (!mainWindow) {
+      return;
+    }
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore();
+    }
+    mainWindow.show();
+    mainWindow.focus();
+  });
+  void app.whenReady().then(startApp);
+}
 
 app.on("before-quit", (event) => {
   if (!quitting && (clipboardValue || clipboardPending > 0)) {

@@ -153,8 +153,14 @@ they land, and keep the Done section for the record.
   Linux. The named-pipe core tests pass under Wine.
 - [x] Portable `.exe` build config, `.ico`, PowerShell build script and a
   `windows-latest` CI job.
+- [x] Single-instance lock: a second launch focuses the existing window and
+  exits before starting another core.
+- [x] Keyfile vaults on Windows: the POSIX `0600` check is skipped because
+  Windows has no mode bits; the key inherits the user-profile or portable
+  folder ACL.
 - [ ] Test the portable `.exe` on the Windows laptop: first run, data beside
-  the executable, dashboard over the tunnel, lock/unlock, and links.
+  the executable, dashboard over the tunnel, lock/unlock, links, a keyfile
+  vault, and double-launch.
 - [ ] Add a Windows no-dashboard network audit and packaged smoke automation.
 - [ ] Decide whether an installer is wanted; portable first.
 

@@ -50,7 +50,9 @@ Out of scope:
 - The vault is encrypted with XChaCha20-Poly1305 under a random 256-bit key.
 - Password mode derives the key with Argon2id.
 - Convenience mode stores the key in a `0600` file. It is only as strong as
-  the device account and is not suitable for a USB stick.
+  the device account and is not suitable for a USB stick. On Windows the file
+  inherits the data folder's ACL instead of POSIX `0600`; use an app password
+  on shared or removable media.
 - Keys are never written to logs or crash reports.
 - Real configs and vaults belong in `local/`, which is gitignored. A secret
   found in git history is treated as leaked and must be replaced.
@@ -149,7 +151,8 @@ The app lock is a casual privacy screen. It stops someone who picks up the
 device from opening the app and poking around. It does not turn the vault into
 a defense against an attacker who can copy the files and run an offline
 password search. A weak password such as `123` is still weak, and the UI says
-so.
+so. Only one app instance can use a data directory at a time; a second launch
+focuses the existing window and exits.
 
 The dashboard padlock shows an opaque local lock view over a blurred snapshot
 of the page, hides the live dashboard view, mutes its audio and disconnects the

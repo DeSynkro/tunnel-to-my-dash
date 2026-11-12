@@ -32,6 +32,13 @@ owner-only named pipe:
 The desktop app generates the name and passes `--socket` to `ttmd-core.exe`.
 The pipe is restricted to the current user, so no loopback port is opened.
 
+## Single instance and keys
+
+- A second launch focuses the existing window and exits; the lock is per data
+  directory, so two copies cannot open the same vault.
+- Windows has no POSIX mode bits. Keyfile vaults inherit the data folder's ACL
+  instead of a `0600` mode; use an app password on shared or removable media.
+
 ## Still to verify
 
 - First run and data beside the executable on a real Windows machine.

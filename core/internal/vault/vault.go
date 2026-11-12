@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 )
 
@@ -406,7 +407,8 @@ func readKeyFile(path string) ([keySize]byte, error) {
 	if !info.Mode().IsRegular() {
 		return key, fmt.Errorf("%w: key path is not a regular file", ErrCorrupt)
 	}
-	if info.Mode().Perm()&0o077 != 0 {
+	// Windows has no POSIX mode bits; the key inherits the user-profile ACL.
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0 {
 		return key, ErrKeyPermissions
 	}
 
