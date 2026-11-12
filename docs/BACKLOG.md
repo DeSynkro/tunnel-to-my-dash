@@ -9,7 +9,6 @@ they land, and keep the Done section for the record.
   home Wi-Fi.
 - [ ] Jellyfin playback: verify HTML fullscreen in the packaged build and test
   a transcode.
-- [ ] Automated network audit in CI.
 - [ ] Confirm the first hosted CI run.
 
 ## Linux v1 — polish
@@ -26,6 +25,9 @@ they land, and keep the Done section for the record.
 
 ## Done
 
+- Automated network audit: a no-dashboard launch runs under Xvfb with a fresh
+  data directory and fails on any non-loopback TCP/UDP connection from the
+  app tree. CI uses strace; `make audit-network` can fall back to `ss` locally.
 - Friendly errors and reconnect: a dashboard that fails to load or hangs for
   20 seconds shows a local card with Try again and Main menu; retry reconnects
   and reloads. A failed tunnel connect shows a native retry dialog instead of
