@@ -14,7 +14,7 @@ export ELECTRON_CACHE := $(CACHE)/electron
 export ELECTRON_BUILDER_CACHE := $(CACHE)/electron-builder
 export PATH := $(ROOT)/.tools/go/bin:$(PATH)
 
-.PHONY: help dirs env toolchain fmt test core check desktop-deps desktop-check desktop desktop-start appimage checksums release clean
+.PHONY: help dirs env toolchain fmt test core check desktop-deps desktop-check audit-network desktop desktop-start appimage checksums release clean
 
 help: ## List available targets
 	@awk 'BEGIN {FS = ":.*## "; printf "Targets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-10s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -56,6 +56,9 @@ desktop-deps: ## Install desktop dependencies
 
 desktop-check: ## Type-check and build the desktop shell
 	@cd desktop && npm run check
+
+audit-network: core desktop-check ## Run the no-dashboard network audit
+	@scripts/audit-network.sh
 
 desktop: desktop-check ## Build the desktop shell
 

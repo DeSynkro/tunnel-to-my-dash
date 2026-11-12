@@ -35,6 +35,21 @@ jobs:
       - name: Desktop typecheck and build
         run: make desktop-check
 
+      - name: Install network audit tools
+        run: sudo apt-get update && sudo apt-get install -y xvfb xauth strace
+
+      - name: Network audit
+        id: network_audit
+        run: make audit-network
+
+      - name: Upload network audit log
+        if: failure() && steps.network_audit.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: network-audit
+          path: .tmp/audit-network/*.log
+          if-no-files-found: ignore
+
       - name: Build AppImage
         run: make appimage
 
