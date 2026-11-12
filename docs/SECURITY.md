@@ -70,10 +70,10 @@ Out of scope:
 - Login capture uses the same isolated preload. It reads the username,
   password, page title and origin on a trusted submit, Enter or login-button
   event (a recent real pointer or key gesture) and sends them to the main
-  process. The candidate is held until the page navigates to a different
-  path, so a failed login that reloads the same page does not prompt. The
-  password stays in main memory for the native prompt and is never shown in
-  the dialog.
+  process. The candidate is held until the page navigates to a different path
+  or the submitted password field disappears, so a failed login that reloads
+  the same page does not prompt. The password stays in main memory for the
+  native prompt and is never shown in the dialog.
 - Candidates from subframes, non-private origins, a locked vault or malformed
   payloads are discarded. Exact duplicates are ignored. Matching normalizes
   saved URLs to their origin; an existing origin and username with a new

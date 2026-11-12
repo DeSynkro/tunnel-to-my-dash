@@ -36,6 +36,7 @@ export const IPC = {
   toolbarPanel: "ttmd:toolbar-panel",
   toolbarPanelState: "ttmd:toolbar-panel-state",
   loginCandidate: "ttmd:login-candidate",
+  loginSuccess: "ttmd:login-success",
   autofillLogin: "ttmd:autofill-login",
   autofillResult: "ttmd:autofill-result",
   inlineFillAvailable: "ttmd:inline-fill-available",

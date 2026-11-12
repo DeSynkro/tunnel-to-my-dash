@@ -586,6 +586,24 @@ ipcMain.on(IPC.loginCandidate, (event, payload: unknown) => {
   queueLoginCandidate(candidate);
 });
 
+ipcMain.on(IPC.loginSuccess, (event) => {
+  if (!dashboardView || event.sender !== dashboardView.webContents) {
+    return;
+  }
+  if (event.senderFrame !== dashboardView.webContents.mainFrame) {
+    return;
+  }
+  if (dashboardLocked) {
+    return;
+  }
+  const pending = pendingLogin;
+  if (!pending) {
+    return;
+  }
+  clearPendingLogin();
+  void handleLoginCandidate(pending.candidate);
+});
+
 ipcMain.on(IPC.autofillResult, (event, requestID: unknown, result: unknown) => {
   if (!dashboardView || event.sender !== dashboardView.webContents) {
     return;
@@ -2717,6 +2735,32 @@ async function runCaptureSmoke(window: BrowserWindow): Promise<void> {
     }
     console.log("[smoke] capture updated");
 
+    await injectLogin("spa-secret");
+    view.webContents.focus();
+    view.webContents.sendInputEvent({ type: "keyDown", keyCode: "Enter" });
+    view.webContents.sendInputEvent({ type: "keyUp", keyCode: "Enter" });
+    await delay(300);
+    await view.webContents.executeJavaScript(
+      'document.getElementById("__ttmd_test_form")?.remove()',
+      true,
+    );
+    if (
+      !(await waitForCondition(async () => {
+        const current = await client.listCredentials(profileID);
+        if (current.length !== 1) {
+          return false;
+        }
+        const currentSecret = await client.credentialSecret(
+          profileID,
+          current[0].id,
+        );
+        return currentSecret.password === "spa-secret";
+      }, 5000))
+    ) {
+      throw new Error("the SPA success signal did not update the login");
+    }
+    console.log("[smoke] capture spa updated");
+
     await injectLogin("synthetic-secret");
     await view.webContents.executeJavaScript(
       'document.getElementById("__ttmd_test_form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))',
@@ -2732,7 +2776,7 @@ async function runCaptureSmoke(window: BrowserWindow): Promise<void> {
       throw new Error("a synthetic submit saved a login");
     }
     secret = await client.credentialSecret(profileID, list[0].id);
-    if (secret.password !== "new-secret") {
+    if (secret.password !== "spa-secret") {
       throw new Error("a synthetic submit replaced the saved password");
     }
     console.log("[smoke] capture synthetic ignored");
@@ -2784,7 +2828,7 @@ async function runCaptureSmoke(window: BrowserWindow): Promise<void> {
           username: document.querySelector("#__ttmd_fill_form input[name=username]")?.value || "",
           password: document.querySelector("#__ttmd_fill_form input[type=password]")?.value || "",
         })`)) as { username: string; password: string };
-        return values.username === "alex" && values.password === "new-secret";
+        return values.username === "alex" && values.password === "spa-secret";
       }, 5000))
     ) {
       throw new Error("the login was not filled");
@@ -2792,7 +2836,7 @@ async function runCaptureSmoke(window: BrowserWindow): Promise<void> {
     console.log("[smoke] capture filled");
 
     const leaked = (await toolbar.webContents.executeJavaScript(
-      'document.body.innerText.includes("hunter2") || document.body.innerText.includes("new-secret")',
+      'document.body.innerText.includes("hunter2") || document.body.innerText.includes("new-secret") || document.body.innerText.includes("spa-secret")',
     )) as boolean;
     if (leaked) {
       throw new Error("a password appeared in the toolbar DOM");
@@ -2856,7 +2900,7 @@ async function runCaptureSmoke(window: BrowserWindow): Promise<void> {
           username: document.querySelector("#__ttmd_fill_form input[name=username]")?.value || "",
           password: document.querySelector("#__ttmd_fill_form input[type=password]")?.value || "",
         })`)) as { username: string; password: string };
-        return values.username === "alex" && values.password === "new-secret";
+        return values.username === "alex" && values.password === "spa-secret";
       }, 5000))
     ) {
       throw new Error("the inline fill did not work");
@@ -2920,7 +2964,7 @@ async function runCaptureSmoke(window: BrowserWindow): Promise<void> {
           username: document.querySelector("#__ttmd_fill_form input[name=username]")?.value || "",
           password: document.querySelector("#__ttmd_fill_form input[type=password]")?.value || "",
         })`)) as { username: string; password: string };
-        return values.username === "alex" && values.password === "new-secret";
+        return values.username === "alex" && values.password === "spa-secret";
       }, 5000))
     ) {
       throw new Error("the username inline fill did not work");

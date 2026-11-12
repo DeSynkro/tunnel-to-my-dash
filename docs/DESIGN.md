@@ -296,18 +296,19 @@ login button. It only accepts events from a recent real pointer or key
 gesture, so page scripts cannot open save prompts. It reads the username,
 password, page title and origin, and sends them to the main process. The main
 process ignores subframes, non-private origins, locked vaults and malformed
-payloads. It holds the candidate until the page navigates to a different
-path, so a failed login that reloads the same page does not prompt, then
-offers a native Save password dialog showing the service name and URL — never
-the password. Saving uses the active profile, sets the URL to the page origin
-and names the login from the page title, falling back to the host.
+payloads. It holds the candidate until the page navigates to a different path
+or the submitted password field disappears, so a failed login that reloads
+the same page does not prompt, then offers a native Save password dialog
+showing the service name and URL — never the password. Saving uses the active
+profile, sets the URL to the page origin and names the login from the page
+title, falling back to the host.
 
 Matching normalizes saved URLs to their origin. Exact matches are ignored. A
 single origin and username with a new password prompts to update; when more
 than one saved login shares that origin and username, the app prefers the
 page-title match and otherwise warns instead of updating blindly. Not now is
-remembered for the session. Logins that stay on the same path after success
-are a known gap and do not prompt yet. Fill stays a separate manual click.
+remembered for the session. Logins that keep the password field visible and
+only clear its value are still a gap. Fill stays a separate manual click.
 
 ## Privacy and security
 

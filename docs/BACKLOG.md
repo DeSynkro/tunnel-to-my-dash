@@ -5,15 +5,14 @@ they land, and keep the Done section for the record.
 
 ## Linux v1 — release blockers
 
-- [ ] Finish saved passwords: add a DOM success signal for SPA logins that
-  stay on the same path, and tests for clipboard clearing on quit and idle
-  lock, the dialog's Not now path, and URL matching.
+- [ ] Finish saved passwords: add tests for clipboard clearing on quit and
+  idle lock, the dialog's Not now path, and URL matching.
 - [ ] Friendly tunnel error pages for endpoint and handshake failures, with
   reconnect.
 - [ ] Real-world failure pass: tunnel drop and reconnect, remote network and
   home Wi-Fi.
-- [ ] Jellyfin playback inside the app, including a transcoding check.
-- [ ] GPG-signed release artifacts.
+- [ ] Jellyfin playback inside the app, including fullscreen and a transcoding
+  check.
 - [ ] Automated network audit in CI.
 - [ ] Confirm the first hosted CI run.
 
@@ -45,9 +44,13 @@ they land, and keep the Done section for the record.
   the session. With nothing saved, the toolbar key button flashes red and
   shows an empty-state bubble.
 - Saved-password hardening: the clipboard clears on every vault lock and is
-  serialized; capture requires a trusted gesture and waits for a page change;
-  same-origin updates are disambiguated; save failures are shown; credential
-  URLs with userinfo are rejected.
+  serialized; capture requires a trusted gesture and waits for a page change
+  or for the submitted password field to disappear; same-origin updates are
+  disambiguated; save failures are shown; credential URLs with userinfo are
+  rejected.
+- SPA login success: the capture preload watches the submitted password field
+  and signals success when it disappears, so logins that stay on the same path
+  can offer to save.
 - Brand integration: the house mark in the masthead and lock screen, the
   window and AppImage icon rendered from the logo, the README banner, and the
   neutral graphite + amber palette with green/red status dots across the main
@@ -111,6 +114,9 @@ they land, and keep the Done section for the record.
 - mDNS names such as `homeassistant.local`.
 - Optional direct mode when already on the home LAN.
 - Inline fill for login forms inside iframes.
+- GPG-signed release artifacts, once the app is distributed beyond personal
+  use. SHA-256 checksums cover corruption; a release key adds provenance but
+  brings key management with it.
 
 ## After Linux v1: platforms
 

@@ -239,6 +239,49 @@ if (window.top === window) {
     }
   }
 
+  let successObserver: MutationObserver | null = null;
+  let successTimer: number | null = null;
+
+  function clearSuccessWatch(): void {
+    if (successObserver) {
+      successObserver.disconnect();
+      successObserver = null;
+    }
+    if (successTimer !== null) {
+      window.clearInterval(successTimer);
+      successTimer = null;
+    }
+  }
+
+  function watchLoginSuccess(field: HTMLInputElement): void {
+    clearSuccessWatch();
+    const started = Date.now();
+    let sent = false;
+    const check = () => {
+      if (sent) {
+        return;
+      }
+      if (!field.isConnected || !visible(field)) {
+        sent = true;
+        clearSuccessWatch();
+        ipcRenderer.send(IPC.loginSuccess);
+        return;
+      }
+      if (Date.now() - started > 10_000) {
+        clearSuccessWatch();
+      }
+    };
+
+    successObserver = new MutationObserver(check);
+    successObserver.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["style", "class", "hidden", "type"],
+    });
+    successTimer = window.setInterval(check, 500);
+  }
+
   function capture(event: Event): void {
     if (!event.isTrusted) {
       return;
@@ -272,6 +315,7 @@ if (window.top === window) {
     lastFingerprint = key;
     lastAt = now;
     ipcRenderer.send(IPC.loginCandidate, candidate);
+    watchLoginSuccess(password);
   }
 
   document.addEventListener("pointerdown", markGesture, true);
