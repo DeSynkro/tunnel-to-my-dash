@@ -53,6 +53,7 @@ check: test ## Format check, vet, tests and no-TUN guard
 
 desktop-deps: dirs ## Install desktop dependencies
 	@cd desktop && npm install
+	@cd desktop && node node_modules/electron/install.js
 
 desktop-check: dirs ## Type-check and build the desktop shell
 	@cd desktop && npm run check

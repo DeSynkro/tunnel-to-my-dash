@@ -340,6 +340,8 @@ command -v setsid >/dev/null 2>&1 || fail "setsid is not installed (install util
 [[ -x "$ROOT/build/ttmd-core" ]] || fail "build/ttmd-core is missing; run make core"
 [[ -x "$ROOT/desktop/node_modules/.bin/electron" ]] ||
   fail "desktop dependencies are missing; run make desktop-deps"
+[[ -x "$ROOT/desktop/node_modules/electron/dist/electron" ]] ||
+  fail "the Electron binary is missing; run make desktop-deps"
 [[ -d "$ROOT/desktop/dist" ]] || fail "desktop build is missing; run make desktop-check"
 
 electron_args=(./node_modules/.bin/electron --ozone-platform=x11)
