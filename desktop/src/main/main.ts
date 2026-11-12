@@ -19,6 +19,7 @@ import type {
   ConnectResult,
   CredentialField,
   CredentialSummary,
+  ErrorState,
   LoginCandidate,
   PointerPayload,
   Status,
@@ -81,6 +82,10 @@ let dashboardWindow: BaseWindow | null = null;
 let dashboardView: WebContentsView | null = null;
 let dashboardToolbar: WebContentsView | null = null;
 let dashboardLock: WebContentsView | null = null;
+let dashboardError: WebContentsView | null = null;
+let dashboardErrorVisible = false;
+let currentError: ErrorState | null = null;
+let dashboardLoadWatch: ReturnType<typeof setTimeout> | null = null;
 let dashboardHomeURL = "";
 let dashboardPartition = "";
 let dashboardPasswordProtected = false;
@@ -277,6 +282,13 @@ function layoutDashboard(): void {
     return;
   }
   stopToolbarAnimation();
+  const overlay = dashboardWindow.getContentBounds();
+  dashboardError?.setBounds({
+    x: 0,
+    y: 0,
+    width: overlay.width,
+    height: overlay.height,
+  });
   if (dashboardFullscreen) {
     const { width, height } = dashboardWindow.getContentBounds();
     dashboardToolbar?.setVisible(false);
@@ -290,6 +302,102 @@ function layoutDashboard(): void {
   }
   const rect = toolbarVisible ? toolbarExpandedRect() : toolbarPeekRect();
   applyToolbarFrame(rect, toolbarVisible ? toolbarRadius : peekRadius);
+}
+
+function sendErrorState(state: ErrorState): void {
+  dashboardError?.webContents.send(IPC.errorState, state);
+}
+
+function clearDashboardLoadWatch(): void {
+  if (dashboardLoadWatch) {
+    clearTimeout(dashboardLoadWatch);
+    dashboardLoadWatch = null;
+  }
+}
+
+function startDashboardLoadWatch(): void {
+  clearDashboardLoadWatch();
+  dashboardLoadWatch = setTimeout(() => {
+    dashboardLoadWatch = null;
+    showDashboardError({
+      title: "The dashboard is taking too long",
+      detail:
+        "The tunnel may be down or the dashboard is not responding. Try again.",
+    });
+  }, 20_000);
+  dashboardLoadWatch.unref?.();
+}
+
+function showDashboardError(state: ErrorState): void {
+  clearDashboardLoadWatch();
+  if (!dashboardWindow || !dashboardError || dashboardLocked) {
+    return;
+  }
+  dashboardErrorVisible = true;
+  currentError = state;
+  stopToolbarPoll();
+  closeToolbarPanel();
+  dashboardToolbar?.setVisible(false);
+  dashboardView?.setVisible(false);
+  dashboardError.setVisible(true);
+  dashboardError.webContents.focus();
+  sendErrorState(state);
+  layoutDashboard();
+}
+
+function hideDashboardError(): void {
+  clearDashboardLoadWatch();
+  if (!dashboardError || !dashboardErrorVisible) {
+    return;
+  }
+  dashboardErrorVisible = false;
+  currentError = null;
+  dashboardError.setVisible(false);
+  if (dashboardLocked) {
+    return;
+  }
+  dashboardView?.setVisible(true);
+  if (dashboardAutoHide) {
+    startToolbarPoll();
+  } else {
+    toolbarVisible = true;
+    dashboardToolbar?.setVisible(true);
+  }
+  layoutDashboard();
+}
+
+async function retryDashboard(): Promise<void> {
+  const profileID = dashboardProfileID;
+  const client = control;
+  const view = dashboardView;
+  if (!profileID || !client || !view || dashboardLocked) {
+    return;
+  }
+
+  const busy: ErrorState = {
+    title: "Reconnecting to the tunnel",
+    detail: "The dashboard will load when the tunnel is back.",
+    busy: true,
+  };
+  currentError = busy;
+  sendErrorState(busy);
+
+  try {
+    const result = await client.connect(profileID);
+    const dashboardSession = session.fromPartition(dashboardPartition);
+    await dashboardSession.setProxy({
+      proxyRules: `http=${result.proxy};https=${result.proxy}`,
+    });
+    dashboardHomeURL = result.dashboard_url;
+    view.setVisible(true);
+    startDashboardLoadWatch();
+    await view.webContents.loadURL(result.dashboard_url);
+  } catch (error) {
+    showDashboardError({
+      title: "Still could not reach the dashboard",
+      detail: `${errorMessage(error)}\n\nCheck the tunnel endpoint, then try again.`,
+    });
+  }
 }
 
 function sendToolbarPanelState(open: boolean): void {
@@ -702,6 +810,20 @@ ipcMain.handle(IPC.inlineFill, async (event) => {
   } catch {
     return { ok: false };
   }
+});
+
+ipcMain.handle(IPC.errorRetry, (event) => {
+  if (event.sender !== dashboardError?.webContents) {
+    throw new Error("Invalid request.");
+  }
+  return retryDashboard();
+});
+
+ipcMain.handle(IPC.errorBackToApp, (event) => {
+  if (event.sender !== dashboardError?.webContents) {
+    throw new Error("Invalid request.");
+  }
+  navigation.backToApp();
 });
 
 function startIdleMonitor(): void {
@@ -1288,6 +1410,10 @@ async function lockDashboard(): Promise<void> {
     dashboardFullscreen = false;
     dashboardWindow?.setFullScreen(false);
   }
+  dashboardError?.setVisible(false);
+  dashboardErrorVisible = false;
+  currentError = null;
+  clearDashboardLoadWatch();
   stopToolbarPoll();
   closeToolbarPanel();
   skippedLogins.clear();
@@ -1358,6 +1484,10 @@ async function unlockDashboard(password: string): Promise<void> {
       await dashboardView.webContents.loadURL(result.dashboard_url);
     } catch (error) {
       console.error(`[dashboard] ${errorMessage(error)}`);
+      showDashboardError({
+        title: "The dashboard did not load",
+        detail: `${errorMessage(error)}\n\nThe tunnel may be down. Try again.`,
+      });
     }
   }
 }
@@ -1438,15 +1568,31 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
     },
   });
   lock.setVisible(false);
+  const error = new WebContentsView({
+    webPreferences: {
+      preload: path.join(__dirname, "error-preload.js"),
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
+      webSecurity: true,
+      spellcheck: false,
+      devTools: !app.isPackaged,
+    },
+  });
+  error.setVisible(false);
 
   window.contentView.addChildView(view);
   window.contentView.addChildView(toolbar);
   window.contentView.addChildView(lock);
+  window.contentView.addChildView(error);
 
   dashboardWindow = window;
   dashboardView = view;
   dashboardToolbar = toolbar;
   dashboardLock = lock;
+  dashboardError = error;
+  dashboardErrorVisible = false;
+  currentError = null;
   dashboardHomeURL = result.dashboard_url;
   dashboardAutoHide = settingsStore.get().auto_hide_toolbar;
   window.on("resize", layoutDashboard);
@@ -1470,6 +1616,12 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
 
   void toolbar.webContents.loadFile(path.join(__dirname, "renderer/toolbar.html"));
   void lock.webContents.loadFile(path.join(__dirname, "renderer/lock.html"));
+  void error.webContents.loadFile(path.join(__dirname, "renderer/error.html"));
+  error.webContents.on("did-finish-load", () => {
+    if (dashboardErrorVisible && currentError) {
+      error.webContents.send(IPC.errorState, currentError);
+    }
+  });
   toolbar.webContents.on("did-finish-load", () => {
     sendNavState();
     void loadToolbarCredentials();
@@ -1507,10 +1659,49 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
     }
     layoutDashboard();
   });
-  view.webContents.on("did-navigate", () => {
+  view.webContents.on("did-navigate", (_event, url, httpResponseCode) => {
+    clearDashboardLoadWatch();
     closeToolbarPanel();
     handleLoginNavigation();
     sendNavState();
+    if (dashboardErrorVisible) {
+      if (httpResponseCode >= 400) {
+        showDashboardError({
+          title: "The dashboard returned an error",
+          detail: `HTTP ${httpResponseCode} from ${url}\n\nThe tunnel may be up but the dashboard is not responding.`,
+        });
+      } else if (httpResponseCode > 0) {
+        hideDashboardError();
+      }
+    }
+  });
+  view.webContents.on(
+    "did-fail-load",
+    (_event, errorCode, description, validatedURL, isMainFrame) => {
+      if (!isMainFrame || errorCode === -3 || dashboardLocked) {
+        return;
+      }
+      clearDashboardLoadWatch();
+      const url =
+        validatedURL || view.webContents.getURL() || dashboardHomeURL;
+      console.log(
+        `[dashboard] did-fail-load main=${isMainFrame} code=${errorCode} url=${url}`,
+      );
+      if (!isPrivateHttpUrl(url)) {
+        return;
+      }
+      showDashboardError({
+        title: "The dashboard did not load",
+        detail: `${description}${errorCode ? ` (${errorCode})` : ""}\n\nThe tunnel may be down. Try again.`,
+      });
+    },
+  );
+  view.webContents.on("render-process-gone", () => {
+    clearDashboardLoadWatch();
+    showDashboardError({
+      title: "The dashboard stopped",
+      detail: "The page process ended. Try again.",
+    });
   });
   view.webContents.on("did-navigate-in-page", () => {
     closeToolbarPanel();
@@ -1529,6 +1720,10 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
     dashboardView = null;
     dashboardToolbar = null;
     dashboardLock = null;
+    dashboardError = null;
+    dashboardErrorVisible = false;
+    currentError = null;
+    clearDashboardLoadWatch();
     dashboardHomeURL = "";
     dashboardPartition = "";
     dashboardPasswordProtected = false;
@@ -1572,10 +1767,15 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   mainWindow?.hide();
   window.focus();
 
+  startDashboardLoadWatch();
   try {
     await view.webContents.loadURL(result.dashboard_url);
   } catch (error) {
     console.error(`[dashboard] ${errorMessage(error)}`);
+    showDashboardError({
+      title: "The dashboard did not load",
+      detail: `${errorMessage(error)}\n\nThe tunnel may be down. Try again.`,
+    });
   }
 }
 
@@ -1638,7 +1838,8 @@ function createWindow(): void {
     process.env.TTMD_SMOKE === "credentials" ||
     process.env.TTMD_SMOKE === "capture" ||
     process.env.TTMD_SMOKE === "clipboardlock" ||
-    process.env.TTMD_SMOKE === "fullscreen"
+    process.env.TTMD_SMOKE === "fullscreen" ||
+    process.env.TTMD_SMOKE === "dashboarderror"
   ) {
     mainWindow.webContents.once("did-finish-load", () => {
       if (mainWindow) {
@@ -1665,6 +1866,7 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
   const captureSmoke = process.env.TTMD_SMOKE === "capture";
   const clipboardLockSmoke = process.env.TTMD_SMOKE === "clipboardlock";
   const fullscreenSmoke = process.env.TTMD_SMOKE === "fullscreen";
+  const dashboardErrorSmoke = process.env.TTMD_SMOKE === "dashboarderror";
   const deadline =
     Date.now() +
     (full ||
@@ -1681,7 +1883,8 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
     credentialsSmoke ||
     captureSmoke ||
     clipboardLockSmoke ||
-    fullscreenSmoke
+    fullscreenSmoke ||
+    dashboardErrorSmoke
       ? 60_000
       : 12_000);
   let submitted = false;
@@ -1740,6 +1943,11 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
 
   if (fullscreenSmoke) {
     await runFullscreenSmoke(window);
+    return;
+  }
+
+  if (dashboardErrorSmoke) {
+    await runDashboardErrorSmoke(window);
     return;
   }
 
@@ -3241,6 +3449,87 @@ async function runFullscreenSmoke(window: BrowserWindow): Promise<void> {
     app.quit();
   } catch (error) {
     console.error(`[smoke] fullscreen failed: ${errorMessage(error)}`);
+    process.exitCode = 1;
+    app.quit();
+  }
+}
+
+async function runDashboardErrorSmoke(window: BrowserWindow): Promise<void> {
+  try {
+    console.log("[smoke] dashboarderror start");
+    if (!(await waitForScreen(window, "main", 5000))) {
+      throw new Error("the dashboard list did not load");
+    }
+    if (!(await waitForProfileButton(window, 3000))) {
+      throw new Error("the profile card did not render");
+    }
+    await window.webContents.executeJavaScript(
+      'document.querySelector(".profile-actions button")?.click()',
+      true,
+    );
+    if (!(await waitForDashboard(5000)) || !(await waitForDashboardLoad(30_000))) {
+      throw new Error("the dashboard did not open");
+    }
+    if (!dashboardError) {
+      throw new Error("the dashboard error view was not created");
+    }
+    showDashboardError({
+      title: "The dashboard did not load",
+      detail: "Test failure.",
+    });
+    if (
+      !(await waitForCondition(
+        async () => dashboardError?.getVisible() === true,
+        3000,
+      ))
+    ) {
+      throw new Error("the dashboard error view did not appear");
+    }
+    const title = (await dashboardError.webContents.executeJavaScript(
+      'document.getElementById("error-title")?.textContent || ""',
+    )) as string;
+    if (!title.toLowerCase().includes("dashboard")) {
+      throw new Error(`the error title read: ${title}`);
+    }
+    console.log(`[smoke] dashboarderror shown: ${title}`);
+
+    await dashboardError.webContents.executeJavaScript(
+      'document.getElementById("error-retry")?.click()',
+      true,
+    );
+    if (
+      !(await waitForCondition(
+        async () => dashboardError?.getVisible() === false,
+        20_000,
+      ))
+    ) {
+      throw new Error("the retry did not hide the error view");
+    }
+    if (!(await waitForDashboardLoad(30_000))) {
+      throw new Error("the dashboard did not reload after retry");
+    }
+    console.log("[smoke] dashboarderror retry");
+
+    showDashboardError({
+      title: "The dashboard did not load",
+      detail: "Test failure.",
+    });
+    await delay(200);
+    await dashboardError.webContents.executeJavaScript(
+      'document.getElementById("error-back")?.click()',
+      true,
+    );
+    if (!(await waitForDashboardClosed(5000))) {
+      throw new Error("Main menu did not close the dashboard");
+    }
+    if (!(await waitForScreen(window, "main", 5000))) {
+      throw new Error("the main screen did not return");
+    }
+    console.log("[smoke] dashboarderror back");
+
+    app.quit();
+  } catch (error) {
+    console.error(`[smoke] dashboarderror failed: ${errorMessage(error)}`);
     process.exitCode = 1;
     app.quit();
   }

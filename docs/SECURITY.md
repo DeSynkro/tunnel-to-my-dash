@@ -104,8 +104,10 @@ Out of scope:
 
 - Dashboard content runs in a separate Electron session with no Node
   integration, no file access and no API exposed to the page. A minimal
-  isolated preload watches login submissions and reports a candidate to the
-  main process; page scripts cannot call into it.
+  isolated preload watches trusted login submissions and reports a candidate
+  to the main process; page scripts cannot call into it.
+- The dashboard error card is local app content with its own sandboxed
+  preload; it exposes only Retry and Main menu.
 - Context isolation and the Chromium sandbox stay enabled.
 - Remote debugging is disabled in release builds.
 - New windows and popups are denied.

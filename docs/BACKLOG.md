@@ -7,8 +7,6 @@ they land, and keep the Done section for the record.
 
 - [ ] Finish saved passwords: add tests for clipboard clearing on quit and
   idle lock, the dialog's Not now path, and URL matching.
-- [ ] Friendly tunnel error pages for endpoint and handshake failures, with
-  reconnect.
 - [ ] Real-world failure pass: tunnel drop and reconnect, remote network and
   home Wi-Fi.
 - [ ] Jellyfin playback: verify HTML fullscreen in the packaged build and test
@@ -30,6 +28,10 @@ they land, and keep the Done section for the record.
 
 ## Done
 
+- Friendly errors and reconnect: a dashboard that fails to load or hangs for
+  20 seconds shows a local card with Try again and Main menu; retry reconnects
+  and reloads. A failed tunnel connect shows a native retry dialog instead of
+  only an inline note.
 - Fullscreen: HTML fullscreen is allowed in the dashboard session, the window
   enters fullscreen, the toolbar hides, and exiting restores the toolbar row.
 - Saved passwords: per-profile logins in the encrypted vault, edited in the

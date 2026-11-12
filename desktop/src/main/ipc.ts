@@ -1,4 +1,10 @@
-import { app, dialog, ipcMain, type BrowserWindow, type OpenDialogOptions } from "electron";
+import {
+  app,
+  dialog,
+  ipcMain,
+  type BrowserWindow,
+  type OpenDialogOptions,
+} from "electron";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import type { ControlClient } from "./control-client";
@@ -82,7 +88,34 @@ export function registerIpc(options: IpcOptions): void {
   );
   ipcMain.handle(IPC.connect, async (_event, id: unknown) => {
     const profileID = stringArg(id);
-    const result = await control().connect(profileID);
+    const connectWithRetry = async (): Promise<ConnectResult> => {
+      for (;;) {
+        try {
+          return await control().connect(profileID);
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : String(error);
+          const box = {
+            type: "error" as const,
+            buttons: ["Try again", "Cancel"],
+            defaultId: 0,
+            cancelId: 1,
+            noLink: true,
+            title: "Could not open the dashboard",
+            message: "The tunnel did not come up.",
+            detail,
+          };
+          const window = options.getWindow();
+          const choice = window
+            ? await dialog.showMessageBox(window, box)
+            : await dialog.showMessageBox(box);
+          if (choice.response !== 0) {
+            throw error;
+          }
+        }
+      }
+    };
+
+    const result = await connectWithRetry();
     try {
       await options.openDashboard(profileID, result);
     } catch (error) {

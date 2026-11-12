@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; font-src 'self'"
+    />
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="./error.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="card" aria-labelledby="error-title">
+        <div class="brand">
+          <img class="brand-mark" src="./brand-mark.svg" alt="" aria-hidden="true" />
+          <span>Tunnel to My Dash</span>
+        </div>
+        <p class="kicker">Dashboard</p>
+        <h1 id="error-title">The dashboard did not load</h1>
+        <p class="detail" id="error-detail">
+          The tunnel may be down. Check the connection and try again.
+        </p>
+        <div class="actions">
+          <button type="button" id="error-retry">Try again</button>
+          <button type="button" class="ghost" id="error-back">Main menu</button>
+        </div>
+      </section>
+    </main>
+    <script src="./error.js"></script>
+  </body>
+</html>

@@ -116,6 +116,18 @@ export interface InlineFillResult {
   password?: string;
 }
 
+export interface ErrorState {
+  title: string;
+  detail: string;
+  busy?: boolean;
+}
+
+export interface ErrorBridge {
+  retry(): Promise<void>;
+  backToApp(): Promise<void>;
+  onState(callback: (state: ErrorState) => void): () => void;
+}
+
 export interface ConfigFile {
   name: string;
   text: string;

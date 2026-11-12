@@ -73,8 +73,12 @@ The desktop app has four parts:
   a short animated resize. With auto-hide off the bar becomes a plain
   full-width row above the view, so it covers nothing and has no floating pill
   frame. A dashboard page can enter HTML fullscreen; the window follows, the
-  toolbar hides, and leaving fullscreen restores the toolbar row. The window X
-  quits the app; the Main menu button returns to the main menu. A padlock shows an opaque lock overlay over a blurred
+  toolbar hides, and leaving fullscreen restores the toolbar row. If a page
+  fails to load or takes longer than 20 seconds, a local error card replaces
+  the view with Try again and Main menu; retry reconnects the tunnel and
+  reloads. If the handshake fails before the window opens, the main window
+  shows a native retry dialog. The window X quits the app; the Main menu
+  button returns to the main menu. A padlock shows an opaque lock overlay over a blurred
   snapshot of the page, hides the live page, disconnects the tunnel and
   reconnects the same dashboard after unlock. Back to main menu from that
   overlay suppresses auto-open once so the next unlock lands on the main menu.
