@@ -27,7 +27,7 @@ env: dirs ## Show the project-local build environment
 		"$(GOCACHE)" "$(GOMODCACHE)" "$(GOPATH)" "$(TMPDIR)" "$(npm_config_cache)"
 
 toolchain: ## Install the pinned Go toolchain into .tools/
-	@scripts/toolchain.sh
+	@platforms/linux/scripts/toolchain.sh
 
 fmt: dirs ## Format Go code
 	@test -d core || { echo "core/ not created yet"; exit 1; }
@@ -59,7 +59,7 @@ desktop-check: dirs ## Type-check and build the desktop shell
 	@cd desktop && npm run check
 
 audit-network: core desktop-check ## Run the no-dashboard network audit
-	@scripts/audit-network.sh
+	@platforms/linux/scripts/audit-network.sh
 
 desktop: desktop-check ## Build the desktop shell
 

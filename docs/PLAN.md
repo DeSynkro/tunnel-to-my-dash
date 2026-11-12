@@ -35,18 +35,18 @@ core/
   internal/tunnel/dial.go
   internal/tunnel/tunnel_test.go
   internal/tunnel/testpair_test.go
-scripts/
+platforms/linux/scripts/
   toolchain.sh
 ```
 
 ## Task 0 — Pin the Go toolchain
 
-**Files:** `.go-version`, `scripts/toolchain.sh`, `Makefile`
+**Files:** `.go-version`, `platforms/linux/scripts/toolchain.sh`, `Makefile`
 
 **Steps**
 
 - [x] Write `.go-version` containing `go1.27.4`.
-- [x] Write `scripts/toolchain.sh`:
+- [x] Write `platforms/linux/scripts/toolchain.sh`:
   - Reads the version from `.go-version`.
   - Detects `x86_64` or `aarch64`.
   - Downloads `go1.27.4.linux-<arch>.tar.gz` from `https://go.dev/dl/`.

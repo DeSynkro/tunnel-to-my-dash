@@ -12,7 +12,7 @@
 
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 AUDIT_DIR="$ROOT/.tmp/audit-network"
 DATA_DIR="$AUDIT_DIR/data"
 AUDIT_LOG="$AUDIT_DIR/audit.log"

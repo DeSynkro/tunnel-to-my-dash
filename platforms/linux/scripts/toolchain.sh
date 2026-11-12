@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 VERSION="$(tr -d '[:space:]' < "$ROOT/.go-version")"
 TOOLS="$ROOT/.tools"
 DOWNLOADS="$TOOLS/downloads"

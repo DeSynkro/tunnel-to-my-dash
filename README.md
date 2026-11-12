@@ -68,10 +68,17 @@ More detail in [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Layout
 
-    core/       Go tunnel, proxy, vault and CLI
-    desktop/    Electron shell and UI
-    docs/       design, roadmap, plan and security notes
-    scripts/    build and toolchain helpers
+    core/           shared Go tunnel, proxy, vault and CLI
+    desktop/        shared Electron shell and UI
+    platforms/
+      linux/        AppImage build and Linux-only scripts
+      windows/      portable .exe build
+      android/      future Kotlin/Compose app
+    docs/           design, roadmap, plan and security notes
+
+The shared code stays at the top so Linux, Windows and the future Android
+client do not drift apart. Only packaging and platform-specific helpers live
+under `platforms/`.
 
 ## Run it
 
