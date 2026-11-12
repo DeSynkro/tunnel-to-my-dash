@@ -87,6 +87,7 @@ export interface ToolbarPanelState {
 
 export interface LoginCandidate {
   url: string;
+  page: string;
   title: string;
   username: string;
   password: string;

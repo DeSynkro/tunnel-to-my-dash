@@ -35,9 +35,9 @@ func (c Credential) Validate() error {
 	}
 	if c.URL != "" {
 		parsed, err := url.Parse(c.URL)
-		if err != nil || parsed.Host == "" ||
+		if err != nil || parsed.Host == "" || parsed.User != nil ||
 			(parsed.Scheme != "http" && parsed.Scheme != "https") {
-			return fmt.Errorf("%w: url must be an http or https address", ErrInvalidCredential)
+			return fmt.Errorf("%w: url must be an http or https address without userinfo", ErrInvalidCredential)
 		}
 	}
 	return nil

@@ -119,6 +119,12 @@ func TestCredentialAPI(t *testing.T) {
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("bad URL status = %d", resp.StatusCode)
 	}
+	resp, _ = call(t, client, http.MethodPost, base, CredentialInput{
+		Name: "No password",
+	})
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("empty password status = %d", resp.StatusCode)
+	}
 	resp, _ = call(t, client, http.MethodGet, "/profiles/missing/credentials", nil)
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("missing profile status = %d", resp.StatusCode)

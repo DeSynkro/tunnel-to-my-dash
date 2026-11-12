@@ -189,6 +189,9 @@ function showEmptyToast(): void {
   void bridge
     .openPanel(height)
     .then(() => {
+      if (!toastOpen) {
+        return;
+      }
       passwordsToast.classList.add("open");
       if (toastTimer !== null) {
         window.clearTimeout(toastTimer);
@@ -238,6 +241,7 @@ bridge.onPanelState((state) => {
 window.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     hidePanel();
+    hideToast();
   }
 });
 

@@ -111,10 +111,19 @@ func TestCredentialValidation(t *testing.T) {
 		name       string
 		credential Credential
 	}{
-		{"no name", Credential{Password: "x"}},
-		{"no password", Credential{Name: "Home"}},
-		{"bad scheme", Credential{Name: "Home", URL: "ftp://192.168.0.4", Password: "x"}},
-		{"no host", Credential{Name: "Home", URL: "https://", Password: "x"}},
+		{"no name", Credential{ID: "test", Password: "x"}},
+		{"no password", Credential{ID: "test", Name: "Home"}},
+		{"bad scheme", Credential{ID: "test", Name: "Home", URL: "ftp://192.168.0.4", Password: "x"}},
+		{"no host", Credential{ID: "test", Name: "Home", URL: "https://", Password: "x"}},
+		{
+			"userinfo",
+			Credential{
+				ID:       "test",
+				Name:     "Home",
+				URL:      "https://user:pass@192.168.0.4",
+				Password: "x",
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

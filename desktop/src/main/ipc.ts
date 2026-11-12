@@ -10,6 +10,7 @@ import type {
   CredentialInput,
   ProfileInput,
   SecuritySettings,
+  Status,
 } from "../shared/types";
 
 export interface NavigationActions {
@@ -27,6 +28,7 @@ export interface IpcOptions {
   getWindow: () => BrowserWindow | null;
   navigation: NavigationActions;
   settings: SettingsStore;
+  lockVault: () => Promise<Status>;
   unlockDashboard: (password: string) => Promise<void>;
   openDashboard: (profileID: string, result: ConnectResult) => Promise<void>;
 }
@@ -45,7 +47,7 @@ export function registerIpc(options: IpcOptions): void {
   ipcMain.handle(IPC.status, () => control().status());
   ipcMain.handle(IPC.createVault, (_event, password: unknown) => control().createVault(stringArg(password)));
   ipcMain.handle(IPC.unlock, (_event, password: unknown) => control().unlock(stringArg(password)));
-  ipcMain.handle(IPC.lock, () => control().lock());
+  ipcMain.handle(IPC.lock, () => options.lockVault());
   ipcMain.handle(IPC.changePassword, (_event, oldPassword: unknown, newPassword: unknown) =>
     control().changePassword(stringArg(oldPassword), stringArg(newPassword)),
   );

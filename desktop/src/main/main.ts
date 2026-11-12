@@ -20,6 +20,7 @@ import type {
   CredentialSummary,
   LoginCandidate,
   PointerPayload,
+  Status,
 } from "../shared/types";
 import { ControlClient } from "./control-client";
 import { CoreProcess } from "./core-process";
@@ -106,6 +107,9 @@ const toolbarPanelGap = 4;
 const toolbarPanelMaxHeight = 300;
 
 const clipboardClearMs = (() => {
+  if (!process.env.TTMD_SMOKE) {
+    return 30_000;
+  }
   const value = Number(process.env.TTMD_CLIPBOARD_MS);
   return Number.isFinite(value) && value > 0 ? value : 30_000;
 })();
@@ -121,9 +125,16 @@ let toolbarPoll: ReturnType<typeof setInterval> | null = null;
 let idleMonitor: ReturnType<typeof setInterval> | null = null;
 let clipboardTimer: ReturnType<typeof setTimeout> | null = null;
 let clipboardValue = "";
+let clipboardGeneration = 0;
+let clipboardPending = 0;
+let clipboardQueue: Promise<void> = Promise.resolve();
+let vaultLockEpoch = 0;
 let quitting = false;
 const skippedLogins = new Set<string>();
 let loginPromptOpen = false;
+const loginSuccessWindowMs = 15_000;
+let pendingLogin: { candidate: LoginCandidate; path: string } | null = null;
+let pendingLoginTimer: ReturnType<typeof setTimeout> | null = null;
 
 type ToolbarRect = { x: number; y: number; width: number; height: number };
 
@@ -301,7 +312,13 @@ function setToolbarPanel(open: boolean, height: number): void {
   layoutDashboard();
 }
 
-async function clearClipboardIfOurs(): Promise<void> {
+function enqueueClipboard(operation: () => Promise<void>): Promise<void> {
+  const run = clipboardQueue.then(operation, operation);
+  clipboardQueue = run.catch(() => undefined);
+  return run;
+}
+
+async function clearClipboardNow(): Promise<void> {
   if (clipboardTimer) {
     clearTimeout(clipboardTimer);
     clipboardTimer = null;
@@ -320,15 +337,60 @@ async function clearClipboardIfOurs(): Promise<void> {
   }
 }
 
-async function copyToClipboard(value: string): Promise<void> {
-  await clearClipboardIfOurs();
-  await clipboard.writeText(value);
-  clipboardValue = value;
-  clipboardTimer = setTimeout(() => {
+function clearClipboardIfOurs(): Promise<void> {
+  clipboardGeneration += 1;
+  if (clipboardTimer) {
+    clearTimeout(clipboardTimer);
     clipboardTimer = null;
-    void clearClipboardIfOurs();
-  }, clipboardClearMs);
-  clipboardTimer.unref?.();
+  }
+  return enqueueClipboard(clearClipboardNow);
+}
+
+function copyToClipboard(value: string, epoch: number): Promise<void> {
+  clipboardPending += 1;
+  return enqueueClipboard(async () => {
+    try {
+      if (epoch !== vaultLockEpoch) {
+        throw new Error("The dashboard is locked.");
+      }
+      await clearClipboardNow();
+      await clipboard.writeText(value);
+      if (epoch !== vaultLockEpoch) {
+        if ((await clipboard.readText().catch(() => "")) === value) {
+          clipboard.clear();
+        }
+        throw new Error("The dashboard is locked.");
+      }
+
+      clipboardValue = value;
+      const generation = ++clipboardGeneration;
+      if (clipboardTimer) {
+        clearTimeout(clipboardTimer);
+      }
+      clipboardTimer = setTimeout(() => {
+        clipboardTimer = null;
+        void enqueueClipboard(async () => {
+          if (generation !== clipboardGeneration) {
+            return;
+          }
+          await clearClipboardNow();
+        });
+      }, clipboardClearMs);
+      clipboardTimer.unref?.();
+    } finally {
+      clipboardPending -= 1;
+    }
+  });
+}
+
+async function lockVault(): Promise<Status> {
+  const client = control;
+  if (!client) {
+    throw new Error("The core is not ready.");
+  }
+  vaultLockEpoch += 1;
+  await clearClipboardIfOurs();
+  return client.lock();
 }
 
 function toolbarPanelArg(value: unknown): { open: boolean; height: number } {
@@ -396,11 +458,20 @@ ipcMain.handle(
     if (typeof credentialID !== "string" || !isCredentialField(field)) {
       throw new Error("Invalid request.");
     }
-    if (!control || !dashboardProfileID) {
+    const profileID = dashboardProfileID;
+    const epoch = vaultLockEpoch;
+    if (!control || !profileID) {
       throw new Error("No dashboard is open.");
     }
 
-    const secret = await control.credentialSecret(dashboardProfileID, credentialID);
+    const secret = await control.credentialSecret(profileID, credentialID);
+    if (
+      dashboardLocked ||
+      dashboardProfileID !== profileID ||
+      epoch !== vaultLockEpoch
+    ) {
+      throw new Error("The dashboard is locked.");
+    }
     const value = field === "username" ? secret.username : secret.password;
     if (!value) {
       throw new Error(
@@ -409,7 +480,7 @@ ipcMain.handle(
           : "No password saved for that login.",
       );
     }
-    await copyToClipboard(value);
+    await copyToClipboard(value, epoch);
   },
 );
 
@@ -427,7 +498,7 @@ ipcMain.on(IPC.loginCandidate, (event, payload: unknown) => {
   if (!candidate) {
     return;
   }
-  void handleLoginCandidate(candidate);
+  queueLoginCandidate(candidate);
 });
 
 function startIdleMonitor(): void {
@@ -479,7 +550,7 @@ async function checkIdle(): Promise<void> {
     return;
   }
   try {
-    await control.lock();
+    await lockVault();
   } catch {
     return;
   }
@@ -598,19 +669,20 @@ function sendNavState(): void {
 }
 
 async function loadToolbarCredentials(): Promise<void> {
-  if (!dashboardToolbar || !dashboardProfileID) {
+  const profileID = dashboardProfileID;
+  const toolbar = dashboardToolbar;
+  if (!profileID || !toolbar) {
     return;
   }
-  let credentials: CredentialSummary[] = [];
   try {
-    credentials = (await control?.listCredentials(dashboardProfileID)) ?? [];
+    const credentials = (await control?.listCredentials(profileID)) ?? [];
+    if (dashboardProfileID !== profileID || dashboardToolbar !== toolbar) {
+      return;
+    }
+    toolbar.webContents.send(IPC.toolbarCredentials, { credentials });
   } catch (error) {
     console.error(`[credentials] ${errorMessage(error)}`);
   }
-  if (!dashboardToolbar) {
-    return;
-  }
-  dashboardToolbar.webContents.send(IPC.toolbarCredentials, { credentials });
 }
 
 function loginCandidateArg(value: unknown): LoginCandidate | null {
@@ -620,6 +692,7 @@ function loginCandidateArg(value: unknown): LoginCandidate | null {
   const raw = value as Record<string, unknown>;
   if (
     typeof raw.url !== "string" ||
+    typeof raw.page !== "string" ||
     typeof raw.title !== "string" ||
     typeof raw.username !== "string" ||
     typeof raw.password !== "string"
@@ -632,26 +705,33 @@ function loginCandidateArg(value: unknown): LoginCandidate | null {
   if (
     raw.username.length > 256 ||
     raw.title.length > 200 ||
-    raw.url.length > 2048
+    raw.url.length > 2048 ||
+    raw.page.length > 2048
   ) {
     return null;
   }
 
   let url: URL;
+  let page: URL;
   try {
     url = new URL(raw.url);
+    page = new URL(raw.page);
   } catch {
     return null;
   }
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
+  if (
+    (url.protocol !== "http:" && url.protocol !== "https:") ||
+    page.origin !== url.origin
+  ) {
     return null;
   }
-  if (!isPrivateHttpUrl(url.toString())) {
+  if (!isPrivateHttpUrl(page.toString())) {
     return null;
   }
 
   return {
     url: url.origin,
+    page: page.toString(),
     title: raw.title.trim(),
     username: raw.username.trim(),
     password: raw.password,
@@ -674,6 +754,92 @@ function credentialName(title: string, url: string): string {
   return name.slice(0, 64);
 }
 
+function normalizedOrigin(value: string): string {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return value;
+  }
+}
+
+function clearPendingLogin(): void {
+  if (pendingLoginTimer) {
+    clearTimeout(pendingLoginTimer);
+    pendingLoginTimer = null;
+  }
+  pendingLogin = null;
+}
+
+function queueLoginCandidate(candidate: LoginCandidate): void {
+  clearPendingLogin();
+  let path = "/";
+  try {
+    path = new URL(candidate.page).pathname;
+  } catch {
+    return;
+  }
+  pendingLogin = { candidate, path };
+  pendingLoginTimer = setTimeout(clearPendingLogin, loginSuccessWindowMs);
+  pendingLoginTimer.unref?.();
+}
+
+function handleLoginNavigation(): void {
+  const pending = pendingLogin;
+  if (!pending || !dashboardView) {
+    return;
+  }
+  let path = "";
+  try {
+    path = new URL(dashboardView.webContents.getURL()).pathname;
+  } catch {
+    return;
+  }
+  if (!path) {
+    return;
+  }
+  clearPendingLogin();
+  if (path !== pending.path) {
+    void handleLoginCandidate(pending.candidate);
+  }
+}
+
+async function showAmbiguousLogin(matches: CredentialSummary[]): Promise<void> {
+  const options = {
+    type: "warning" as const,
+    buttons: ["OK"],
+    title: "Multiple saved logins",
+    message: "More than one saved login matches this page.",
+    detail: `Edit them in the profile to choose which one to update.\n${matches
+      .map((match) => `• ${match.name}`)
+      .join("\n")}`,
+  };
+  const parent = dashboardWindow;
+  if (parent) {
+    await dialog.showMessageBox(parent, options);
+  } else {
+    await dialog.showMessageBox(options);
+  }
+}
+
+async function showSaveFailure(): Promise<void> {
+  if (process.env.TTMD_SMOKE) {
+    return;
+  }
+  const options = {
+    type: "error" as const,
+    buttons: ["OK"],
+    title: "Could not save password",
+    message: "The saved login was not accepted.",
+    detail: "Try again from Edit profile → Passwords.",
+  };
+  const parent = dashboardWindow;
+  if (parent) {
+    await dialog.showMessageBox(parent, options);
+  } else {
+    await dialog.showMessageBox(options);
+  }
+}
+
 async function handleLoginCandidate(candidate: LoginCandidate): Promise<void> {
   if (loginPromptOpen) {
     return;
@@ -693,37 +859,59 @@ async function handleLoginCandidate(candidate: LoginCandidate): Promise<void> {
     return;
   }
 
-  let existing: CredentialSummary | null = null;
+  loginPromptOpen = true;
   try {
-    const credentials = await client.listCredentials(profileID);
-    for (const credential of credentials) {
-      if (credential.url !== candidate.url) {
-        continue;
-      }
-      if ((credential.username ?? "") !== candidate.username) {
-        continue;
-      }
-      const secret = await client.credentialSecret(profileID, credential.id);
-      if (secret.password === candidate.password) {
+    let matches: CredentialSummary[] = [];
+    try {
+      const credentials = await client.listCredentials(profileID);
+      matches = credentials.filter(
+        (credential) =>
+          normalizedOrigin(credential.url ?? "") === candidate.url &&
+          (credential.username ?? "") === candidate.username,
+      );
+    } catch (error) {
+      console.error(`[credentials] lookup: ${errorMessage(error)}`);
+      return;
+    }
+
+    let existing: CredentialSummary | null = null;
+    if (matches.length === 1) {
+      existing = matches[0];
+    } else if (matches.length > 1) {
+      const name = credentialName(candidate.title, candidate.url).toLowerCase();
+      const named = matches.filter(
+        (match) => match.name.toLowerCase() === name,
+      );
+      if (named.length === 1) {
+        existing = named[0];
+      } else {
+        await showAmbiguousLogin(matches);
         return;
       }
-      existing = credential;
-      break;
     }
-  } catch (error) {
-    console.error(`[credentials] lookup: ${errorMessage(error)}`);
-    return;
-  }
 
-  const name = credentialName(candidate.title, candidate.url);
-  let response = 0;
-  if (process.env.TTMD_SAVE_PROMPT === "accept") {
-    response = 0;
-  } else if (process.env.TTMD_SAVE_PROMPT === "decline") {
-    response = 1;
-  } else {
-    loginPromptOpen = true;
-    try {
+    if (existing) {
+      try {
+        const secret = await client.credentialSecret(profileID, existing.id);
+        if (secret.password === candidate.password) {
+          return;
+        }
+      } catch (error) {
+        console.error(`[credentials] lookup: ${errorMessage(error)}`);
+        return;
+      }
+    }
+
+    const name = credentialName(candidate.title, candidate.url);
+    const savePrompt = process.env.TTMD_SMOKE
+      ? process.env.TTMD_SAVE_PROMPT
+      : undefined;
+    let response = 0;
+    if (savePrompt === "accept") {
+      response = 0;
+    } else if (savePrompt === "decline") {
+      response = 1;
+    } else {
       const options = {
         type: "question" as const,
         buttons: ["Save password", "Not now"],
@@ -743,43 +931,45 @@ async function handleLoginCandidate(candidate: LoginCandidate): Promise<void> {
         ? await dialog.showMessageBox(parent, options)
         : await dialog.showMessageBox(options);
       response = result.response;
-    } catch (error) {
-      console.error(`[credentials] prompt: ${errorMessage(error)}`);
+    }
+
+    if (
+      !dashboardProfileID ||
+      dashboardProfileID !== profileID ||
+      dashboardLocked
+    ) {
       return;
-    } finally {
-      loginPromptOpen = false;
     }
-  }
 
-  if (!dashboardProfileID || dashboardProfileID !== profileID) {
-    return;
-  }
-
-  if (response !== 0) {
-    skippedLogins.add(skipKey);
-    return;
-  }
-
-  try {
-    if (existing) {
-      await client.updateCredential(profileID, existing.id, {
-        name: existing.name,
-        url: candidate.url,
-        username: candidate.username,
-        password: candidate.password,
-      });
-    } else {
-      await client.addCredential(profileID, {
-        name,
-        url: candidate.url,
-        username: candidate.username,
-        password: candidate.password,
-      });
+    if (response !== 0) {
+      skippedLogins.add(skipKey);
+      return;
     }
-    void loadToolbarCredentials();
-    console.log(`[credentials] saved ${candidate.url}`);
-  } catch (error) {
-    console.error(`[credentials] save: ${errorMessage(error)}`);
+
+    try {
+      if (existing) {
+        await client.updateCredential(profileID, existing.id, {
+          name: existing.name,
+          url: candidate.url,
+          username: candidate.username,
+          password: candidate.password,
+        });
+      } else {
+        await client.addCredential(profileID, {
+          name,
+          url: candidate.url,
+          username: candidate.username,
+          password: candidate.password,
+        });
+      }
+      void loadToolbarCredentials();
+      console.log("[credentials] saved");
+    } catch (error) {
+      console.error(`[credentials] save: ${errorMessage(error)}`);
+      await showSaveFailure();
+    }
+  } finally {
+    loginPromptOpen = false;
   }
 }
 
@@ -832,7 +1022,7 @@ async function lockDashboard(): Promise<void> {
   stopToolbarPoll();
   closeToolbarPanel();
   skippedLogins.clear();
-  await clearClipboardIfOurs();
+  clearPendingLogin();
 
   let snapshot = "";
   try {
@@ -845,7 +1035,7 @@ async function lockDashboard(): Promise<void> {
   }
 
   try {
-    await control?.lock();
+    await lockVault();
   } catch (error) {
     console.error(`[lock] ${errorMessage(error)}`);
   }
@@ -878,6 +1068,7 @@ async function unlockDashboard(password: string): Promise<void> {
 
   dashboardHomeURL = result.dashboard_url;
   dashboardProfileID = profileID;
+  clearPendingLogin();
   dashboardLocked = false;
   dashboardLock?.setVisible(false);
   dashboardView?.webContents.setAudioMuted(false);
@@ -915,6 +1106,7 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   toolbarPanelHeight = 0;
   skippedLogins.clear();
   loginPromptOpen = false;
+  clearPendingLogin();
   console.log(`[dashboard] proxy=${result.proxy}`);
 
   const partition = `persist:profile-${profileID}`;
@@ -993,6 +1185,7 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
     toolbarInitialUntil = Date.now() + 1500;
     setToolbarExpanded(true);
   });
+  window.on("blur", () => closeToolbarPanel());
 
   if (dashboardAutoHide) {
     startToolbarPoll();
@@ -1024,10 +1217,12 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   view.webContents.on("focus", () => closeToolbarPanel());
   view.webContents.on("did-navigate", () => {
     closeToolbarPanel();
+    handleLoginNavigation();
     sendNavState();
   });
   view.webContents.on("did-navigate-in-page", () => {
     closeToolbarPanel();
+    handleLoginNavigation();
     sendNavState();
   });
   view.webContents.on("page-title-updated", (_event, title) => {
@@ -1051,6 +1246,7 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
     toolbarPanelHeight = 0;
     skippedLogins.clear();
     loginPromptOpen = false;
+    clearPendingLogin();
 
     if (control) {
       void control.disconnect().catch(() => undefined);
@@ -1143,7 +1339,8 @@ function createWindow(): void {
     process.env.TTMD_SMOKE === "toolbarfixed" ||
     process.env.TTMD_SMOKE === "refocus" ||
     process.env.TTMD_SMOKE === "credentials" ||
-    process.env.TTMD_SMOKE === "capture"
+    process.env.TTMD_SMOKE === "capture" ||
+    process.env.TTMD_SMOKE === "clipboardlock"
   ) {
     mainWindow.webContents.once("did-finish-load", () => {
       if (mainWindow) {
@@ -1168,6 +1365,7 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
   const refocusSmoke = process.env.TTMD_SMOKE === "refocus";
   const credentialsSmoke = process.env.TTMD_SMOKE === "credentials";
   const captureSmoke = process.env.TTMD_SMOKE === "capture";
+  const clipboardLockSmoke = process.env.TTMD_SMOKE === "clipboardlock";
   const deadline =
     Date.now() +
     (full ||
@@ -1182,7 +1380,8 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
     toolbarFixedSmoke ||
     refocusSmoke ||
     credentialsSmoke ||
-    captureSmoke
+    captureSmoke ||
+    clipboardLockSmoke
       ? 60_000
       : 12_000);
   let submitted = false;
@@ -1231,6 +1430,11 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
 
   if (captureSmoke) {
     await runCaptureSmoke(window);
+    return;
+  }
+
+  if (clipboardLockSmoke) {
+    await runClipboardLockSmoke(window);
     return;
   }
 
@@ -2139,10 +2343,13 @@ async function runCaptureSmoke(window: BrowserWindow): Promise<void> {
       throw new Error("the empty passwords toast did not close");
     }
 
-    const submitLogin = (password: string): Promise<unknown> =>
-      view.webContents.executeJavaScript(
+    const injectLogin = async (password: string): Promise<void> => {
+      await view.webContents.executeJavaScript(
         `(() => {
+          document.getElementById("__ttmd_test_form")?.remove();
           const form = document.createElement("form");
+          form.id = "__ttmd_test_form";
+          form.addEventListener("submit", (event) => event.preventDefault());
           const user = document.createElement("input");
           user.name = "username";
           user.autocomplete = "username";
@@ -2153,14 +2360,24 @@ async function runCaptureSmoke(window: BrowserWindow): Promise<void> {
           pass.value = ${JSON.stringify(password)};
           form.append(user, pass);
           document.body.append(form);
-          form.dispatchEvent(
-            new Event("submit", { bubbles: true, cancelable: true }),
-          );
+          pass.focus();
         })()`,
         true,
       );
+    };
 
-    await submitLogin("hunter2");
+    const submitLogin = async (password: string, path: string): Promise<void> => {
+      await injectLogin(password);
+      view.webContents.focus();
+      view.webContents.sendInputEvent({ type: "keyDown", keyCode: "Enter" });
+      view.webContents.sendInputEvent({ type: "keyUp", keyCode: "Enter" });
+      await delay(150);
+      await view.webContents
+        .loadURL(new URL(path, dashboardHomeURL).toString())
+        .catch(() => undefined);
+    };
+
+    await submitLogin("hunter2", "/capture-success-1");
     if (
       !(await waitForCondition(async () => {
         const list = await client.listCredentials(profileID);
@@ -2193,14 +2410,14 @@ async function runCaptureSmoke(window: BrowserWindow): Promise<void> {
     }
 
     await delay(1700);
-    await submitLogin("hunter2");
+    await submitLogin("hunter2", "/capture-success-2");
     await delay(800);
     list = await client.listCredentials(profileID);
     if (list.length !== 1) {
       throw new Error("the same login was saved twice");
     }
 
-    await submitLogin("new-secret");
+    await submitLogin("new-secret", "/capture-success-3");
     if (
       !(await waitForCondition(async () => {
         const current = await client.listCredentials(profileID);
@@ -2226,6 +2443,26 @@ async function runCaptureSmoke(window: BrowserWindow): Promise<void> {
     }
     console.log("[smoke] capture updated");
 
+    await injectLogin("synthetic-secret");
+    await view.webContents.executeJavaScript(
+      'document.getElementById("__ttmd_test_form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))',
+      true,
+    );
+    await delay(150);
+    await view.webContents
+      .loadURL(new URL("/capture-synthetic", dashboardHomeURL).toString())
+      .catch(() => undefined);
+    await delay(800);
+    list = await client.listCredentials(profileID);
+    if (list.length !== 1) {
+      throw new Error("a synthetic submit saved a login");
+    }
+    secret = await client.credentialSecret(profileID, list[0].id);
+    if (secret.password !== "new-secret") {
+      throw new Error("a synthetic submit replaced the saved password");
+    }
+    console.log("[smoke] capture synthetic ignored");
+
     const leaked = (await toolbar.webContents.executeJavaScript(
       'document.body.innerText.includes("hunter2") || document.body.innerText.includes("new-secret")',
     )) as boolean;
@@ -2237,6 +2474,119 @@ async function runCaptureSmoke(window: BrowserWindow): Promise<void> {
     app.quit();
   } catch (error) {
     console.error(`[smoke] capture failed: ${errorMessage(error)}`);
+    process.exitCode = 1;
+    app.quit();
+  }
+}
+
+async function runClipboardLockSmoke(window: BrowserWindow): Promise<void> {
+  try {
+    console.log("[smoke] clipboardlock start");
+    let unlocked = false;
+    const loginDeadline = Date.now() + 15_000;
+    while (Date.now() < loginDeadline) {
+      const screen = (await window.webContents.executeJavaScript(
+        'document.body.dataset.screen || ""',
+      )) as string;
+      if (screen === "main") {
+        break;
+      }
+      if (screen === "lock" && !unlocked) {
+        await window.webContents.executeJavaScript(
+          `(() => {
+            const node = document.getElementById("lock-password");
+            if (node) node.value = "smoke-pass";
+            document.getElementById("lock-form")?.requestSubmit();
+          })()`,
+          true,
+        );
+        unlocked = true;
+      }
+      await delay(100);
+    }
+
+    if (!(await waitForProfileButton(window, 3000))) {
+      throw new Error("the profile card did not render");
+    }
+    await window.webContents.executeJavaScript(
+      'document.querySelector(".profile-actions button")?.click()',
+      true,
+    );
+    if (!(await waitForDashboard(5000)) || !(await waitForDashboardLoad(30_000))) {
+      throw new Error("the dashboard did not open");
+    }
+    const toolbar = dashboardToolbar;
+    if (!toolbar) {
+      throw new Error("the toolbar did not open");
+    }
+
+    if (
+      !(await waitForCondition(async () => {
+        const hidden = (await toolbar.webContents.executeJavaScript(
+          'document.getElementById("passwords")?.hidden',
+        )) as boolean;
+        return hidden === false;
+      }, 5000))
+    ) {
+      throw new Error("the passwords button did not appear");
+    }
+
+    await toolbar.webContents.executeJavaScript(
+      'document.getElementById("passwords")?.click()',
+      true,
+    );
+    if (
+      !(await waitForCondition(async () => {
+        const open = (await toolbar.webContents.executeJavaScript(
+          'document.getElementById("passwords-panel")?.classList.contains("open")',
+        )) as boolean;
+        return open === true;
+      }, 3000))
+    ) {
+      throw new Error("the passwords panel did not open");
+    }
+    await toolbar.webContents.executeJavaScript(
+      `(() => {
+        const rows = [...document.querySelectorAll(".credential")];
+        const row = rows.find(
+          (item) => item.querySelector("strong")?.textContent === "Jellyfin",
+        );
+        const button = [...(row?.querySelectorAll("button") ?? [])].find(
+          (item) => item.textContent === "Password",
+        );
+        button?.click();
+      })()`,
+      true,
+    );
+    if (
+      !(await waitForCondition(async () => (await clipboard.readText()) === "hunter2", 3000))
+    ) {
+      throw new Error("the password did not reach the clipboard");
+    }
+    console.log("[smoke] clipboardlock copied");
+
+    await toolbar.webContents.executeJavaScript(
+      'document.getElementById("app")?.click()',
+      true,
+    );
+    if (!(await waitForScreen(window, "main", 5000))) {
+      throw new Error("the main menu did not return");
+    }
+    await window.webContents.executeJavaScript(
+      'document.getElementById("lock-button")?.click()',
+      true,
+    );
+    if (!(await waitForScreen(window, "lock", 5000))) {
+      throw new Error("the main lock screen did not open");
+    }
+    if ((await clipboard.readText()) !== "") {
+      throw new Error("the clipboard survived the main-window lock");
+    }
+    console.log("[smoke] clipboardlock cleared");
+
+    app.quit();
+  } catch (error) {
+    console.error(`[smoke] clipboardlock failed: ${errorMessage(error)}`);
     process.exitCode = 1;
     app.quit();
   }
@@ -3025,6 +3375,7 @@ app.whenReady().then(async () => {
     getWindow: () => mainWindow,
     navigation,
     settings: settingsStore,
+    lockVault,
     unlockDashboard,
     openDashboard,
   });
@@ -3039,10 +3390,10 @@ app.whenReady().then(async () => {
 });
 
 app.on("before-quit", (event) => {
-  if (!quitting && clipboardValue) {
+  if (!quitting && (clipboardValue || clipboardPending > 0)) {
     quitting = true;
     event.preventDefault();
-    void clearClipboardIfOurs().finally(() => {
+    void Promise.race([clearClipboardIfOurs(), delay(1000)]).finally(() => {
       app.quit();
     });
     return;
