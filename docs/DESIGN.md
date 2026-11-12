@@ -72,8 +72,9 @@ The desktop app has four parts:
   small centered peek pill and overlays the dashboard; hovering expands it with
   a short animated resize. With auto-hide off the bar becomes a plain
   full-width row above the view, so it covers nothing and has no floating pill
-  frame. The window X quits the app; the Main menu button returns to the main
-  menu. A padlock shows an opaque lock overlay over a blurred
+  frame. A dashboard page can enter HTML fullscreen; the window follows, the
+  toolbar hides, and leaving fullscreen restores the toolbar row. The window X
+  quits the app; the Main menu button returns to the main menu. A padlock shows an opaque lock overlay over a blurred
   snapshot of the page, hides the live page, disconnects the tunnel and
   reconnects the same dashboard after unlock. Back to main menu from that
   overlay suppresses auto-open once so the next unlock lands on the main menu.
@@ -317,7 +318,8 @@ only clear its value are still a gap. Fill stays a separate manual click.
   disabled. The build and runtime are audited for unexpected outbound
   connections.
 - Permissions (camera, microphone, geolocation, notifications, clipboard)
-  are denied unless a future feature explicitly needs one.
+  are denied. HTML fullscreen is the only exception, so dashboard media can
+  go fullscreen.
 - The dashboard view has no Node integration, no file access and no popups.
   A minimal isolated preload watches trusted login submissions and reports a
   candidate to the main process; it exposes no API to the page. Navigation is

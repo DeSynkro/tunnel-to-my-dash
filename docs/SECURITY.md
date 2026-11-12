@@ -110,7 +110,7 @@ Out of scope:
 - Remote debugging is disabled in release builds.
 - New windows and popups are denied.
 - Top-level navigation is limited to private addresses.
-- Permissions are denied by default.
+- Permissions are denied except HTML fullscreen, which dashboard media needs.
 - HTTP and HTTPS requests are forced through the localhost proxy.
 - Loopback destinations are blocked so a page cannot reach the app's own
   control socket or proxy.

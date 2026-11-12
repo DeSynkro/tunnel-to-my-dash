@@ -11,8 +11,8 @@ they land, and keep the Done section for the record.
   reconnect.
 - [ ] Real-world failure pass: tunnel drop and reconnect, remote network and
   home Wi-Fi.
-- [ ] Jellyfin playback inside the app, including fullscreen and a transcoding
-  check.
+- [ ] Jellyfin playback: verify HTML fullscreen in the packaged build and test
+  a transcode.
 - [ ] Automated network audit in CI.
 - [ ] Confirm the first hosted CI run.
 
@@ -30,6 +30,8 @@ they land, and keep the Done section for the record.
 
 ## Done
 
+- Fullscreen: HTML fullscreen is allowed in the dashboard session, the window
+  enters fullscreen, the toolbar hides, and exiting restores the toolbar row.
 - Saved passwords: per-profile logins in the encrypted vault, edited in the
   profile screen and copied from a key panel in the dashboard toolbar. The
   password only travels from the core to the clipboard, clears after 30

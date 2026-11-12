@@ -88,6 +88,7 @@ let dashboardLocked = false;
 let dashboardClosingToMain = false;
 let dashboardAutoHide = true;
 let dashboardProfileID: string | null = null;
+let dashboardFullscreen = false;
 let suppressAutoOpenOnce = false;
 
 const toolbarHeight = 36;
@@ -276,6 +277,13 @@ function layoutDashboard(): void {
     return;
   }
   stopToolbarAnimation();
+  if (dashboardFullscreen) {
+    const { width, height } = dashboardWindow.getContentBounds();
+    dashboardToolbar?.setVisible(false);
+    dashboardView?.setBounds({ x: 0, y: 0, width, height });
+    dashboardLock?.setBounds({ x: 0, y: 0, width, height });
+    return;
+  }
   if (!dashboardAutoHide) {
     applyToolbarFrame(toolbarFixedRect(), 0);
     return;
@@ -1276,6 +1284,10 @@ async function lockDashboard(): Promise<void> {
   }
 
   dashboardLocked = true;
+  if (dashboardFullscreen) {
+    dashboardFullscreen = false;
+    dashboardWindow?.setFullScreen(false);
+  }
   stopToolbarPoll();
   closeToolbarPanel();
   skippedLogins.clear();
@@ -1359,6 +1371,7 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   dashboardClosingToMain = false;
   dashboardLocked = false;
   dashboardProfileID = profileID;
+  dashboardFullscreen = false;
   toolbarPanelOpen = false;
   toolbarPanelHeight = 0;
   skippedLogins.clear();
@@ -1379,10 +1392,12 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   await dashboardSession.setProxy({
     proxyRules: `http=${result.proxy};https=${result.proxy}`,
   });
-  dashboardSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
-    callback(false);
+  dashboardSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    callback(permission === "fullscreen");
   });
-  dashboardSession.setPermissionCheckHandler(() => false);
+  dashboardSession.setPermissionCheckHandler(
+    (_webContents, permission) => permission === "fullscreen",
+  );
   dashboardSession.setSpellCheckerEnabled(false);
 
   const window = new BaseWindow({
@@ -1472,6 +1487,26 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
     }
   });
   view.webContents.on("focus", () => closeToolbarPanel());
+  view.webContents.on("enter-html-full-screen", () => {
+    dashboardFullscreen = true;
+    closeToolbarPanel();
+    stopToolbarPoll();
+    dashboardWindow?.setFullScreen(true);
+    layoutDashboard();
+  });
+  view.webContents.on("leave-html-full-screen", () => {
+    dashboardFullscreen = false;
+    dashboardWindow?.setFullScreen(false);
+    if (!dashboardLocked) {
+      if (dashboardAutoHide) {
+        startToolbarPoll();
+      } else {
+        toolbarVisible = true;
+        dashboardToolbar?.setVisible(true);
+      }
+    }
+    layoutDashboard();
+  });
   view.webContents.on("did-navigate", () => {
     closeToolbarPanel();
     handleLoginNavigation();
@@ -1499,6 +1534,7 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
     dashboardPasswordProtected = false;
     dashboardLocked = false;
     dashboardProfileID = null;
+    dashboardFullscreen = false;
     toolbarPanelOpen = false;
     toolbarPanelHeight = 0;
     skippedLogins.clear();
@@ -1601,7 +1637,8 @@ function createWindow(): void {
     process.env.TTMD_SMOKE === "refocus" ||
     process.env.TTMD_SMOKE === "credentials" ||
     process.env.TTMD_SMOKE === "capture" ||
-    process.env.TTMD_SMOKE === "clipboardlock"
+    process.env.TTMD_SMOKE === "clipboardlock" ||
+    process.env.TTMD_SMOKE === "fullscreen"
   ) {
     mainWindow.webContents.once("did-finish-load", () => {
       if (mainWindow) {
@@ -1627,6 +1664,7 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
   const credentialsSmoke = process.env.TTMD_SMOKE === "credentials";
   const captureSmoke = process.env.TTMD_SMOKE === "capture";
   const clipboardLockSmoke = process.env.TTMD_SMOKE === "clipboardlock";
+  const fullscreenSmoke = process.env.TTMD_SMOKE === "fullscreen";
   const deadline =
     Date.now() +
     (full ||
@@ -1642,7 +1680,8 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
     refocusSmoke ||
     credentialsSmoke ||
     captureSmoke ||
-    clipboardLockSmoke
+    clipboardLockSmoke ||
+    fullscreenSmoke
       ? 60_000
       : 12_000);
   let submitted = false;
@@ -1696,6 +1735,11 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
 
   if (clipboardLockSmoke) {
     await runClipboardLockSmoke(window);
+    return;
+  }
+
+  if (fullscreenSmoke) {
+    await runFullscreenSmoke(window);
     return;
   }
 
@@ -3106,6 +3150,97 @@ async function runClipboardLockSmoke(window: BrowserWindow): Promise<void> {
     app.quit();
   } catch (error) {
     console.error(`[smoke] clipboardlock failed: ${errorMessage(error)}`);
+    process.exitCode = 1;
+    app.quit();
+  }
+}
+
+async function runFullscreenSmoke(window: BrowserWindow): Promise<void> {
+  try {
+    console.log("[smoke] fullscreen start");
+    if (!(await waitForScreen(window, "main", 5000))) {
+      throw new Error("the dashboard list did not load");
+    }
+    if (!(await waitForProfileButton(window, 3000))) {
+      throw new Error("the profile card did not render");
+    }
+    await window.webContents.executeJavaScript(
+      'document.querySelector(".profile-actions button")?.click()',
+      true,
+    );
+    if (!(await waitForDashboard(5000)) || !(await waitForDashboardLoad(30_000))) {
+      throw new Error("the dashboard did not open");
+    }
+    const toolbar = dashboardToolbar;
+    const view = dashboardView;
+    if (!toolbar || !view) {
+      throw new Error("the dashboard views did not open");
+    }
+
+    const button = (await view.webContents.executeJavaScript(
+      `(() => {
+        const button = document.createElement("button");
+        button.id = "__ttmd_fullscreen";
+        button.textContent = "Fullscreen";
+        button.style.cssText =
+          "position:fixed;left:400px;top:300px;z-index:10000;padding:20px;";
+        button.addEventListener("click", () => {
+          void document.documentElement.requestFullscreen();
+        });
+        document.body.append(button);
+        const rect = button.getBoundingClientRect();
+        return {
+          x: Math.round(rect.left + rect.width / 2),
+          y: Math.round(rect.top + rect.height / 2),
+        };
+      })()`,
+    )) as { x: number; y: number };
+    view.webContents.sendInputEvent({
+      type: "mouseDown",
+      x: button.x,
+      y: button.y,
+      button: "left",
+      clickCount: 1,
+    });
+    view.webContents.sendInputEvent({
+      type: "mouseUp",
+      x: button.x,
+      y: button.y,
+      button: "left",
+      clickCount: 1,
+    });
+
+    if (!(await waitForCondition(async () => dashboardWindow?.isFullScreen() === true, 5000))) {
+      throw new Error("the window did not enter fullscreen");
+    }
+    if (toolbar.getVisible()) {
+      throw new Error("the toolbar stayed visible in fullscreen");
+    }
+    const bounds = view.getBounds();
+    const content = dashboardWindow?.getContentBounds();
+    if (!content || bounds.y !== 0 || bounds.height !== content.height) {
+      throw new Error("the dashboard view did not fill the fullscreen window");
+    }
+    console.log("[smoke] fullscreen entered");
+
+    await view.webContents.executeJavaScript(
+      "void document.exitFullscreen()",
+      true,
+    );
+    if (!(await waitForCondition(async () => dashboardWindow?.isFullScreen() === false, 5000))) {
+      throw new Error("the window did not leave fullscreen");
+    }
+    if (!(await waitForCondition(async () => toolbar.getVisible() === true, 5000))) {
+      throw new Error("the toolbar did not return after fullscreen");
+    }
+    if (view.getBounds().y !== toolbarHeight) {
+      throw new Error("the dashboard view did not restore its toolbar row");
+    }
+    console.log("[smoke] fullscreen exited");
+
+    app.quit();
+  } catch (error) {
+    console.error(`[smoke] fullscreen failed: ${errorMessage(error)}`);
     process.exitCode = 1;
     app.quit();
   }
