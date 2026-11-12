@@ -342,7 +342,15 @@ command -v setsid >/dev/null 2>&1 || fail "setsid is not installed (install util
   fail "desktop dependencies are missing; run make desktop-deps"
 [[ -d "$ROOT/desktop/dist" ]] || fail "desktop build is missing; run make desktop-check"
 
-launch=(xvfb-run -a -s "-screen 0 1280x800x24" ./node_modules/.bin/electron --ozone-platform=x11 .)
+electron_args=(./node_modules/.bin/electron --ozone-platform=x11)
+if [[ -n "${CI:-}" ]]; then
+  # GitHub's Ubuntu runner restricts unprivileged user namespaces, so Chromium
+  # cannot start its setuid sandbox there. The audit checks network traffic,
+  # not the browser sandbox; the packaged AppImage still runs sandboxed.
+  electron_args+=(--no-sandbox)
+fi
+electron_args+=(.)
+launch=(xvfb-run -a -s "-screen 0 1280x800x24" "${electron_args[@]}")
 if [[ "$method" == "strace" ]]; then
   launch=(strace -f -qq -e trace=connect,sendto -o "$TRACE_LOG" "${launch[@]}")
 fi

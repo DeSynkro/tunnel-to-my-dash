@@ -181,6 +181,9 @@ hidden tunnel behind.
 - [x] Verify the AppImage runs with the Chromium sandbox enabled. The
       packaged build loaded the dashboard without `--no-sandbox`; only the
       usual GPU-worker sandbox warning appeared.
+- The CI network audit runs Chromium with `--no-sandbox` because GitHub's
+  Ubuntu runner restricts unprivileged user namespaces. That audit measures
+  network traffic only; the packaged AppImage still runs sandboxed.
 - [x] Verify keys are absent from logs, the config file and crash output.
 - [x] Verify the vault and key file permissions.
 - [ ] Verify a failed handshake leaves the browser with no network access.

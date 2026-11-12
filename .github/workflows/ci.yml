@@ -42,6 +42,17 @@ jobs:
         id: network_audit
         run: make audit-network
 
+      - name: Publish network audit failure
+        if: failure() && steps.network_audit.outcome == 'failure'
+        run: |
+          {
+            echo "## Network audit failure"
+            echo '```'
+            cat .tmp/audit-network/audit.log 2>/dev/null || true
+            cat .tmp/audit-network/strace-violations.log 2>/dev/null || true
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
+
       - name: Upload network audit log
         if: failure() && steps.network_audit.outcome == 'failure'
         uses: actions/upload-artifact@v4
