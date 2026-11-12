@@ -5,8 +5,6 @@ they land, and keep the Done section for the record.
 
 ## Linux v1 — release blockers
 
-- [ ] Finish saved passwords: add tests for clipboard clearing on quit and
-  idle lock, the dialog's Not now path, and URL matching.
 - [ ] Real-world failure pass: tunnel drop and reconnect, remote network and
   home Wi-Fi.
 - [ ] Jellyfin playback: verify HTML fullscreen in the packaged build and test
@@ -55,6 +53,9 @@ they land, and keep the Done section for the record.
 - SPA login success: the capture preload watches the submitted password field
   and signals success when it disappears, so logins that stay on the same path
   can offer to save.
+- Saved-password coverage: SPA success, clipboard clearing on dashboard lock,
+  main-window lock, idle lock and quit, the Not now path, toolbar and inline
+  fill, the origin guard, and URL-matching unit tests.
 - Brand integration: the house mark in the masthead and lock screen, the
   window and AppImage icon rendered from the logo, the README banner, and the
   neutral graphite + amber palette with green/red status dots across the main

@@ -24,6 +24,13 @@ import type {
   PointerPayload,
   Status,
 } from "../shared/types";
+import {
+  credentialName,
+  credentialsForOrigin,
+  matchingCredentials,
+  normalizedOrigin,
+  pickCredentialMatch,
+} from "./credential-match";
 import { ControlClient } from "./control-client";
 import { CoreProcess } from "./core-process";
 import { resolveDataRoot } from "./data-dir";
@@ -1063,30 +1070,6 @@ function loginCandidateArg(value: unknown): LoginCandidate | null {
   };
 }
 
-function credentialName(title: string, url: string): string {
-  let name = title.replace(/\s+/g, " ").trim();
-  name = name
-    .replace(/\s*[-|·•]\s*(login|log in|sign in)\s*$/i, "")
-    .replace(/^(login|log in|sign in)\s*[-|·•]\s*/i, "")
-    .trim();
-  if (!name || /^(login|log in|sign in)$/i.test(name)) {
-    try {
-      name = new URL(url).host;
-    } catch {
-      name = url;
-    }
-  }
-  return name.slice(0, 64);
-}
-
-function normalizedOrigin(value: string): string {
-  try {
-    return new URL(value).origin;
-  } catch {
-    return value;
-  }
-}
-
 function dashboardOrigin(): string | null {
   const view = dashboardView;
   if (!view) {
@@ -1109,17 +1092,9 @@ async function matchingCredentialForPage(
   origin: string,
 ): Promise<CredentialSummary | null> {
   const credentials = await client.listCredentials(profileID);
-  const matches = credentials.filter(
-    (credential) => normalizedOrigin(credential.url ?? "") === origin,
-  );
-  if (matches.length <= 1) {
-    return matches[0] ?? null;
-  }
+  const matches = credentialsForOrigin(credentials, origin);
   const title = dashboardView?.webContents.getTitle() ?? "";
-  const name = credentialName(title, origin).toLowerCase();
-  return (
-    matches.find((match) => match.name.toLowerCase() === name) ?? matches[0]
-  );
+  return pickCredentialMatch(matches, title, origin);
 }
 
 function clearPendingLogin(): void {
@@ -1251,30 +1226,24 @@ async function handleLoginCandidate(candidate: LoginCandidate): Promise<void> {
     let matches: CredentialSummary[] = [];
     try {
       const credentials = await client.listCredentials(profileID);
-      matches = credentials.filter(
-        (credential) =>
-          normalizedOrigin(credential.url ?? "") === candidate.url &&
-          (credential.username ?? "") === candidate.username,
+      matches = matchingCredentials(
+        credentials,
+        candidate.url,
+        candidate.username,
       );
     } catch (error) {
       console.error(`[credentials] lookup: ${errorMessage(error)}`);
       return;
     }
 
-    let existing: CredentialSummary | null = null;
-    if (matches.length === 1) {
-      existing = matches[0];
-    } else if (matches.length > 1) {
-      const name = credentialName(candidate.title, candidate.url).toLowerCase();
-      const named = matches.filter(
-        (match) => match.name.toLowerCase() === name,
-      );
-      if (named.length === 1) {
-        existing = named[0];
-      } else {
-        await showAmbiguousLogin(matches);
-        return;
-      }
+    const existing = pickCredentialMatch(
+      matches,
+      candidate.title,
+      candidate.url,
+    );
+    if (matches.length > 1 && !existing) {
+      await showAmbiguousLogin(matches);
+      return;
     }
 
     if (existing) {
@@ -1839,7 +1808,10 @@ function createWindow(): void {
     process.env.TTMD_SMOKE === "capture" ||
     process.env.TTMD_SMOKE === "clipboardlock" ||
     process.env.TTMD_SMOKE === "fullscreen" ||
-    process.env.TTMD_SMOKE === "dashboarderror"
+    process.env.TTMD_SMOKE === "dashboarderror" ||
+    process.env.TTMD_SMOKE === "capturedecline" ||
+    process.env.TTMD_SMOKE === "idleclip" ||
+    process.env.TTMD_SMOKE === "quitclip"
   ) {
     mainWindow.webContents.once("did-finish-load", () => {
       if (mainWindow) {
@@ -1867,6 +1839,9 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
   const clipboardLockSmoke = process.env.TTMD_SMOKE === "clipboardlock";
   const fullscreenSmoke = process.env.TTMD_SMOKE === "fullscreen";
   const dashboardErrorSmoke = process.env.TTMD_SMOKE === "dashboarderror";
+  const captureDeclineSmoke = process.env.TTMD_SMOKE === "capturedecline";
+  const idleClipSmoke = process.env.TTMD_SMOKE === "idleclip";
+  const quitClipSmoke = process.env.TTMD_SMOKE === "quitclip";
   const deadline =
     Date.now() +
     (full ||
@@ -1884,7 +1859,10 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
     captureSmoke ||
     clipboardLockSmoke ||
     fullscreenSmoke ||
-    dashboardErrorSmoke
+    dashboardErrorSmoke ||
+    captureDeclineSmoke ||
+    idleClipSmoke ||
+    quitClipSmoke
       ? 60_000
       : 12_000);
   let submitted = false;
@@ -1948,6 +1926,21 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
 
   if (dashboardErrorSmoke) {
     await runDashboardErrorSmoke(window);
+    return;
+  }
+
+  if (captureDeclineSmoke) {
+    await runCaptureDeclineSmoke(window);
+    return;
+  }
+
+  if (idleClipSmoke) {
+    await runIdleClipSmoke(window);
+    return;
+  }
+
+  if (quitClipSmoke) {
+    await runQuitClipSmoke(window);
     return;
   }
 
@@ -3250,6 +3243,275 @@ async function runCaptureSmoke(window: BrowserWindow): Promise<void> {
   }
 }
 
+async function runCaptureDeclineSmoke(window: BrowserWindow): Promise<void> {
+  try {
+    console.log("[smoke] capturedecline start");
+    if (!(await waitForScreen(window, "main", 5000))) {
+      throw new Error("the dashboard list did not load");
+    }
+    if (!(await waitForProfileButton(window, 3000))) {
+      throw new Error("the profile card did not render");
+    }
+    if (!control) {
+      throw new Error("the core is not ready");
+    }
+    const client = control;
+    const profileID = (await client.status()).active_profile ?? "";
+    if (!profileID) {
+      throw new Error("no active profile");
+    }
+
+    await window.webContents.executeJavaScript(
+      'document.querySelector(".profile-actions button")?.click()',
+      true,
+    );
+    if (!(await waitForDashboard(5000)) || !(await waitForDashboardLoad(30_000))) {
+      throw new Error("the dashboard did not open");
+    }
+    const view = dashboardView;
+    if (!view) {
+      throw new Error("the dashboard view did not open");
+    }
+
+    await view.webContents.executeJavaScript(
+      `(() => {
+        const form = document.createElement("form");
+        form.addEventListener("submit", (event) => event.preventDefault());
+        const user = document.createElement("input");
+        user.name = "username";
+        user.autocomplete = "username";
+        user.value = "alex";
+        const pass = document.createElement("input");
+        pass.type = "password";
+        pass.name = "password";
+        pass.value = "decline-secret";
+        form.append(user, pass);
+        document.body.append(form);
+        pass.focus();
+      })()`,
+      true,
+    );
+    view.webContents.focus();
+    view.webContents.sendInputEvent({ type: "keyDown", keyCode: "Enter" });
+    view.webContents.sendInputEvent({ type: "keyUp", keyCode: "Enter" });
+    await delay(300);
+    await view.webContents
+      .loadURL(new URL("/decline-success", dashboardHomeURL).toString())
+      .catch(() => undefined);
+    await delay(1500);
+
+    const list = await client.listCredentials(profileID);
+    if (list.length !== 0) {
+      throw new Error("a declined login was saved");
+    }
+    console.log("[smoke] capturedecline ignored");
+
+    app.quit();
+  } catch (error) {
+    console.error(`[smoke] capturedecline failed: ${errorMessage(error)}`);
+    process.exitCode = 1;
+    app.quit();
+  }
+}
+
+async function runIdleClipSmoke(window: BrowserWindow): Promise<void> {
+  try {
+    console.log("[smoke] idleclip start");
+    let unlocked = false;
+    const loginDeadline = Date.now() + 15_000;
+    while (Date.now() < loginDeadline) {
+      const screen = (await window.webContents.executeJavaScript(
+        'document.body.dataset.screen || ""',
+      )) as string;
+      if (screen === "main") {
+        break;
+      }
+      if (screen === "lock" && !unlocked) {
+        await window.webContents.executeJavaScript(
+          `(() => {
+            const node = document.getElementById("lock-password");
+            if (node) node.value = "smoke-pass";
+            document.getElementById("lock-form")?.requestSubmit();
+          })()`,
+          true,
+        );
+        unlocked = true;
+      }
+      await delay(100);
+    }
+
+    if (!(await waitForProfileButton(window, 3000))) {
+      throw new Error("the profile card did not render");
+    }
+    await window.webContents.executeJavaScript(
+      'document.querySelector(".profile-actions button")?.click()',
+      true,
+    );
+    if (!(await waitForDashboard(5000)) || !(await waitForDashboardLoad(30_000))) {
+      throw new Error("the dashboard did not open");
+    }
+    const toolbar = dashboardToolbar;
+    if (!toolbar) {
+      throw new Error("the toolbar did not open");
+    }
+
+    if (
+      !(await waitForCondition(async () => {
+        const hidden = (await toolbar.webContents.executeJavaScript(
+          'document.getElementById("passwords")?.hidden',
+        )) as boolean;
+        return hidden === false;
+      }, 5000))
+    ) {
+      throw new Error("the passwords button did not appear");
+    }
+    await toolbar.webContents.executeJavaScript(
+      'document.getElementById("passwords")?.click()',
+      true,
+    );
+    if (
+      !(await waitForCondition(async () => {
+        const open = (await toolbar.webContents.executeJavaScript(
+          'document.getElementById("passwords-panel")?.classList.contains("open")',
+        )) as boolean;
+        return open === true;
+      }, 3000))
+    ) {
+      throw new Error("the passwords panel did not open");
+    }
+    await toolbar.webContents.executeJavaScript(
+      `(() => {
+        const rows = [...document.querySelectorAll(".credential")];
+        const row = rows.find(
+          (item) => item.querySelector("strong")?.textContent === "Jellyfin",
+        );
+        const button = [...(row?.querySelectorAll("button") ?? [])].find(
+          (item) => item.textContent === "Password",
+        );
+        button?.click();
+      })()`,
+      true,
+    );
+    if (
+      !(await waitForCondition(async () => (await clipboard.readText()) === "hunter2", 3000))
+    ) {
+      throw new Error("the password did not reach the clipboard");
+    }
+    console.log("[smoke] idleclip copied");
+
+    if (
+      !(await waitForCondition(
+        async () => dashboardLock?.getVisible() === true,
+        30_000,
+      ))
+    ) {
+      throw new Error("the idle lock did not open");
+    }
+    if ((await clipboard.readText()) !== "") {
+      throw new Error("the clipboard survived the idle lock");
+    }
+    console.log("[smoke] idleclip cleared");
+
+    app.quit();
+  } catch (error) {
+    console.error(`[smoke] idleclip failed: ${errorMessage(error)}`);
+    process.exitCode = 1;
+    app.quit();
+  }
+}
+
+async function runQuitClipSmoke(window: BrowserWindow): Promise<void> {
+  try {
+    console.log("[smoke] quitclip start");
+    let unlocked = false;
+    const loginDeadline = Date.now() + 15_000;
+    while (Date.now() < loginDeadline) {
+      const screen = (await window.webContents.executeJavaScript(
+        'document.body.dataset.screen || ""',
+      )) as string;
+      if (screen === "main") {
+        break;
+      }
+      if (screen === "lock" && !unlocked) {
+        await window.webContents.executeJavaScript(
+          `(() => {
+            const node = document.getElementById("lock-password");
+            if (node) node.value = "smoke-pass";
+            document.getElementById("lock-form")?.requestSubmit();
+          })()`,
+          true,
+        );
+        unlocked = true;
+      }
+      await delay(100);
+    }
+
+    if (!(await waitForProfileButton(window, 3000))) {
+      throw new Error("the profile card did not render");
+    }
+    await window.webContents.executeJavaScript(
+      'document.querySelector(".profile-actions button")?.click()',
+      true,
+    );
+    if (!(await waitForDashboard(5000)) || !(await waitForDashboardLoad(30_000))) {
+      throw new Error("the dashboard did not open");
+    }
+    const toolbar = dashboardToolbar;
+    if (!toolbar) {
+      throw new Error("the toolbar did not open");
+    }
+
+    if (
+      !(await waitForCondition(async () => {
+        const hidden = (await toolbar.webContents.executeJavaScript(
+          'document.getElementById("passwords")?.hidden',
+        )) as boolean;
+        return hidden === false;
+      }, 5000))
+    ) {
+      throw new Error("the passwords button did not appear");
+    }
+    await toolbar.webContents.executeJavaScript(
+      'document.getElementById("passwords")?.click()',
+      true,
+    );
+    if (
+      !(await waitForCondition(async () => {
+        const open = (await toolbar.webContents.executeJavaScript(
+          'document.getElementById("passwords-panel")?.classList.contains("open")',
+        )) as boolean;
+        return open === true;
+      }, 3000))
+    ) {
+      throw new Error("the passwords panel did not open");
+    }
+    await toolbar.webContents.executeJavaScript(
+      `(() => {
+        const rows = [...document.querySelectorAll(".credential")];
+        const row = rows.find(
+          (item) => item.querySelector("strong")?.textContent === "Jellyfin",
+        );
+        const button = [...(row?.querySelectorAll("button") ?? [])].find(
+          (item) => item.textContent === "Password",
+        );
+        button?.click();
+      })()`,
+      true,
+    );
+    if (
+      !(await waitForCondition(async () => (await clipboard.readText()) === "hunter2", 3000))
+    ) {
+      throw new Error("the password did not reach the clipboard");
+    }
+    console.log("[smoke] quitclip copied");
+    app.quit();
+  } catch (error) {
+    console.error(`[smoke] quitclip failed: ${errorMessage(error)}`);
+    process.exitCode = 1;
+    app.quit();
+  }
+}
+
 async function runClipboardLockSmoke(window: BrowserWindow): Promise<void> {
   try {
     console.log("[smoke] clipboardlock start");
@@ -4336,7 +4598,18 @@ app.on("before-quit", (event) => {
   if (!quitting && (clipboardValue || clipboardPending > 0)) {
     quitting = true;
     event.preventDefault();
-    void Promise.race([clearClipboardIfOurs(), delay(1000)]).finally(() => {
+    void Promise.race([clearClipboardIfOurs(), delay(1000)]).finally(async () => {
+      if (process.env.TTMD_SMOKE === "quitclip") {
+        try {
+          const cleared = (await clipboard.readText()) === "";
+          console.log(`[smoke] quitclip cleared=${cleared}`);
+          if (!cleared) {
+            process.exitCode = 1;
+          }
+        } catch {
+          process.exitCode = 1;
+        }
+      }
       app.quit();
     });
     return;

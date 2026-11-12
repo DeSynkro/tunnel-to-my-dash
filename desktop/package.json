@@ -11,7 +11,8 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm run build",
+    "test:unit": "node --no-warnings --test src/main/credential-match.test.ts",
+    "check": "npm run typecheck && npm run test:unit && npm run build",
     "start": "npm run build && ELECTRON_CACHE=../.cache/electron electron .",
     "dist": "npm run build && electron-builder --linux AppImage --x64"
   },
