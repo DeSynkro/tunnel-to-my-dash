@@ -5,10 +5,9 @@ they land, and keep the Done section for the record.
 
 ## Linux v1 — release blockers
 
-- [ ] Real-world failure pass: tunnel drop and reconnect, remote network and
-  home Wi-Fi.
-- [ ] Jellyfin playback: verify HTML fullscreen in the packaged build and test
-  a transcode.
+- [ ] Tunnel drop and reconnect on the latest build.
+- [ ] Jellyfin transcode check. Fullscreen already passes in the packaged
+  build.
 - [ ] Confirm the first hosted CI run.
 
 ## Linux v1 — polish
@@ -25,6 +24,9 @@ they land, and keep the Done section for the record.
 
 ## Done
 
+- Real-world checks: Jellyfin playback and HTML fullscreen pass in the
+  packaged build; a remote network over a phone hotspot passes on an earlier
+  build, and the networking path is unchanged since.
 - Automated network audit: a no-dashboard launch runs under Xvfb with a fresh
   data directory and fails on any non-loopback TCP/UDP connection from the
   app tree. CI uses strace; `make audit-network` can fall back to `ss` locally.
