@@ -5,10 +5,16 @@ they land, and keep the Done section for the record.
 
 ## Linux v1 — release blockers
 
-- [ ] Tunnel drop and reconnect on the latest build, after the navigation and
-  unlock fixes.
-- [ ] Jellyfin transcode check. Fullscreen already passes in the packaged
-  build.
+- [ ] Tunnel drop and reconnect: confirm Home/Reload show the local error card
+  once the tunnel is really down. The 20-second watchdog, proxy 502 card,
+  retry, and failed-unlock re-lock all pass in `navhang` and `unlockfail`.
+  In the real-world test Home/Reload looked inert, but the endpoint hostname is
+  resolved only at connect time; an established WireGuard session can keep
+  reaching the LAN after the WAN drops. Next: test with Wi-Fi fully off and
+  wait 25 seconds. If it still fails, log the Home/Reload IPC, load start,
+  did-start-navigation, did-navigate, did-fail-load, watchdog start/clear and
+  error-card events, and check whether the load succeeded through the existing
+  tunnel, a cached page, or a blocked beforeunload.
 - [ ] Confirm the first hosted CI run.
 
 ## Linux v1 — polish
@@ -34,8 +40,9 @@ they land, and keep the Done section for the record.
   error instead of the raw IPC message. A later retry works; the `unlockfail`
   smoke covers it.
 - Real-world checks: Jellyfin playback and HTML fullscreen pass in the
-  packaged build; a remote network over a phone hotspot passes on an earlier
-  build, and the networking path is unchanged since.
+  packaged build, and the user reports everything plays correctly; a remote
+  network over a phone hotspot passes on an earlier build, and the networking
+  path is unchanged since.
 - Automated network audit: a no-dashboard launch runs under Xvfb with a fresh
   data directory and fails on any non-loopback TCP/UDP connection from the
   app tree. CI uses strace; `make audit-network` can fall back to `ss` locally.
