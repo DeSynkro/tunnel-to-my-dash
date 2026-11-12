@@ -2863,6 +2863,70 @@ async function runCaptureSmoke(window: BrowserWindow): Promise<void> {
     }
     console.log("[smoke] capture inline filled");
 
+    await view.webContents.executeJavaScript(
+      `(() => {
+        const form = document.getElementById("__ttmd_fill_form");
+        const user = form?.querySelector('input[name="username"]');
+        const pass = form?.querySelector('input[type="password"]');
+        if (pass) pass.value = "";
+        if (user) {
+          user.value = "";
+          user.focus();
+        }
+      })()`,
+      true,
+    );
+    if (
+      !(await waitForCondition(async () => {
+        const display = (await view.webContents.executeJavaScript(
+          'document.getElementById("__ttmd_fill_host")?.style.display || ""',
+        )) as string;
+        return display === "block";
+      }, 3000))
+    ) {
+      throw new Error("the inline fill pill did not appear for the username");
+    }
+    const userPill = (await view.webContents.executeJavaScript(
+      `(() => {
+        const host = document.getElementById("__ttmd_fill_host");
+        if (!host) return null;
+        const rect = host.getBoundingClientRect();
+        return {
+          x: Math.round(rect.left + rect.width / 2),
+          y: Math.round(rect.top + rect.height / 2),
+        };
+      })()`,
+    )) as { x: number; y: number } | null;
+    if (!userPill) {
+      throw new Error("the username fill pill has no position");
+    }
+    view.webContents.sendInputEvent({
+      type: "mouseDown",
+      x: userPill.x,
+      y: userPill.y,
+      button: "left",
+      clickCount: 1,
+    });
+    view.webContents.sendInputEvent({
+      type: "mouseUp",
+      x: userPill.x,
+      y: userPill.y,
+      button: "left",
+      clickCount: 1,
+    });
+    if (
+      !(await waitForCondition(async () => {
+        const values = (await view.webContents.executeJavaScript(`({
+          username: document.querySelector("#__ttmd_fill_form input[name=username]")?.value || "",
+          password: document.querySelector("#__ttmd_fill_form input[type=password]")?.value || "",
+        })`)) as { username: string; password: string };
+        return values.username === "alex" && values.password === "new-secret";
+      }, 5000))
+    ) {
+      throw new Error("the username inline fill did not work");
+    }
+    console.log("[smoke] capture inline username filled");
+
     await toolbar.webContents.executeJavaScript(
       'document.querySelector(".credential-delete")?.click()',
       true,

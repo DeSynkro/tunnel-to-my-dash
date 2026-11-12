@@ -321,7 +321,13 @@ if (window.top === window) {
     ipcRenderer.send(IPC.autofillResult, request.id, fillLogin(request));
   });
 
-  let activeField: HTMLInputElement | null = null;
+  type LoginFillFields = {
+    password: HTMLInputElement;
+    username: HTMLInputElement | null;
+  };
+
+  let activeAnchor: HTMLInputElement | null = null;
+  let activeFields: LoginFillFields | null = null;
   let hideTimer: number | null = null;
   let positionTimer: number | null = null;
 
@@ -365,28 +371,58 @@ if (window.top === window) {
   }
   ensureFillHost();
 
-  function isLoginPasswordField(field: HTMLInputElement): boolean {
-    if (field.autocomplete === "new-password") {
-      return false;
+  function loginFieldsFor(field: HTMLInputElement): LoginFillFields | null {
+    if (!visible(field) || field.disabled || field.readOnly) {
+      return null;
     }
-    const form = field.closest("form");
-    if (form) {
-      const passwords = collectPasswordInputs(form).filter(visible);
-      if (passwords.length > 1) {
-        return false;
+
+    if (field.type === "password") {
+      if (field.autocomplete === "new-password") {
+        return null;
       }
+      const form = field.closest("form");
+      if (form) {
+        const passwords = collectPasswordInputs(form).filter(visible);
+        if (passwords.length > 1) {
+          return null;
+        }
+      }
+      return { password: field, username: usernameInputFor(field) };
     }
-    return true;
+
+    if (
+      field.type !== "text" &&
+      field.type !== "email" &&
+      field.type !== "tel"
+    ) {
+      return null;
+    }
+
+    const form = field.closest("form");
+    const scope: ParentNode = form ?? document;
+    const passwords = collectPasswordInputs(scope).filter(visible);
+    if (passwords.length !== 1) {
+      return null;
+    }
+    const password = passwords[0];
+    if (password.autocomplete === "new-password") {
+      return null;
+    }
+    const username = usernameInputFor(password);
+    if (username !== field) {
+      return null;
+    }
+    return { password, username };
   }
 
   function positionFillPill(): void {
-    const field = activeField;
-    if (!field || !field.isConnected) {
+    const anchor = activeAnchor;
+    if (!anchor || !anchor.isConnected) {
       hideFillPill();
       return;
     }
     ensureFillHost();
-    const rect = field.getBoundingClientRect();
+    const rect = anchor.getBoundingClientRect();
     if (rect.width === 0 && rect.height === 0) {
       hideFillPill();
       return;
@@ -396,21 +432,26 @@ if (window.top === window) {
       return;
     }
     const width = 44;
+    const height = 26;
     const left = Math.min(
       window.innerWidth - width - 8,
       Math.max(8, rect.right - width),
     );
-    let top = rect.bottom + 6;
-    if (top + 28 > window.innerHeight) {
-      top = rect.top - 32;
-    }
+    const top = Math.max(
+      8,
+      Math.min(
+        window.innerHeight - height - 8,
+        rect.top + (rect.height - height) / 2,
+      ),
+    );
     fillHost.style.left = `${left}px`;
-    fillHost.style.top = `${Math.max(8, top)}px`;
+    fillHost.style.top = `${top}px`;
     fillHost.style.display = "block";
   }
 
   function hideFillPill(): void {
-    activeField = null;
+    activeAnchor = null;
+    activeFields = null;
     fillHost.style.display = "none";
     if (positionTimer !== null) {
       window.clearInterval(positionTimer);
@@ -418,12 +459,12 @@ if (window.top === window) {
     }
   }
 
-  async function showFillPill(field: HTMLInputElement): Promise<void> {
-    if (!isLoginPasswordField(field)) {
-      hideFillPill();
-      return;
-    }
-    activeField = field;
+  async function showFillPill(
+    anchor: HTMLInputElement,
+    fields: LoginFillFields,
+  ): Promise<void> {
+    activeAnchor = anchor;
+    activeFields = fields;
     let availability: InlineFillAvailability;
     try {
       availability = (await ipcRenderer.invoke(
@@ -433,7 +474,7 @@ if (window.top === window) {
       hideFillPill();
       return;
     }
-    if (activeField !== field || !field.isConnected) {
+    if (activeAnchor !== anchor || !anchor.isConnected) {
       return;
     }
     if (!availability.available) {
@@ -459,11 +500,14 @@ if (window.top === window) {
     }, 200);
   }
 
-  function passwordFromPath(event: Event): HTMLInputElement | null {
+  function loginInputFromPath(event: Event): HTMLInputElement | null {
     for (const node of event.composedPath()) {
       if (
         node instanceof HTMLInputElement &&
-        node.type === "password" &&
+        (node.type === "password" ||
+          node.type === "text" ||
+          node.type === "email" ||
+          node.type === "tel") &&
         visible(node)
       ) {
         return node;
@@ -475,16 +519,19 @@ if (window.top === window) {
   document.addEventListener(
     "focusin",
     (event) => {
-      const field = passwordFromPath(event);
+      const field = loginInputFromPath(event);
       if (field) {
-        if (hideTimer !== null) {
-          window.clearTimeout(hideTimer);
-          hideTimer = null;
+        const fields = loginFieldsFor(field);
+        if (fields) {
+          if (hideTimer !== null) {
+            window.clearTimeout(hideTimer);
+            hideTimer = null;
+          }
+          void showFillPill(field, fields);
+          return;
         }
-        void showFillPill(field);
-      } else {
-        scheduleHideFillPill();
       }
+      scheduleHideFillPill();
     },
     true,
   );
@@ -492,7 +539,7 @@ if (window.top === window) {
   document.addEventListener(
     "focusout",
     (event) => {
-      if (passwordFromPath(event)) {
+      if (loginInputFromPath(event)) {
         scheduleHideFillPill();
       }
     },
@@ -502,14 +549,14 @@ if (window.top === window) {
   window.addEventListener(
     "scroll",
     () => {
-      if (activeField) {
+      if (activeAnchor) {
         positionFillPill();
       }
     },
     true,
   );
   window.addEventListener("resize", () => {
-    if (activeField) {
+    if (activeAnchor) {
       positionFillPill();
     }
   });
@@ -523,15 +570,15 @@ if (window.top === window) {
     if (!event.isTrusted) {
       return;
     }
-    const field = activeField;
-    if (!field) {
+    const fields = activeFields;
+    if (!fields) {
       return;
     }
     hideFillPill();
-    void fillInline(field);
+    void fillInline(fields);
   });
 
-  async function fillInline(field: HTMLInputElement): Promise<void> {
+  async function fillInline(fields: LoginFillFields): Promise<void> {
     let result: InlineFillResult;
     try {
       result = (await ipcRenderer.invoke(IPC.inlineFill)) as InlineFillResult;
@@ -541,15 +588,18 @@ if (window.top === window) {
     if (
       !result.ok ||
       typeof result.password !== "string" ||
-      !field.isConnected
+      !fields.password.isConnected
     ) {
       return;
     }
-    const username = usernameInputFor(field);
-    if (username && result.username) {
-      setInputValue(username, result.username);
+    if (
+      fields.username &&
+      fields.username.isConnected &&
+      result.username
+    ) {
+      setInputValue(fields.username, result.username);
     }
-    setInputValue(field, result.password);
-    field.focus();
+    setInputValue(fields.password, result.password);
+    fields.password.focus();
   }
 }

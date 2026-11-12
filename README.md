@@ -40,9 +40,9 @@ the app's own traffic uses the tunnel.
   password unlocks the vault.
 - Saved dashboard logins stay in the vault. After a successful sign-in (when
   the page navigates), the app offers to save the login; a key button in the
-  toolbar copies it, and a small Fill pill appears when you focus the password
-  field to fill the login in one click. Fill never submits for you. The
-  clipboard clears after 30 seconds.
+  toolbar copies it, and a small Fill pill appears when you focus the username
+  or password field to fill the login in one click. Fill never submits for
+  you. The clipboard clears after 30 seconds.
 - LAN-only by default. A per-profile external-content switch can allow all
   public origins or an exact origin list for fonts and widgets; those use the
   normal network or VPN, never the tunnel.
