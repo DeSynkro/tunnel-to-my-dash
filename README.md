@@ -113,17 +113,17 @@ one. The app does not phone home for updates.
 
 - LAN-only by default. External content is opt-in per profile: all public
   origins, or an exact-origin list; wildcards are not supported.
-- The dashboard opens in its own window with a toolbar; links stay in the same
-  view. A same-window/new-window setting is planned.
+- The dashboard opens in its own window with a toolbar. Private links stay in
+  the dashboard; a setting can open new-window links in a separate app window.
+  Public links can open in the system browser when that setting is enabled.
 - Auto-hide can be turned off in Settings if you prefer the floating toolbar
   always visible.
 - Launch at login, start minimized and close to tray are deferred until the
   tray icon exists.
-- Windows and Android packaging come after the Linux AppImage.
-- Jellyfin playback inside the app is still untested; Jellyfin, OpenCode and
-  the laptop dashboard answered over HTTP through the tunnel.
-- Release artifacts have SHA-256 checksums; GPG signing will follow when a
-  release key exists.
+- Windows portable `.exe` is built by the Windows CI job; Android comes later.
+- Jellyfin playback, fullscreen and the remote network have been tested by the
+  user. The Linux no-dashboard network audit runs in CI.
+- Release artifacts have SHA-256 checksums; GPG signing is deferred.
 
 ## Development
 

@@ -146,7 +146,20 @@ they land, and keep the Done section for the record.
   use. SHA-256 checksums cover corruption; a release key adds provenance but
   brings key management with it.
 
-## After Linux v1: platforms
+## Windows
 
-- Windows portable `.exe` with the same Electron shell.
-- Android app: Kotlin, Compose, system WebView, same Go core through gomobile.
+- [x] Platform layout under `platforms/windows`.
+- [x] Control transport: owner-only named pipe on Windows, Unix socket on
+  Linux. The named-pipe core tests pass under Wine.
+- [x] Portable `.exe` build config, `.ico`, PowerShell build script and a
+  `windows-latest` CI job.
+- [ ] Test the portable `.exe` on the Windows laptop: first run, data beside
+  the executable, dashboard over the tunnel, lock/unlock, and links.
+- [ ] Add a Windows no-dashboard network audit and packaged smoke automation.
+- [ ] Decide whether an installer is wanted; portable first.
+
+## Android
+
+- Feasibility spike: Kotlin/Compose, system WebView and the Go core through
+  `gomobile`.
+- Decide lifecycle, vault storage and tunnel ownership on Android.

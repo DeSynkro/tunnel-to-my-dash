@@ -65,7 +65,7 @@ func startControl(t *testing.T, connector Connector) *http.Client {
 	t.Helper()
 
 	dir := t.TempDir()
-	socketPath := filepath.Join(dir, "control.sock")
+	socketPath := testControlEndpoint(t)
 	vaultPath := filepath.Join(dir, "vault.json")
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -88,7 +88,7 @@ func startControl(t *testing.T, connector Connector) *http.Client {
 
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		if _, err := os.Stat(socketPath); err == nil {
+		if waitControl(socketPath) {
 			break
 		}
 		select {
@@ -104,8 +104,7 @@ func startControl(t *testing.T, connector Connector) *http.Client {
 
 	transport := &http.Transport{
 		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
-			var dialer net.Dialer
-			return dialer.DialContext(ctx, "unix", socketPath)
+			return dialControl(ctx, socketPath)
 		},
 	}
 	return &http.Client{Transport: transport}

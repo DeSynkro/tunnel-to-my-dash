@@ -4,10 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net"
 	"net/http"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/desynkro/tunnel-to-my-dash/core/internal/vault"
@@ -41,21 +38,11 @@ func Serve(ctx context.Context, socketPath, vaultPath string, connector Connecto
 }
 
 func (s *Service) Serve(ctx context.Context, socketPath string) error {
-	if err := os.MkdirAll(filepath.Dir(socketPath), 0o700); err != nil {
-		return err
-	}
-	_ = os.Remove(socketPath)
-
-	listener, err := net.Listen("unix", socketPath)
+	listener, cleanup, err := listenControl(socketPath)
 	if err != nil {
 		return err
 	}
-	defer listener.Close()
-	defer os.Remove(socketPath)
-
-	if err := os.Chmod(socketPath, 0o600); err != nil {
-		return err
-	}
+	defer cleanup()
 
 	server := &http.Server{
 		Handler:           s.routes(),

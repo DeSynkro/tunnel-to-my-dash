@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { access, constants, mkdir } from "node:fs/promises";
+import net from "node:net";
 
 export interface CoreProcessOptions {
   binPath: string;
@@ -17,16 +18,27 @@ export class CoreProcess {
 
   async start(): Promise<void> {
     try {
-      await access(this.options.binPath, constants.X_OK);
+      await access(
+        this.options.binPath,
+        process.platform === "win32" ? constants.F_OK : constants.X_OK,
+      );
     } catch {
-      throw new Error(`Core binary not found at ${this.options.binPath}. Run make core first.`);
+      throw new Error(
+        `Core binary not found at ${this.options.binPath}. Build the core first.`,
+      );
     }
 
     await mkdir(this.options.dataDir, { recursive: true, mode: 0o700 });
 
     const child = spawn(
       this.options.binPath,
-      ["serve", "--data-dir", this.options.dataDir],
+      [
+        "serve",
+        "--data-dir",
+        this.options.dataDir,
+        "--socket",
+        this.options.socketPath,
+      ],
       { stdio: ["ignore", "pipe", "pipe"] },
     );
     this.child = child;
@@ -76,17 +88,33 @@ export class CoreProcess {
         throw this.spawnError;
       }
       if (child.exitCode !== null) {
-        throw new Error("Core exited before its control socket was ready.");
+        throw new Error("Core exited before its control endpoint was ready.");
       }
-      try {
-        await access(this.options.socketPath);
+      if (await this.controlReady()) {
         return;
-      } catch {
-        await delay(50);
       }
+      await delay(50);
     }
 
     throw new Error("Core did not start in time.");
+  }
+
+  private controlReady(): Promise<boolean> {
+    return new Promise((resolve) => {
+      const socket = net.connect({ path: this.options.socketPath });
+      let settled = false;
+      const finish = (ready: boolean) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        socket.destroy();
+        resolve(ready);
+      };
+      socket.once("connect", () => finish(true));
+      socket.once("error", () => finish(false));
+      socket.setTimeout(250, () => finish(false));
+    });
   }
 }
 

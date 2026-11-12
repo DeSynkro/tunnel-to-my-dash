@@ -61,9 +61,10 @@ Out of scope:
   XChaCha20-Poly1305 envelope as tunnel configs and the security policy.
 - A profile summary never includes a password. The dashboard toolbar renderer
   receives names, URLs and usernames only.
-- Copying asks the core for one credential over the `0600` control socket; the
+- Copying asks the core for one credential over the control channel; the
   Electron main process writes the value to the clipboard and never sends it
-  to a renderer.
+  to a renderer. Linux uses a `0600` Unix socket; Windows uses an owner-only
+  named pipe.
 - The clipboard is cleared after 30 seconds if it still matches the copied
   value, and cleared immediately on any vault lock (dashboard padlock,
   main-window lock or idle lock) or app quit.
@@ -121,7 +122,7 @@ Out of scope:
 - Permissions are denied except HTML fullscreen, which dashboard media needs.
 - HTTP and HTTPS requests are forced through the localhost proxy.
 - Loopback destinations are blocked so a page cannot reach the app's own
-  control socket or proxy.
+  control channel or proxy.
 - External content is opt-in, subresource-only and either exact-origin or an
   explicit allow-all mode. Top-level navigation inside the dashboard is always
   private.

@@ -57,9 +57,15 @@ try {
 }
 
 const coreDataDir = path.join(dataRoot, "core");
-const socketPath = path.join(coreDataDir, "control.sock");
+const socketPath =
+  process.platform === "win32"
+    ? `\\\\.\\pipe\\ttmd-${randomBytes(12).toString("hex")}`
+    : path.join(coreDataDir, "control.sock");
 const settingsStore = new SettingsStore(dataRoot);
 app.setPath("userData", path.join(dataRoot, "electron"));
+if (process.platform === "win32") {
+  app.setAppUserModelId("com.desynkro.tunnel-to-my-dash");
+}
 
 app.commandLine.appendSwitch("disable-background-networking");
 app.commandLine.appendSwitch("disable-component-update");
@@ -972,10 +978,11 @@ function resolveCorePath(): string {
   if (process.env.TTMD_CORE) {
     return process.env.TTMD_CORE;
   }
+  const name = process.platform === "win32" ? "ttmd-core.exe" : "ttmd-core";
   if (app.isPackaged) {
-    return path.join(process.resourcesPath, "ttmd-core");
+    return path.join(process.resourcesPath, name);
   }
-  return path.resolve(app.getAppPath(), "..", "build", "ttmd-core");
+  return path.resolve(app.getAppPath(), "..", "build", name);
 }
 
 async function startCore(): Promise<void> {

@@ -1,0 +1,19 @@
+appId: com.desynkro.tunnel-to-my-dash
+productName: Tunnel to My Dash
+artifactName: "Tunnel-to-My-Dash-${version}-portable-${arch}.${ext}"
+directories:
+  output: release
+files:
+  - dist/**/*
+  - package.json
+extraResources:
+  - from: ../build/ttmd-core.exe
+    to: ttmd-core.exe
+win:
+  target:
+    - target: portable
+      arch:
+        - x64
+  icon: build/icon.ico
+  executableName: Tunnel-to-My-Dash
+  requestedExecutionLevel: asInvoker

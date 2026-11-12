@@ -87,6 +87,7 @@ func runControl(args []string, stdout io.Writer) int {
 	flags := flag.NewFlagSet("ttmd-core serve", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	dataDir := flags.String("data-dir", "", "application data directory")
+	socket := flags.String("socket", "", "control endpoint (Unix socket or named pipe)")
 
 	if err := flags.Parse(args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -101,7 +102,10 @@ func runControl(args []string, stdout io.Writer) int {
 		return 1
 	}
 
-	socketPath := filepath.Join(*dataDir, "control.sock")
+	socketPath := *socket
+	if socketPath == "" {
+		socketPath = filepath.Join(*dataDir, "control.sock")
+	}
 	vaultPath := filepath.Join(*dataDir, "vault.json")
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

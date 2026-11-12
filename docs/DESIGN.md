@@ -91,12 +91,13 @@ The desktop app has four parts:
   overlay suppresses auto-open once so the next unlock lands on the main menu.
   Embedding the dashboard in the main shell is a later refinement.
 - **Go core.** A userspace WireGuard device, a TCP/IP stack, a localhost HTTP
-  proxy, the vault, and a small control API on a `0600` Unix socket. It runs
-  as an ordinary user.
+  proxy, the vault, and a small control API. Linux uses a `0600` Unix socket;
+  Windows uses an owner-only named pipe. It runs as an ordinary user.
 - **Data directory.** `settings.json` for behavior, `core/` for the vault and
   security policy, and `electron/` for the Chromium profile. On Linux it lives
-  beside the AppImage when that location is writable; otherwise in the normal
-  per-user config directory.
+  beside the AppImage when that location is writable; on Windows the portable
+  launcher's directory is used. Otherwise it falls back to the normal per-user
+  config directory.
 
 Startup sequence:
 
@@ -296,7 +297,7 @@ Editing happens in the profile editor on its own screen. Copying happens in
 the dashboard toolbar: a key button opens a small panel under the bar, and
 each login has Username and Password copy buttons. The renderer only ever
 receives names, URLs and usernames. When a copy button is pressed, the main
-process fetches that one password from the core over the control socket and
+process fetches that one password from the core over the control channel and
 writes it straight to the clipboard, so the secret never reaches a renderer.
 The clipboard clears itself after 30 seconds if it still holds the copied
 value, and clears at once when the vault locks (dashboard padlock, main-window

@@ -75,3 +75,44 @@ jobs:
             desktop/release/*.AppImage
             desktop/release/SHA256SUMS
           if-no-files-found: error
+
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.27.4"
+
+      - name: Build portable app
+        shell: pwsh
+        run: ./platforms/windows/build.ps1
+
+      - name: Checksums
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem desktop/release/*.exe
+          if (-not $files) { throw "no Windows executable built" }
+          $lines = foreach ($file in $files) {
+            "$((Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLower())  $($file.Name)"
+          }
+          $lines | Set-Content desktop/release/SHA256SUMS
+          $lines
+
+      - name: Upload portable app
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-portable
+          path: |
+            desktop/release/*.exe
+            desktop/release/SHA256SUMS
+          if-no-files-found: error
