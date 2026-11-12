@@ -33,10 +33,22 @@ const passwordsCount = element<HTMLElement>("passwords-count");
 const passwordsToast = element<HTMLElement>("passwords-toast");
 
 let credentials: CredentialSummary[] = [];
+let currentUrl = "";
 let panelOpen = false;
 let toastOpen = false;
 let toastTimer: number | null = null;
 let warnTimer: number | null = null;
+
+function sameOrigin(a: string, b: string): boolean {
+  if (!a || !b) {
+    return false;
+  }
+  try {
+    return new URL(a).origin === new URL(b).origin;
+  } catch {
+    return false;
+  }
+}
 
 appButton.addEventListener("click", () => {
   void bridge.backToApp();
@@ -92,6 +104,19 @@ function renderCredentials(): void {
 
     const actions = document.createElement("div");
     actions.className = "credential-actions";
+
+    if (credential.url && sameOrigin(credential.url, currentUrl)) {
+      const fill = document.createElement("button");
+      fill.type = "button";
+      fill.className = "credential-fill";
+      fill.textContent = "Fill";
+      fill.title = "Fill this login on the page";
+      fill.addEventListener("click", () => {
+        void fillCredential(credential.id, fill);
+      });
+      actions.append(fill);
+    }
+
     if (credential.username) {
       const user = document.createElement("button");
       user.type = "button";
@@ -110,6 +135,41 @@ function renderCredentials(): void {
       void copyCredential(credential.id, "password", password);
     });
     actions.append(password);
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "credential-delete";
+    remove.textContent = "×";
+    remove.title = "Delete saved login";
+    remove.setAttribute("aria-label", `Delete ${credential.name}`);
+    let armed = false;
+    let armTimer: number | null = null;
+    remove.addEventListener("click", () => {
+      if (!armed) {
+        armed = true;
+        remove.classList.add("armed");
+        remove.title = "Click again to delete";
+        armTimer = window.setTimeout(() => {
+          armed = false;
+          armTimer = null;
+          remove.classList.remove("armed");
+          remove.title = "Delete saved login";
+        }, 3000);
+        return;
+      }
+      if (armTimer !== null) {
+        window.clearTimeout(armTimer);
+        armTimer = null;
+      }
+      armed = false;
+      remove.classList.remove("armed");
+      remove.disabled = true;
+      void bridge.deleteCredential(credential.id).catch(() => {
+        remove.disabled = false;
+        remove.title = "Delete saved login";
+      });
+    });
+    actions.append(remove);
 
     row.append(info, actions);
     passwordsList.append(row);
@@ -135,11 +195,30 @@ async function copyCredential(
   }, 1200);
 }
 
+async function fillCredential(
+  credentialID: string,
+  button: HTMLButtonElement,
+): Promise<void> {
+  const label = button.textContent ?? "Fill";
+  button.disabled = true;
+  try {
+    await bridge.fillCredential(credentialID);
+    button.textContent = "Filled";
+  } catch {
+    button.textContent = "No form";
+  }
+  window.setTimeout(() => {
+    button.textContent = label;
+    button.disabled = false;
+  }, 1400);
+}
+
 async function openPanel(): Promise<void> {
   if (panelOpen || credentials.length === 0) {
     return;
   }
 
+  renderCredentials();
   panelOpen = true;
   passwordsButton.setAttribute("aria-expanded", "true");
   passwordsPanel.hidden = false;
@@ -250,6 +329,7 @@ bridge.onState((state) => {
   forward.disabled = !state.canGoForward;
   lockButton.hidden = !state.passwordProtected;
   document.body.dataset.mode = state.mode;
+  currentUrl = state.url;
   if (state.mode === "peek") {
     hidePanel(false);
     hideToast(false);

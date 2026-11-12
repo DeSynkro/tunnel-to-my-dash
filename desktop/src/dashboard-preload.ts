@@ -1,6 +1,10 @@
 import { ipcRenderer } from "electron";
 import { IPC } from "./shared/ipc";
-import type { LoginCandidate } from "./shared/types";
+import type {
+  AutofillRequest,
+  AutofillResult,
+  LoginCandidate,
+} from "./shared/types";
 
 if (window.top === window) {
   let lastFingerprint = "";
@@ -98,7 +102,9 @@ if (window.top === window) {
     return scope ? pickPassword(scope) : null;
   }
 
-  function usernameFor(password: HTMLInputElement): string {
+  function usernameInputFor(
+    password: HTMLInputElement,
+  ): HTMLInputElement | null {
     const root = password.closest("form") ?? document;
     const inputs = [
       ...root.querySelectorAll<HTMLInputElement>("input"),
@@ -113,8 +119,8 @@ if (window.top === window) {
     const autocomplete = inputs.find((input) =>
       ["username", "email"].includes(input.autocomplete),
     );
-    if (autocomplete?.value.trim()) {
-      return autocomplete.value.trim();
+    if (autocomplete) {
+      return autocomplete;
     }
 
     const hinted = inputs.find((input) => {
@@ -125,10 +131,10 @@ if (window.top === window) {
       if (/(otp|one.?time|code|token)/.test(hint)) {
         return false;
       }
-      return /(user|email|account|login)/.test(hint) && input.value.trim() !== "";
+      return /(user|email|account|login)/.test(hint);
     });
     if (hinted) {
-      return hinted.value.trim();
+      return hinted;
     }
 
     const all = [...root.querySelectorAll<HTMLInputElement>("input")];
@@ -140,13 +146,62 @@ if (window.top === window) {
         input.type === "email" ||
         input.type === "tel"
       ) {
-        const value = input.value.trim();
-        if (value) {
-          return value;
-        }
+        return input;
       }
     }
-    return "";
+    return null;
+  }
+
+  function usernameFor(password: HTMLInputElement): string {
+    return usernameInputFor(password)?.value.trim() ?? "";
+  }
+
+  function loginFields(): {
+    password: HTMLInputElement;
+    username: HTMLInputElement | null;
+  } | null {
+    const passwords = collectPasswordInputs(document).filter(
+      (input) => visible(input) && !input.disabled && !input.readOnly,
+    );
+    let fallback: {
+      password: HTMLInputElement;
+      username: HTMLInputElement | null;
+    } | null = null;
+    for (const password of passwords) {
+      const username = usernameInputFor(password);
+      if (username) {
+        return { password, username };
+      }
+      if (!fallback) {
+        fallback = { password, username: null };
+      }
+    }
+    return fallback;
+  }
+
+  function setInputValue(input: HTMLInputElement, value: string): void {
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    setter?.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function fillLogin(request: AutofillRequest): AutofillResult {
+    const fields = loginFields();
+    if (!fields) {
+      return { ok: false, username: false, password: false };
+    }
+    let username = false;
+    if (fields.username && request.username) {
+      setInputValue(fields.username, request.username);
+      username = true;
+    }
+    setInputValue(fields.password, request.password);
+    fields.password.focus();
+    return { ok: true, username, password: true };
   }
 
   function isLoginButton(element: Element): boolean {
@@ -250,4 +305,17 @@ if (window.top === window) {
     },
     true,
   );
+
+  ipcRenderer.on(IPC.autofillLogin, (_event, request: AutofillRequest) => {
+    if (
+      typeof request !== "object" ||
+      request === null ||
+      typeof request.id !== "string" ||
+      typeof request.username !== "string" ||
+      typeof request.password !== "string"
+    ) {
+      return;
+    }
+    ipcRenderer.send(IPC.autofillResult, request.id, fillLogin(request));
+  });
 }

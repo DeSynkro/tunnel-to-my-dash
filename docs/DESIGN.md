@@ -268,7 +268,15 @@ process fetches that one password from the core over the control socket and
 writes it straight to the clipboard, so the secret never reaches a renderer.
 The clipboard clears itself after 30 seconds if it still holds the copied
 value, and clears at once when the vault locks (dashboard padlock, main-window
-lock or idle lock). There is no autofill and no reveal control.
+lock or idle lock). Fill is manual; there is no automatic fill on page load
+and no reveal control.
+
+Rows whose saved URL matches the current page origin also get a Fill button.
+Clicking it asks the main process for that one secret and sends it to the
+isolated dashboard preload, which fills the username and password fields with
+the input events framework forms expect. There is no auto-submit, and Fill
+never appears for a different origin. Each row also has a two-step delete:
+the × arms, and a second click removes the login from the vault.
 
 The toolbar panel pins the floating bar open while it is visible and closes
 on an outside click, Escape, navigation, window blur or lock. Editing a saved
@@ -291,7 +299,7 @@ single origin and username with a new password prompts to update; when more
 than one saved login shares that origin and username, the app prefers the
 page-title match and otherwise warns instead of updating blindly. Not now is
 remembered for the session. Logins that stay on the same path after success
-are a known gap and do not prompt yet. There is still no autofill.
+are a known gap and do not prompt yet. Fill stays a separate manual click.
 
 ## Privacy and security
 

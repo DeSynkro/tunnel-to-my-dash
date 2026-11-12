@@ -39,6 +39,10 @@ const api: NavigationBridge = {
   },
   copyCredential: (credentialID, field) =>
     ipcRenderer.invoke(IPC.toolbarCopyCredential, credentialID, field),
+  fillCredential: (credentialID) =>
+    ipcRenderer.invoke(IPC.toolbarFillCredential, credentialID),
+  deleteCredential: (credentialID) =>
+    ipcRenderer.invoke(IPC.toolbarDeleteCredential, credentialID),
   openPanel: (height) => ipcRenderer.invoke(IPC.toolbarPanel, { open: true, height }),
   closePanel: () => ipcRenderer.invoke(IPC.toolbarPanel, { open: false }),
 };

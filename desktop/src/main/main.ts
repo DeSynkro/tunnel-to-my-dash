@@ -15,6 +15,7 @@ import {
 import path from "node:path";
 import { IPC } from "../shared/ipc";
 import type {
+  AutofillResult,
   ConnectResult,
   CredentialField,
   CredentialSummary,
@@ -135,6 +136,7 @@ let loginPromptOpen = false;
 const loginSuccessWindowMs = 15_000;
 let pendingLogin: { candidate: LoginCandidate; path: string } | null = null;
 let pendingLoginTimer: ReturnType<typeof setTimeout> | null = null;
+const pendingFills = new Map<string, (result: AutofillResult) => void>();
 
 type ToolbarRect = { x: number; y: number; width: number; height: number };
 
@@ -484,6 +486,89 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle(
+  IPC.toolbarFillCredential,
+  async (event, credentialID: unknown) => {
+    if (event.sender !== dashboardToolbar?.webContents) {
+      throw new Error("Invalid request.");
+    }
+    if (typeof credentialID !== "string") {
+      throw new Error("Invalid request.");
+    }
+    const profileID = dashboardProfileID;
+    const view = dashboardView;
+    const epoch = vaultLockEpoch;
+    if (!control || !profileID || !view) {
+      throw new Error("No dashboard is open.");
+    }
+    if (dashboardLocked) {
+      throw new Error("The dashboard is locked.");
+    }
+
+    const page = view.webContents.getURL();
+    if (!isPrivateHttpUrl(page)) {
+      throw new Error("This page has no login form.");
+    }
+    let pageOrigin = "";
+    try {
+      pageOrigin = new URL(page).origin;
+    } catch {
+      throw new Error("This page has no login form.");
+    }
+
+    let credential: CredentialSummary | undefined;
+    try {
+      const credentials = await control.listCredentials(profileID);
+      credential = credentials.find((item) => item.id === credentialID);
+    } catch (error) {
+      throw new Error(`Could not load the saved login: ${errorMessage(error)}`);
+    }
+    if (!credential) {
+      throw new Error("That saved login no longer exists.");
+    }
+    if (normalizedOrigin(credential.url ?? "") !== pageOrigin) {
+      throw new Error("That saved login is for a different page.");
+    }
+
+    let secret;
+    try {
+      secret = await control.credentialSecret(profileID, credentialID);
+    } catch (error) {
+      throw new Error(`Could not read the saved login: ${errorMessage(error)}`);
+    }
+    if (
+      dashboardLocked ||
+      dashboardProfileID !== profileID ||
+      epoch !== vaultLockEpoch
+    ) {
+      throw new Error("The dashboard is locked.");
+    }
+
+    const result = await fillDashboardLogin(secret.username, secret.password);
+    if (!result.ok) {
+      throw new Error("No login form found on this page.");
+    }
+  },
+);
+
+ipcMain.handle(
+  IPC.toolbarDeleteCredential,
+  async (event, credentialID: unknown) => {
+    if (event.sender !== dashboardToolbar?.webContents) {
+      throw new Error("Invalid request.");
+    }
+    if (typeof credentialID !== "string") {
+      throw new Error("Invalid request.");
+    }
+    const profileID = dashboardProfileID;
+    if (!control || !profileID || dashboardLocked) {
+      throw new Error("No dashboard is open.");
+    }
+    await control.deleteCredential(profileID, credentialID);
+    await loadToolbarCredentials();
+  },
+);
+
 ipcMain.on(IPC.loginCandidate, (event, payload: unknown) => {
   if (!dashboardView || event.sender !== dashboardView.webContents) {
     return;
@@ -499,6 +584,32 @@ ipcMain.on(IPC.loginCandidate, (event, payload: unknown) => {
     return;
   }
   queueLoginCandidate(candidate);
+});
+
+ipcMain.on(IPC.autofillResult, (event, requestID: unknown, result: unknown) => {
+  if (!dashboardView || event.sender !== dashboardView.webContents) {
+    return;
+  }
+  if (event.senderFrame !== dashboardView.webContents.mainFrame) {
+    return;
+  }
+  if (typeof requestID !== "string" || typeof result !== "object" || result === null) {
+    return;
+  }
+  const raw = result as Record<string, unknown>;
+  if (
+    typeof raw.ok !== "boolean" ||
+    typeof raw.username !== "boolean" ||
+    typeof raw.password !== "boolean"
+  ) {
+    return;
+  }
+  const resolve = pendingFills.get(requestID);
+  if (!resolve) {
+    return;
+  }
+  pendingFills.delete(requestID);
+  resolve({ ok: raw.ok, username: raw.username, password: raw.password });
 });
 
 function startIdleMonitor(): void {
@@ -768,6 +879,33 @@ function clearPendingLogin(): void {
     pendingLoginTimer = null;
   }
   pendingLogin = null;
+}
+
+function fillDashboardLogin(
+  username: string,
+  password: string,
+): Promise<AutofillResult> {
+  const view = dashboardView;
+  if (!view) {
+    return Promise.resolve({ ok: false, username: false, password: false });
+  }
+
+  const requestID = randomBytes(8).toString("hex");
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      pendingFills.delete(requestID);
+      resolve({ ok: false, username: false, password: false });
+    }, 2000);
+    pendingFills.set(requestID, (result) => {
+      clearTimeout(timer);
+      resolve(result);
+    });
+    view.webContents.send(IPC.autofillLogin, {
+      id: requestID,
+      username,
+      password,
+    });
+  });
 }
 
 function queueLoginCandidate(candidate: LoginCandidate): void {
@@ -1247,6 +1385,10 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
     skippedLogins.clear();
     loginPromptOpen = false;
     clearPendingLogin();
+    for (const resolve of pendingFills.values()) {
+      resolve({ ok: false, username: false, password: false });
+    }
+    pendingFills.clear();
 
     if (control) {
       void control.disconnect().catch(() => undefined);
@@ -2218,7 +2360,13 @@ async function runCredentialsSmoke(window: BrowserWindow): Promise<void> {
     if (rows !== 2) {
       throw new Error(`the passwords panel shows ${rows} rows, want 2`);
     }
-    console.log("[smoke] credentials panel=2");
+    const fillable = (await toolbar.webContents.executeJavaScript(
+      '!!document.querySelector(".credential-fill")',
+    )) as boolean;
+    if (fillable) {
+      throw new Error("a login for another origin showed a fill button");
+    }
+    console.log("[smoke] credentials panel=2 fill-guard=ok");
 
     await toolbar.webContents.executeJavaScript(
       `(() => {
@@ -2463,6 +2611,60 @@ async function runCaptureSmoke(window: BrowserWindow): Promise<void> {
     }
     console.log("[smoke] capture synthetic ignored");
 
+    await view.webContents.executeJavaScript(
+      `(() => {
+        document.getElementById("__ttmd_fill_form")?.remove();
+        const form = document.createElement("form");
+        form.id = "__ttmd_fill_form";
+        const user = document.createElement("input");
+        user.name = "username";
+        user.autocomplete = "username";
+        const pass = document.createElement("input");
+        pass.type = "password";
+        pass.name = "password";
+        form.append(user, pass);
+        document.body.append(form);
+      })()`,
+      true,
+    );
+
+    await toolbar.webContents.executeJavaScript(
+      'document.getElementById("passwords")?.click()',
+      true,
+    );
+    if (
+      !(await waitForCondition(async () => {
+        const open = (await toolbar.webContents.executeJavaScript(
+          'document.getElementById("passwords-panel")?.classList.contains("open")',
+        )) as boolean;
+        return open === true;
+      }, 3000))
+    ) {
+      throw new Error("the passwords panel did not open for fill");
+    }
+    const canFill = (await toolbar.webContents.executeJavaScript(
+      '!!document.querySelector(".credential-fill")',
+    )) as boolean;
+    if (!canFill) {
+      throw new Error("the matching login has no fill button");
+    }
+    await toolbar.webContents.executeJavaScript(
+      'document.querySelector(".credential-fill")?.click()',
+      true,
+    );
+    if (
+      !(await waitForCondition(async () => {
+        const values = (await view.webContents.executeJavaScript(`({
+          username: document.querySelector("#__ttmd_fill_form input[name=username]")?.value || "",
+          password: document.querySelector("#__ttmd_fill_form input[type=password]")?.value || "",
+        })`)) as { username: string; password: string };
+        return values.username === "alex" && values.password === "new-secret";
+      }, 5000))
+    ) {
+      throw new Error("the login was not filled");
+    }
+    console.log("[smoke] capture filled");
+
     const leaked = (await toolbar.webContents.executeJavaScript(
       'document.body.innerText.includes("hunter2") || document.body.innerText.includes("new-secret")',
     )) as boolean;
@@ -2470,6 +2672,25 @@ async function runCaptureSmoke(window: BrowserWindow): Promise<void> {
       throw new Error("a password appeared in the toolbar DOM");
     }
     console.log("[smoke] capture toolbar clean");
+
+    await toolbar.webContents.executeJavaScript(
+      'document.querySelector(".credential-delete")?.click()',
+      true,
+    );
+    await delay(150);
+    await toolbar.webContents.executeJavaScript(
+      'document.querySelector(".credential-delete")?.click()',
+      true,
+    );
+    if (
+      !(await waitForCondition(async () => {
+        const list = await client.listCredentials(profileID);
+        return list.length === 0;
+      }, 5000))
+    ) {
+      throw new Error("the toolbar delete did not remove the login");
+    }
+    console.log("[smoke] capture toolbar deleted");
 
     app.quit();
   } catch (error) {

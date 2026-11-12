@@ -24,7 +24,10 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 - Saved passwords: per-profile logins in the encrypted vault, edited in the
   profile screen and copied from a key panel in the dashboard toolbar. The
   password only travels from the core to the clipboard, clears after 30
-  seconds if unchanged, and clears on lock. No autofill.
+  seconds if unchanged, and clears on lock.
+- Password fill and toolbar delete: matching-origin logins get a Fill button
+  that fills the page's username and password fields without submitting; each
+  toolbar row has a two-step × delete.
 - Login save prompt: submitting a login in the dashboard offers a native Save
   password dialog with the service name and origin. Exact duplicates are
   ignored, a changed password offers an update, and Not now is remembered for

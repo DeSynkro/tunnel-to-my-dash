@@ -93,6 +93,18 @@ export interface LoginCandidate {
   password: string;
 }
 
+export interface AutofillRequest {
+  id: string;
+  username: string;
+  password: string;
+}
+
+export interface AutofillResult {
+  ok: boolean;
+  username: boolean;
+  password: boolean;
+}
+
 export interface ConfigFile {
   name: string;
   text: string;
@@ -119,6 +131,8 @@ export interface NavigationBridge {
   onCredentials(callback: (state: ToolbarCredentialsState) => void): () => void;
   onPanelState(callback: (state: ToolbarPanelState) => void): () => void;
   copyCredential(credentialID: string, field: CredentialField): Promise<void>;
+  fillCredential(credentialID: string): Promise<void>;
+  deleteCredential(credentialID: string): Promise<void>;
   openPanel(height: number): Promise<void>;
   closePanel(): Promise<void>;
 }
