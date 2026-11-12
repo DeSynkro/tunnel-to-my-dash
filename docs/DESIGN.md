@@ -70,7 +70,8 @@ The desktop app has four parts:
   configured LAN URL and nothing else as a top-level page. A 36px navigation
   bar is a centered floating glass bar. With auto-hide on it shrinks to a
   small centered peek pill and overlays the dashboard; hovering expands it with
-  a short animated resize. With auto-hide off the bar becomes a plain
+  a short animated resize. The peek pill keeps a dark edge and a slightly
+  stronger fill so it stays visible over light dashboards. With auto-hide off the bar becomes a plain
   full-width row above the view, so it covers nothing and has no floating pill
   frame. A dashboard page can enter HTML fullscreen; the window follows, the
   toolbar hides, and leaving fullscreen restores the toolbar row. If a page
@@ -202,14 +203,29 @@ profile's mode. It is stored in the vault, unchecked by default, and leaves the
 profile choices intact. While it is on, the profile editor greys out the
 external section and the profile cards report `LAN only (app override)`.
 
+## Links
+
+Normal links to private addresses stay in the dashboard view. A dashboard link
+that asks for a new window (`target="_blank"`) can either replace the dashboard
+view, which is the default, or open a plain app window on the same tunnel
+session. That window has no app toolbar, lock screen or saved-password fill; it
+is limited to private top-level URLs and closes when the dashboard locks or
+closes. A full second dashboard window with the app chrome is a later
+refinement.
+
+Links to public http(s) origins are blocked by default. A settings toggle can
+send them to the system default browser instead. Private addresses, URLs with
+credentials and non-http(s) schemes are never handed to the browser.
+
 ## Settings storage
 
 Behavior settings live in plaintext `settings.json` beside the portable data so
 they are easy to inspect and copy. Security policy lives in the encrypted
 vault so it is tamper-evident and travels with the secrets:
 
-- `settings.json`: open the last dashboard after launch and auto-hide the
-  dashboard toolbar.
+- `settings.json`: open the last dashboard after launch, auto-hide the
+  dashboard toolbar, open public links in the system browser, and open
+  new-window links in a separate window.
 - Vault: Force LAN-only, lock after idle and the idle minutes value.
 
 The app lock remains a vault mode. Idle lock is only offered when an app

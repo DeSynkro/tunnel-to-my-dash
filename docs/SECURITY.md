@@ -110,14 +110,21 @@ Out of scope:
   preload; it exposes only Retry and Main menu.
 - Context isolation and the Chromium sandbox stay enabled.
 - Remote debugging is disabled in release builds.
-- New windows and popups are denied.
-- Top-level navigation is limited to private addresses.
+- New windows and popups are denied except private dashboard links when the
+  user enables the new-window setting. That window uses the same sandboxed
+  session, has no Node access or preload, is limited to private top-level
+  URLs, and closes when the dashboard locks or closes.
+- Top-level navigation is limited to private addresses. Public http(s) links
+  can leave the app only through the system browser, and only when the user
+  enables that setting. URLs with credentials and non-http(s) schemes are
+  never passed to the browser.
 - Permissions are denied except HTML fullscreen, which dashboard media needs.
 - HTTP and HTTPS requests are forced through the localhost proxy.
 - Loopback destinations are blocked so a page cannot reach the app's own
   control socket or proxy.
 - External content is opt-in, subresource-only and either exact-origin or an
-  explicit allow-all mode. Top-level navigation is always private.
+  explicit allow-all mode. Top-level navigation inside the dashboard is always
+  private.
 - External names are resolved by the proxy and dialed only when the result is
   a public address. Loopback, private, link-local and CGNAT results are
   refused.

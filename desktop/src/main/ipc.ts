@@ -250,5 +250,17 @@ function settingsPatch(value: unknown): Partial<AppSettings> {
     }
     patch.auto_hide_toolbar = raw.auto_hide_toolbar;
   }
+  if ("open_external_links" in raw) {
+    if (typeof raw.open_external_links !== "boolean") {
+      throw new Error("Invalid settings");
+    }
+    patch.open_external_links = raw.open_external_links;
+  }
+  if ("open_links_in_new_window" in raw) {
+    if (typeof raw.open_links_in_new_window !== "boolean") {
+      throw new Error("Invalid settings");
+    }
+    patch.open_links_in_new_window = raw.open_links_in_new_window;
+  }
   return patch;
 }

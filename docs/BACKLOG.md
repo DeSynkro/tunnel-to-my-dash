@@ -17,20 +17,18 @@ they land, and keep the Done section for the record.
   tunnel, a cached page, or a blocked beforeunload.
 - [ ] Confirm the first hosted CI run.
 
-## Linux v1 — polish
-
-- [ ] Give the peek pill a visible edge over light dashboards. Its light fill
-  disappears against a white page; a darker fill or a thin border would fix
-  it without changing the dark-theme look.
-- [ ] Offer a deliberate "open in normal browser" path for public dashboard
-  links, instead of leaving them dead.
-- [ ] Let users choose whether dashboard links open in the same window or in
-  a new window. Same-window is the current default.
-- [ ] Make the toolbar Fill use the focused login form on pages with several
-  forms, instead of the first visible one. The inline pill already does this.
-
 ## Done
 
+- Link settings: public http(s) links can open in the system browser, and
+  dashboard links that ask for a new window can open in a separate app window
+  on the same tunnel. Both are off by default. The separate window is plain
+  (no toolbar, lock or saved-password fill) and closes when the dashboard locks
+  or closes. The `links` smoke covers both settings.
+- Peek pill contrast: a dark edge and slightly stronger fill keep the pill
+  visible over light dashboards.
+- Toolbar Fill uses the focused login form on pages with several forms, then
+  falls back to the first visible form. The capture smoke covers the
+  two-form case.
 - Dashboard navigation resilience: Home and Reload start the same 20-second
   watchdog as the initial load; a proxy 5xx response shows the local error
   card immediately. Retry reconnects and reloads. The `navhang` smoke covers a

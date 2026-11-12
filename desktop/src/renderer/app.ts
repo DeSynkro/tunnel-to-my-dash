@@ -114,6 +114,8 @@ const credentialCancel = element<HTMLButtonElement>("credential-cancel");
 
 const settingsOpenLast = element<HTMLInputElement>("settings-open-last");
 const settingsAutoHide = element<HTMLInputElement>("settings-auto-hide");
+const settingsOpenExternal = element<HTMLInputElement>("settings-open-external");
+const settingsNewWindow = element<HTMLInputElement>("settings-new-window");
 const settingsBehaviorError = element<HTMLElement>("settings-behavior-error");
 const settingsForceLan = element<HTMLInputElement>("settings-force-lan");
 const settingsIdleLock = element<HTMLInputElement>("settings-idle-lock");
@@ -148,6 +150,8 @@ let suppressAutoOpenOnce = false;
 let appSettings: AppSettings = {
   open_last_dashboard: false,
   auto_hide_toolbar: true,
+  open_external_links: false,
+  open_links_in_new_window: false,
 };
 
 function api(): TtmdBridge {
@@ -476,6 +480,8 @@ function renderSettings(): void {
 
   settingsOpenLast.checked = appSettings.open_last_dashboard;
   settingsAutoHide.checked = appSettings.auto_hide_toolbar;
+  settingsOpenExternal.checked = appSettings.open_external_links;
+  settingsNewWindow.checked = appSettings.open_links_in_new_window;
   setFormError(settingsBehaviorError, "");
   renderSecuritySettings();
 
@@ -1166,6 +1172,38 @@ settingsAutoHide.addEventListener("change", async () => {
   }
 });
 
+settingsOpenExternal.addEventListener("change", async () => {
+  const desired = settingsOpenExternal.checked;
+  setFormError(settingsBehaviorError, "");
+  settingsOpenExternal.disabled = true;
+  try {
+    appSettings = await api().updateSettings({ open_external_links: desired });
+    settingsOpenExternal.checked = appSettings.open_external_links;
+  } catch (error) {
+    settingsOpenExternal.checked = appSettings.open_external_links;
+    setFormError(settingsBehaviorError, message(error));
+  } finally {
+    settingsOpenExternal.disabled = false;
+  }
+});
+
+settingsNewWindow.addEventListener("change", async () => {
+  const desired = settingsNewWindow.checked;
+  setFormError(settingsBehaviorError, "");
+  settingsNewWindow.disabled = true;
+  try {
+    appSettings = await api().updateSettings({
+      open_links_in_new_window: desired,
+    });
+    settingsNewWindow.checked = appSettings.open_links_in_new_window;
+  } catch (error) {
+    settingsNewWindow.checked = appSettings.open_links_in_new_window;
+    setFormError(settingsBehaviorError, message(error));
+  } finally {
+    settingsNewWindow.disabled = false;
+  }
+});
+
 settingsBack.addEventListener("click", () => {
   showMain();
 });
@@ -1203,7 +1241,12 @@ async function init(): Promise<void> {
   try {
     appSettings = await api().getSettings();
   } catch {
-    appSettings = { open_last_dashboard: false, auto_hide_toolbar: true };
+    appSettings = {
+      open_last_dashboard: false,
+      auto_hide_toolbar: true,
+      open_external_links: false,
+      open_links_in_new_window: false,
+    };
   }
   await refresh(true);
 }

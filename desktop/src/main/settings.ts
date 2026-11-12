@@ -5,6 +5,8 @@ import type { AppSettings } from "../shared/types";
 const defaults: AppSettings = {
   open_last_dashboard: false,
   auto_hide_toolbar: true,
+  open_external_links: false,
+  open_links_in_new_window: false,
 };
 
 export class SettingsStore {
@@ -55,5 +57,7 @@ function normalize(value: unknown): AppSettings {
   return {
     open_last_dashboard: raw.open_last_dashboard === true,
     auto_hide_toolbar: raw.auto_hide_toolbar !== false,
+    open_external_links: raw.open_external_links === true,
+    open_links_in_new_window: raw.open_links_in_new_window === true,
   };
 }

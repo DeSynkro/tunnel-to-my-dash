@@ -3,6 +3,8 @@ export type ExternalMode = "off" | "all" | "origins";
 export interface AppSettings {
   open_last_dashboard: boolean;
   auto_hide_toolbar: boolean;
+  open_external_links: boolean;
+  open_links_in_new_window: boolean;
 }
 
 export interface PointerPayload {

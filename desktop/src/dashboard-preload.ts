@@ -163,7 +163,11 @@ if (window.top === window) {
     username: HTMLInputElement | null;
   } | null {
     const passwords = collectPasswordInputs(document).filter(
-      (input) => visible(input) && !input.disabled && !input.readOnly,
+      (input) =>
+        visible(input) &&
+        !input.disabled &&
+        !input.readOnly &&
+        input.autocomplete !== "new-password",
     );
     let fallback: {
       password: HTMLInputElement;
@@ -192,7 +196,7 @@ if (window.top === window) {
   }
 
   function fillLogin(request: AutofillRequest): AutofillResult {
-    const fields = loginFields();
+    const fields = toolbarLoginFields();
     if (!fields) {
       return { ok: false, username: false, password: false };
     }
@@ -372,6 +376,7 @@ if (window.top === window) {
 
   let activeAnchor: HTMLInputElement | null = null;
   let activeFields: LoginFillFields | null = null;
+  let lastFields: LoginFillFields | null = null;
   let hideTimer: number | null = null;
   let positionTimer: number | null = null;
 
@@ -457,6 +462,47 @@ if (window.top === window) {
       return null;
     }
     return { password, username };
+  }
+
+  function usableLoginFields(
+    fields: LoginFillFields | null,
+  ): LoginFillFields | null {
+    if (!fields) {
+      return null;
+    }
+    const { password } = fields;
+    if (
+      !password.isConnected ||
+      !visible(password) ||
+      password.disabled ||
+      password.readOnly ||
+      password.autocomplete === "new-password"
+    ) {
+      return null;
+    }
+    const username =
+      fields.username &&
+      fields.username.isConnected &&
+      visible(fields.username) &&
+      !fields.username.disabled &&
+      !fields.username.readOnly
+        ? fields.username
+        : null;
+    return { password, username };
+  }
+
+  function toolbarLoginFields(): LoginFillFields | null {
+    if (document.activeElement instanceof HTMLInputElement) {
+      const fields = loginFieldsFor(document.activeElement);
+      if (fields) {
+        return fields;
+      }
+    }
+    return (
+      usableLoginFields(lastFields) ??
+      usableLoginFields(activeFields) ??
+      loginFields()
+    );
   }
 
   function positionFillPill(): void {
@@ -566,6 +612,7 @@ if (window.top === window) {
       const field = loginInputFromPath(event);
       if (field) {
         const fields = loginFieldsFor(field);
+        lastFields = fields;
         if (fields) {
           if (hideTimer !== null) {
             window.clearTimeout(hideTimer);

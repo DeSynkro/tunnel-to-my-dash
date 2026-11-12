@@ -10,6 +10,7 @@ import {
   Menu,
   powerMonitor,
   session,
+  shell,
   WebContentsView,
   type WebPreferences,
 } from "electron";
@@ -36,7 +37,7 @@ import { ControlClient } from "./control-client";
 import { CoreProcess } from "./core-process";
 import { resolveDataRoot } from "./data-dir";
 import { registerIpc, type NavigationActions } from "./ipc";
-import { isPrivateHttpUrl } from "./private-url";
+import { isPrivateHttpUrl, isPublicHttpUrl } from "./private-url";
 import { SettingsStore } from "./settings";
 
 app.setName("Tunnel to My Dash");
@@ -87,6 +88,7 @@ let coreError: string | null = null;
 let core: CoreProcess | null = null;
 let mainWindow: BrowserWindow | null = null;
 let dashboardWindow: BaseWindow | null = null;
+const dashboardLinkWindows = new Set<BrowserWindow>();
 let dashboardView: WebContentsView | null = null;
 let dashboardToolbar: WebContentsView | null = null;
 let dashboardLock: WebContentsView | null = null;
@@ -95,6 +97,7 @@ let dashboardErrorVisible = false;
 let currentError: ErrorState | null = null;
 let dashboardLoadWatch: ReturnType<typeof setTimeout> | null = null;
 let smokeUnlockFailures = 0;
+let smokeExternalOpens: string[] = [];
 let dashboardHomeURL = "";
 let dashboardPartition = "";
 let dashboardPasswordProtected = false;
@@ -885,7 +888,7 @@ async function checkIdle(): Promise<void> {
   }
 
   if (dashboardWindow) {
-    if (dashboardLocked || dashboardView?.webContents.isCurrentlyAudible()) {
+    if (dashboardLocked || dashboardIsAudible()) {
       return;
     }
     await lockDashboard();
@@ -1343,6 +1346,41 @@ async function handleLoginCandidate(candidate: LoginCandidate): Promise<void> {
   }
 }
 
+function openExternalLink(url: string): void {
+  if (!isPublicHttpUrl(url)) {
+    return;
+  }
+  if (process.env.TTMD_SMOKE === "links") {
+    smokeExternalOpens.push(url);
+    console.log(`[smoke] external ${url}`);
+    return;
+  }
+  void shell.openExternal(url).catch((error) => {
+    console.error(`[external] ${errorMessage(error)}`);
+  });
+}
+
+function closeDashboardLinkWindows(): void {
+  for (const window of [...dashboardLinkWindows]) {
+    if (!window.isDestroyed()) {
+      window.destroy();
+    }
+  }
+  dashboardLinkWindows.clear();
+}
+
+function dashboardIsAudible(): boolean {
+  if (dashboardView?.webContents.isCurrentlyAudible()) {
+    return true;
+  }
+  for (const window of dashboardLinkWindows) {
+    if (window.webContents.isCurrentlyAudible()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 const navigation: NavigationActions = {
   back: () => {
     dashboardView?.webContents.navigationHistory.goBack();
@@ -1391,6 +1429,7 @@ async function lockDashboard(): Promise<void> {
   }
 
   dashboardLocked = true;
+  closeDashboardLinkWindows();
   if (dashboardFullscreen) {
     dashboardFullscreen = false;
     dashboardWindow?.setFullScreen(false);
@@ -1657,13 +1696,75 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
 
   view.webContents.setWindowOpenHandler(({ url }) => {
     if (isPrivateHttpUrl(url)) {
+      if (settingsStore.get().open_links_in_new_window) {
+        return {
+          action: "allow",
+          overrideBrowserWindowOptions: {
+            width: 1000,
+            height: 700,
+            minWidth: 720,
+            minHeight: 520,
+            center: true,
+            autoHideMenuBar: true,
+            backgroundColor: "#0e0e0e",
+            title: "Tunnel to My Dash",
+            webPreferences: {
+              partition: dashboardPartition,
+              contextIsolation: true,
+              sandbox: true,
+              nodeIntegration: false,
+              webSecurity: true,
+              spellcheck: false,
+              devTools: !app.isPackaged,
+            },
+          },
+        };
+      }
       void view.webContents.loadURL(url);
+      return { action: "deny" };
+    }
+    if (isPublicHttpUrl(url) && settingsStore.get().open_external_links) {
+      openExternalLink(url);
     }
     return { action: "deny" };
   });
-  view.webContents.on("will-navigate", (event, url) => {
-    if (!isPrivateHttpUrl(url)) {
+  view.webContents.on("did-create-window", (window) => {
+    dashboardLinkWindows.add(window);
+    window.on("closed", () => dashboardLinkWindows.delete(window));
+    window.webContents.on("will-navigate", (event, url) => {
+      if (isPrivateHttpUrl(url)) {
+        return;
+      }
       event.preventDefault();
+      if (isPublicHttpUrl(url) && settingsStore.get().open_external_links) {
+        openExternalLink(url);
+      }
+    });
+    window.webContents.setWindowOpenHandler(({ url }) => {
+      if (isPrivateHttpUrl(url)) {
+        void window.webContents.loadURL(url);
+      } else if (
+        isPublicHttpUrl(url) &&
+        settingsStore.get().open_external_links
+      ) {
+        openExternalLink(url);
+      }
+      return { action: "deny" };
+    });
+    window.webContents.on("page-title-updated", (_event, title) => {
+      window.setTitle(
+        title ? `${title} — Tunnel to My Dash` : "Tunnel to My Dash",
+      );
+    });
+    window.focus();
+  });
+  view.webContents.on("will-navigate", (event, url) => {
+    if (isPrivateHttpUrl(url)) {
+      return;
+    }
+    event.preventDefault();
+    if (isPublicHttpUrl(url) && settingsStore.get().open_external_links) {
+      openExternalLink(url);
     }
   });
   view.webContents.on("focus", () => closeToolbarPanel());
@@ -1746,6 +1847,7 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   });
 
   window.on("closed", () => {
+    closeDashboardLinkWindows();
     stopToolbarPoll();
     const toMain = dashboardClosingToMain;
     dashboardClosingToMain = false;
@@ -1877,7 +1979,8 @@ function createWindow(): void {
     process.env.TTMD_SMOKE === "idleclip" ||
     process.env.TTMD_SMOKE === "quitclip" ||
     process.env.TTMD_SMOKE === "navhang" ||
-    process.env.TTMD_SMOKE === "unlockfail"
+    process.env.TTMD_SMOKE === "unlockfail" ||
+    process.env.TTMD_SMOKE === "links"
   ) {
     mainWindow.webContents.once("did-finish-load", () => {
       if (mainWindow) {
@@ -1910,6 +2013,7 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
   const quitClipSmoke = process.env.TTMD_SMOKE === "quitclip";
   const navHangSmoke = process.env.TTMD_SMOKE === "navhang";
   const unlockFailSmoke = process.env.TTMD_SMOKE === "unlockfail";
+  const linksSmoke = process.env.TTMD_SMOKE === "links";
   const deadline =
     Date.now() +
     (full ||
@@ -1932,7 +2036,8 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
     idleClipSmoke ||
     quitClipSmoke ||
     navHangSmoke ||
-    unlockFailSmoke
+    unlockFailSmoke ||
+    linksSmoke
       ? 60_000
       : 12_000);
   let submitted = false;
@@ -2006,6 +2111,11 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
 
   if (unlockFailSmoke) {
     await runUnlockFailSmoke(window);
+    return;
+  }
+
+  if (linksSmoke) {
+    await runLinksSmoke(window);
     return;
   }
 
@@ -3109,16 +3219,23 @@ async function runCaptureSmoke(window: BrowserWindow): Promise<void> {
     await view.webContents.executeJavaScript(
       `(() => {
         document.getElementById("__ttmd_fill_form")?.remove();
-        const form = document.createElement("form");
-        form.id = "__ttmd_fill_form";
-        const user = document.createElement("input");
-        user.name = "username";
-        user.autocomplete = "username";
-        const pass = document.createElement("input");
-        pass.type = "password";
-        pass.name = "password";
-        form.append(user, pass);
-        document.body.append(form);
+        document.getElementById("__ttmd_fill_form_second")?.remove();
+        const make = (id) => {
+          const form = document.createElement("form");
+          form.id = id;
+          const user = document.createElement("input");
+          user.name = "username";
+          user.autocomplete = "username";
+          const pass = document.createElement("input");
+          pass.type = "password";
+          pass.name = "password";
+          form.append(user, pass);
+          document.body.append(form);
+          return form;
+        };
+        make("__ttmd_fill_form");
+        const second = make("__ttmd_fill_form_second");
+        second.querySelector('input[name="username"]')?.focus();
       })()`,
       true,
     );
@@ -3150,15 +3267,32 @@ async function runCaptureSmoke(window: BrowserWindow): Promise<void> {
     if (
       !(await waitForCondition(async () => {
         const values = (await view.webContents.executeJavaScript(`({
-          username: document.querySelector("#__ttmd_fill_form input[name=username]")?.value || "",
-          password: document.querySelector("#__ttmd_fill_form input[type=password]")?.value || "",
-        })`)) as { username: string; password: string };
-        return values.username === "alex" && values.password === "spa-secret";
+          firstUsername: document.querySelector("#__ttmd_fill_form input[name=username]")?.value || "",
+          firstPassword: document.querySelector("#__ttmd_fill_form input[type=password]")?.value || "",
+          secondUsername: document.querySelector("#__ttmd_fill_form_second input[name=username]")?.value || "",
+          secondPassword: document.querySelector("#__ttmd_fill_form_second input[type=password]")?.value || "",
+        })`)) as {
+          firstUsername: string;
+          firstPassword: string;
+          secondUsername: string;
+          secondPassword: string;
+        };
+        return (
+          values.secondUsername === "alex" &&
+          values.secondPassword === "spa-secret" &&
+          values.firstUsername === "" &&
+          values.firstPassword === ""
+        );
       }, 5000))
     ) {
-      throw new Error("the login was not filled");
+      throw new Error("the focused form was not the one filled");
     }
-    console.log("[smoke] capture filled");
+    console.log("[smoke] capture focused form filled");
+
+    await view.webContents.executeJavaScript(
+      'document.getElementById("__ttmd_fill_form_second")?.remove()',
+      true,
+    );
 
     const leaked = (await toolbar.webContents.executeJavaScript(
       'document.body.innerText.includes("hunter2") || document.body.innerText.includes("new-secret") || document.body.innerText.includes("spa-secret")',
@@ -4114,6 +4248,145 @@ async function runUnlockFailSmoke(window: BrowserWindow): Promise<void> {
   }
 }
 
+async function runLinksSmoke(window: BrowserWindow): Promise<void> {
+  try {
+    console.log("[smoke] links start");
+    smokeExternalOpens = [];
+    await settingsStore.update({
+      open_external_links: false,
+      open_links_in_new_window: false,
+    });
+
+    if (!(await waitForScreen(window, "main", 5000))) {
+      throw new Error("the dashboard list did not load");
+    }
+    if (!(await waitForProfileButton(window, 3000))) {
+      throw new Error("the profile card did not render");
+    }
+    await window.webContents.executeJavaScript(
+      'document.querySelector(".profile-actions button")?.click()',
+      true,
+    );
+    if (!(await waitForDashboard(5000)) || !(await waitForDashboardLoad(30_000))) {
+      throw new Error("the dashboard did not open");
+    }
+    const view = dashboardView;
+    if (!view) {
+      throw new Error("the dashboard view did not open");
+    }
+    const home = view.webContents.getURL();
+
+    const clickServiceLink = async (): Promise<boolean> =>
+      (await view.webContents.executeJavaScript(
+        `(() => {
+          const link = document.querySelector('a[target="_blank"][href^="http://192.168."]');
+          if (!link) return false;
+          link.click();
+          return true;
+        })()`,
+        true,
+      )) as boolean;
+    const clickPublicLink = async (): Promise<void> => {
+      await view.webContents.executeJavaScript(
+        `(() => {
+          const id = "__ttmd_public_link";
+          document.getElementById(id)?.remove();
+          const link = document.createElement("a");
+          link.id = id;
+          link.href = "https://example.com/";
+          link.textContent = "public test";
+          document.body.append(link);
+          link.click();
+        })()`,
+        true,
+      );
+    };
+
+    await clickPublicLink();
+    await delay(500);
+    if (smokeExternalOpens.length !== 0) {
+      throw new Error("a public link opened while the setting was off");
+    }
+    if (view.webContents.getURL() !== home) {
+      throw new Error("a blocked public link changed the dashboard page");
+    }
+    console.log("[smoke] links public blocked");
+
+    await settingsStore.update({ open_external_links: true });
+    await clickPublicLink();
+    if (
+      !(await waitForCondition(
+        async () => smokeExternalOpens.includes("https://example.com/"),
+        3000,
+      ))
+    ) {
+      throw new Error("the public link did not reach the external opener");
+    }
+    if (view.webContents.getURL() !== home) {
+      throw new Error("the external link changed the dashboard page");
+    }
+    console.log("[smoke] links public opened");
+    await settingsStore.update({ open_external_links: false });
+
+    await settingsStore.update({ open_links_in_new_window: true });
+    if (!(await clickServiceLink())) {
+      throw new Error("the dashboard has no private new-window link");
+    }
+    if (
+      !(await waitForCondition(
+        async () => dashboardLinkWindows.size === 1,
+        8000,
+      ))
+    ) {
+      throw new Error("the private link did not open a new window");
+    }
+    const linkWindow = [...dashboardLinkWindows][0];
+    if (
+      !(await waitForCondition(
+        async () => linkWindow.webContents.getURL().startsWith("http://192.168."),
+        15_000,
+      ))
+    ) {
+      throw new Error(
+        `the link window loaded ${linkWindow.webContents.getURL()}`,
+      );
+    }
+    if (!isPrivateHttpUrl(linkWindow.webContents.getURL())) {
+      throw new Error("the link window left the private address range");
+    }
+    console.log(
+      `[smoke] links new-window url=${linkWindow.webContents.getURL()}`,
+    );
+    navigation.backToApp();
+    if (!(await waitForDashboardClosed(5000))) {
+      throw new Error("the dashboard did not close");
+    }
+    if (
+      !(await waitForCondition(
+        async () => dashboardLinkWindows.size === 0,
+        3000,
+      ))
+    ) {
+      throw new Error("the link window survived the dashboard closing");
+    }
+    console.log("[smoke] links window closed with dashboard");
+    await settingsStore.update({ open_links_in_new_window: false });
+    console.log("[smoke] links done");
+
+    app.quit();
+  } catch (error) {
+    await settingsStore
+      .update({
+        open_external_links: false,
+        open_links_in_new_window: false,
+      })
+      .catch(() => {});
+    console.error(`[smoke] links failed: ${errorMessage(error)}`);
+    process.exitCode = 1;
+    app.quit();
+  }
+}
+
 async function waitForLockView(visible: boolean, timeoutMs: number): Promise<boolean> {
   return waitForCondition(async () => dashboardLock?.getVisible() === visible, timeoutMs);
 }
@@ -4129,6 +4402,12 @@ async function runToolbarSmoke(window: BrowserWindow): Promise<void> {
     }
     if (!(await waitForDashboardLoad(30_000))) {
       throw new Error("the dashboard did not finish loading");
+    }
+    if (process.env.TTMD_PEEKSHOT === "1" && dashboardView) {
+      await dashboardView.webContents.executeJavaScript(
+        'document.documentElement.style.background="#fff"; document.body.innerHTML=""; document.body.style.background="#fff";',
+        true,
+      );
     }
 
     console.log("[smoke] toolbar watching");
@@ -4326,6 +4605,63 @@ async function runSettingsSmoke(window: BrowserWindow): Promise<void> {
       throw new Error("auto-hide setting was not restored");
     }
     console.log("[smoke] settings auto-hide saved");
+
+    const openExternalBefore = settingsStore.get().open_external_links;
+    await window.webContents.executeJavaScript(
+      'document.getElementById("settings-open-external")?.click()',
+      true,
+    );
+    if (
+      !(await waitForCondition(
+        async () =>
+          settingsStore.get().open_external_links === !openExternalBefore,
+        3000,
+      ))
+    ) {
+      throw new Error("open-external-links setting was not saved");
+    }
+    await window.webContents.executeJavaScript(
+      'document.getElementById("settings-open-external")?.click()',
+      true,
+    );
+    if (
+      !(await waitForCondition(
+        async () => settingsStore.get().open_external_links === openExternalBefore,
+        3000,
+      ))
+    ) {
+      throw new Error("open-external-links setting was not restored");
+    }
+    console.log("[smoke] settings open-external saved");
+
+    const newWindowBefore = settingsStore.get().open_links_in_new_window;
+    await window.webContents.executeJavaScript(
+      'document.getElementById("settings-new-window")?.click()',
+      true,
+    );
+    if (
+      !(await waitForCondition(
+        async () =>
+          settingsStore.get().open_links_in_new_window === !newWindowBefore,
+        3000,
+      ))
+    ) {
+      throw new Error("new-window setting was not saved");
+    }
+    await window.webContents.executeJavaScript(
+      'document.getElementById("settings-new-window")?.click()',
+      true,
+    );
+    if (
+      !(await waitForCondition(
+        async () =>
+          settingsStore.get().open_links_in_new_window === newWindowBefore,
+        3000,
+      ))
+    ) {
+      throw new Error("new-window setting was not restored");
+    }
+    console.log("[smoke] settings new-window saved");
 
     await window.webContents.executeJavaScript(
       `(() => {
