@@ -564,13 +564,12 @@ function stopToolbarPoll(): void {
 }
 
 function handleToolbarPointer(payload: PointerPayload): void {
-  toolbarPointerOver = !payload.out;
-  if (
-    toolbarPointerOver &&
-    !toolbarVisible &&
-    dashboardAutoHide &&
-    !dashboardLocked
-  ) {
+  if (payload.out || !dashboardWindow?.isFocused()) {
+    toolbarPointerOver = false;
+    return;
+  }
+  toolbarPointerOver = true;
+  if (!toolbarVisible && dashboardAutoHide && !dashboardLocked) {
     toolbarInitialUntil = 0;
     setToolbarExpanded(true);
   }
@@ -1980,7 +1979,8 @@ function createWindow(): void {
     process.env.TTMD_SMOKE === "quitclip" ||
     process.env.TTMD_SMOKE === "navhang" ||
     process.env.TTMD_SMOKE === "unlockfail" ||
-    process.env.TTMD_SMOKE === "links"
+    process.env.TTMD_SMOKE === "links" ||
+    process.env.TTMD_SMOKE === "toolbarblur"
   ) {
     mainWindow.webContents.once("did-finish-load", () => {
       if (mainWindow) {
@@ -2014,6 +2014,7 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
   const navHangSmoke = process.env.TTMD_SMOKE === "navhang";
   const unlockFailSmoke = process.env.TTMD_SMOKE === "unlockfail";
   const linksSmoke = process.env.TTMD_SMOKE === "links";
+  const toolbarBlurSmoke = process.env.TTMD_SMOKE === "toolbarblur";
   const deadline =
     Date.now() +
     (full ||
@@ -2037,7 +2038,8 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
     quitClipSmoke ||
     navHangSmoke ||
     unlockFailSmoke ||
-    linksSmoke
+    linksSmoke ||
+    toolbarBlurSmoke
       ? 60_000
       : 12_000);
   let submitted = false;
@@ -2071,6 +2073,11 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
 
   if (toolbarFixedSmoke) {
     await runToolbarFixedSmoke(window);
+    return;
+  }
+
+  if (toolbarBlurSmoke) {
+    await runToolbarBlurSmoke(window);
     return;
   }
 
@@ -2678,6 +2685,78 @@ async function runToolbarFixedSmoke(window: BrowserWindow): Promise<void> {
     app.quit();
   } catch (error) {
     console.error(`[smoke] toolbarfixed failed: ${errorMessage(error)}`);
+    process.exitCode = 1;
+    app.quit();
+  }
+}
+
+async function runToolbarBlurSmoke(window: BrowserWindow): Promise<void> {
+  try {
+    console.log("[smoke] toolbarblur start");
+    if (!(await waitForScreen(window, "main", 5000))) {
+      throw new Error("the dashboard list did not load");
+    }
+    if (!(await waitForProfileButton(window, 3000))) {
+      throw new Error("the profile card did not render");
+    }
+    await window.webContents.executeJavaScript(
+      'document.querySelector(".profile-actions button")?.click()',
+      true,
+    );
+    if (!(await waitForDashboard(5000)) || !(await waitForDashboardLoad(30_000))) {
+      throw new Error("the dashboard did not open");
+    }
+    const toolbar = dashboardToolbar;
+    if (!toolbar) {
+      throw new Error("the toolbar view did not open");
+    }
+
+    setToolbarExpanded(false);
+    if (
+      !(await waitForCondition(
+        async () => toolbar.getBounds().height === peekHeight,
+        3000,
+      ))
+    ) {
+      throw new Error("the toolbar did not shrink to the peek pill");
+    }
+    console.log("[smoke] toolbarblur peek");
+
+    mainWindow?.show();
+    mainWindow?.focus();
+    if (
+      !(await waitForCondition(
+        async () => dashboardWindow?.isFocused() === false,
+        2000,
+      ))
+    ) {
+      dashboardWindow?.blur();
+    }
+    if (
+      !(await waitForCondition(
+        async () => dashboardWindow?.isFocused() === false,
+        2000,
+      ))
+    ) {
+      throw new Error("the dashboard window did not lose focus");
+    }
+
+    handleToolbarPointer({ y: 0, out: false });
+    if (toolbarVisible) {
+      throw new Error("an unfocused hover expanded the toolbar");
+    }
+    console.log("[smoke] toolbarblur ignored hover");
+
+    mainWindow?.hide();
+    dashboardWindow?.focus();
+    if (!(await waitForCondition(async () => toolbarVisible === true, 3000))) {
+      throw new Error("the toolbar did not expand when focus returned");
+    }
+    console.log("[smoke] toolbarblur focus expanded");
+
+    app.quit();
+  } catch (error) {
+    console.error(`[smoke] toolbarblur failed: ${errorMessage(error)}`);
     process.exitCode = 1;
     app.quit();
   }

@@ -10,6 +10,10 @@ they land, and keep the Done section for the record.
 
 ## Done
 
+- Auto-hide toolbar: hover expansion is ignored while the dashboard window is
+  inactive, so hovering the peek pill on an unfocused window no longer
+  flickers between expanding and the unfocused collapse. The `toolbarblur`
+  smoke covers it.
 - Tunnel drop and reconnect: with Wi-Fi fully off, Home/Reload shows “The
   dashboard is taking too long” after the 20-second watchdog, and retry
   recovers. The earlier “nothing” test was ambiguous because the established

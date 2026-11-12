@@ -70,8 +70,10 @@ The desktop app has four parts:
   configured LAN URL and nothing else as a top-level page. A 36px navigation
   bar is a centered floating glass bar. With auto-hide on it shrinks to a
   small centered peek pill and overlays the dashboard; hovering expands it with
-  a short animated resize. The peek pill keeps a dark edge and a slightly
-  stronger fill so it stays visible over light dashboards. With auto-hide off the bar becomes a plain
+  a short animated resize, but only while the dashboard window is focused. An
+  inactive window waits for a click/focus before it expands, so the pill cannot
+  flicker between hover and the unfocused collapse. The peek pill keeps a dark
+  edge and a slightly stronger fill so it stays visible over light dashboards. With auto-hide off the bar becomes a plain
   full-width row above the view, so it covers nothing and has no floating pill
   frame. A dashboard page can enter HTML fullscreen; the window follows, the
   toolbar hides, and leaving fullscreen restores the toolbar row. If a page
