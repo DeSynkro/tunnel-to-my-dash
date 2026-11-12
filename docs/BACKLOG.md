@@ -30,6 +30,10 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
   ignored, a changed password offers an update, and Not now is remembered for
   the session. With nothing saved, the toolbar key button flashes red and
   shows an empty-state bubble.
+- Saved-password hardening: the clipboard clears on every vault lock and is
+  serialized; capture requires a trusted gesture and waits for a page change;
+  same-origin updates are disambiguated; save failures are shown; credential
+  URLs with userinfo are rejected.
 - Brand integration: the house mark in the masthead and lock screen, the
   window and AppImage icon rendered from the logo, the README banner, and the
   neutral graphite + amber palette with green/red status dots across the main
@@ -76,21 +80,11 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 
 ## Saved-password follow-ups
 
-- Clear the clipboard on every vault lock, including the main-window Lock
-  button and idle lock, and serialize copy/clear so a late copy cannot outlive
-  a lock.
-- Require a trusted user gesture for login capture so a page script cannot
-  open save prompts; add negative tests.
-- Wait for a login success signal before offering to update an existing
-  password, so a typo cannot replace a good saved password.
-- Disambiguate multiple saved logins on the same origin and username;
-  normalize URLs and never auto-pick when more than one matches.
-- Tell the user when a save fails instead of only logging it.
-- Do not log the dashboard origin when saving a password.
-- Reject credential URLs with embedded userinfo and fix the validation test
-  so each case reaches its own check.
-- Add tests for clipboard clearing on lock and quit, the dialog's Not now
-  path, trusted-event gating and URL matching.
+- Capture success currently waits for the dashboard to navigate to a
+  different path. SPA logins that stay on the same path do not prompt; add a
+  DOM-based success signal (the password field disappearing) for them.
+- Add tests for clipboard clearing on quit and idle lock, the dialog's Not now
+  path, and URL matching.
 
 ## Later
 

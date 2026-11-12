@@ -65,14 +65,20 @@ Out of scope:
   Electron main process writes the value to the clipboard and never sends it
   to a renderer.
 - The clipboard is cleared after 30 seconds if it still matches the copied
-  value, and cleared immediately when the dashboard locks or the app quits.
+  value, and cleared immediately on any vault lock (dashboard padlock,
+  main-window lock or idle lock) or app quit.
 - Login capture uses the same isolated preload. It reads the username,
-  password, page title and origin on a submit, Enter or login-button event and
-  sends them to the main process. The password stays in main memory for the
-  native prompt and is never shown in the dialog.
+  password, page title and origin on a trusted submit, Enter or login-button
+  event (a recent real pointer or key gesture) and sends them to the main
+  process. The candidate is held until the page navigates to a different
+  path, so a failed login that reloads the same page does not prompt. The
+  password stays in main memory for the native prompt and is never shown in
+  the dialog.
 - Candidates from subframes, non-private origins, a locked vault or malformed
-  payloads are discarded. Exact duplicates are ignored; an existing origin and
-  username with a new password prompts to update.
+  payloads are discarded. Exact duplicates are ignored. Matching normalizes
+  saved URLs to their origin; an existing origin and username with a new
+  password prompts to update, and ambiguous same-origin matches are refused
+  rather than updated blindly.
 - There is no autofill and no password reveal in the UI. Editing a saved login
   leaves the stored password untouched unless a new one is typed.
 

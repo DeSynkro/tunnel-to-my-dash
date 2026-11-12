@@ -267,24 +267,31 @@ receives names, URLs and usernames. When a copy button is pressed, the main
 process fetches that one password from the core over the control socket and
 writes it straight to the clipboard, so the secret never reaches a renderer.
 The clipboard clears itself after 30 seconds if it still holds the copied
-value, and clears at once when the dashboard locks. There is no autofill and
-no reveal control.
+value, and clears at once when the vault locks (dashboard padlock, main-window
+lock or idle lock). There is no autofill and no reveal control.
 
 The toolbar panel pins the floating bar open while it is visible and closes
 on an outside click, Escape, navigation, window blur or lock. Editing a saved
 login leaves the stored password untouched unless a new one is typed.
 
-While a dashboard page is open, a minimal isolated preload watches login
-submissions: a form submit, Enter in a password field or a click on a login
-button. It reads the username, password, page title and origin, and sends
-them to the main process. The main process ignores subframes, non-private
-origins, locked vaults and malformed payloads, then offers a native Save
-password dialog showing the service name and URL — never the password.
-Saving uses the active profile, sets the URL to the page origin and names the
-login from the page title, falling back to the host. Exact matches are
-ignored, an existing origin and username with a new password prompts to
-update, and Not now is remembered for the session. There is still no
-autofill.
+While a dashboard page is open, a minimal isolated preload watches trusted
+login submissions: a form submit, Enter in a password field or a click on a
+login button. It only accepts events from a recent real pointer or key
+gesture, so page scripts cannot open save prompts. It reads the username,
+password, page title and origin, and sends them to the main process. The main
+process ignores subframes, non-private origins, locked vaults and malformed
+payloads. It holds the candidate until the page navigates to a different
+path, so a failed login that reloads the same page does not prompt, then
+offers a native Save password dialog showing the service name and URL — never
+the password. Saving uses the active profile, sets the URL to the page origin
+and names the login from the page title, falling back to the host.
+
+Matching normalizes saved URLs to their origin. Exact matches are ignored. A
+single origin and username with a new password prompts to update; when more
+than one saved login shares that origin and username, the app prefers the
+page-title match and otherwise warns instead of updating blindly. Not now is
+remembered for the session. Logins that stay on the same path after success
+are a known gap and do not prompt yet. There is still no autofill.
 
 ## Privacy and security
 
@@ -295,7 +302,7 @@ autofill.
 - Permissions (camera, microphone, geolocation, notifications, clipboard)
   are denied unless a future feature explicitly needs one.
 - The dashboard view has no Node integration, no file access and no popups.
-  A minimal isolated preload watches login submissions and reports a
+  A minimal isolated preload watches trusted login submissions and reports a
   candidate to the main process; it exposes no API to the page. Navigation is
   restricted to private addresses.
 - If the tunnel drops, LAN requests fail. There is no direct fallback.
