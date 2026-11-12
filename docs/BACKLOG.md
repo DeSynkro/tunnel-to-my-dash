@@ -5,20 +5,15 @@ they land, and keep the Done section for the record.
 
 ## Linux v1 — release blockers
 
-- [ ] Tunnel drop and reconnect: confirm Home/Reload show the local error card
-  once the tunnel is really down. The 20-second watchdog, proxy 502 card,
-  retry, and failed-unlock re-lock all pass in `navhang` and `unlockfail`.
-  In the real-world test Home/Reload looked inert, but the endpoint hostname is
-  resolved only at connect time; an established WireGuard session can keep
-  reaching the LAN after the WAN drops. Next: test with Wi-Fi fully off and
-  wait 25 seconds. If it still fails, log the Home/Reload IPC, load start,
-  did-start-navigation, did-navigate, did-fail-load, watchdog start/clear and
-  error-card events, and check whether the load succeeded through the existing
-  tunnel, a cached page, or a blocked beforeunload.
-- [ ] Confirm the first hosted CI run.
+- [ ] Fix the CI network-audit failure and confirm the first hosted build is
+  green. The failed run's `network-audit` artifact has the log.
 
 ## Done
 
+- Tunnel drop and reconnect: with Wi-Fi fully off, Home/Reload shows “The
+  dashboard is taking too long” after the 20-second watchdog, and retry
+  recovers. The earlier “nothing” test was ambiguous because the established
+  WireGuard session could still reach the LAN after the WAN dropped.
 - Link settings: public http(s) links can open in the system browser, and
   dashboard links that ask for a new window can open in a separate app window
   on the same tunnel. Both are off by default. The separate window is plain
