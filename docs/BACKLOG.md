@@ -3,13 +3,19 @@
 Everything still left before the Windows and Android ports. Check items off as
 they land, and keep the Done section for the record.
 
-## Linux v1 — release blockers
+## Repo housekeeping
 
-- [ ] Fix the CI network-audit failure and confirm the first hosted build is
-  green. The failed run's `network-audit` artifact has the log.
+- [ ] Rebase and rerun the four Dependabot PRs: setup-node 4→7, checkout 4→7,
+  upload-artifact 4→7, and golang.org/x/crypto 0.57→0.58. They predate the CI
+  fixes.
 
 ## Done
 
+- Hosted CI: the build workflow is green on `2c3c649` — core checks, desktop
+  build, no-dashboard strace audit, AppImage, checksums and artifact. The
+  audit caught Chromium downloading its spellcheck dictionary; the
+  spellchecker is disabled at session creation and the default session is
+  pinned to a loopback proxy.
 - Auto-hide toolbar: hover expansion is ignored while the dashboard window is
   inactive, so hovering the peek pill on an unfocused window no longer
   flickers between expanding and the unfocused collapse. The `toolbarblur`
