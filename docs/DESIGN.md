@@ -178,6 +178,11 @@ the dashboard URL is an IP literal; every name that needs resolving is resolved
 by the proxy. A background service that tries to look something up fails closed
 instead of reaching the internet.
 
+Chromium's spellchecker is disabled when a session is created, and the default
+session is pinned to a dead loopback proxy; only the dashboard partition gets
+the tunnel proxy. Without that, Chromium downloaded its en-GB spellcheck
+dictionary from a Google redirector, which also triggered a DoH probe.
+
 ## External content
 
 Dashboards often pull fonts, icons or widget data from public origins. Strict

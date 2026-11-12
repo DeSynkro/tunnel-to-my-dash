@@ -66,6 +66,9 @@ app.commandLine.appendSwitch("disable-component-update");
 app.commandLine.appendSwitch("disable-domain-reliability");
 app.commandLine.appendSwitch("disable-sync");
 app.commandLine.appendSwitch("disable-quic");
+app.commandLine.appendSwitch("disable-preconnect");
+app.commandLine.appendSwitch("disable-dns-prefetch");
+app.commandLine.appendSwitch("proxy-server", "http://127.0.0.1:9");
 app.commandLine.appendSwitch("disable-client-side-phishing-detection");
 app.commandLine.appendSwitch("disable-spell-checking");
 app.commandLine.appendSwitch("disable-component-extensions-with-background-pages");
@@ -73,10 +76,19 @@ app.commandLine.appendSwitch("no-pings");
 app.commandLine.appendSwitch("disable-breakpad");
 app.commandLine.appendSwitch("force-webrtc-ip-handling-policy", "disable_non_proxied_udp");
 app.commandLine.appendSwitch("host-resolver-rules", "MAP * ~NOTFOUND, EXCLUDE 127.0.0.1");
+// DnsOverHttpsUpgrade / DohAutoupgrade would bypass host-resolver-rules and
+// dial a DoH server directly; the network audit caught it trying Google DNS on
+// port 443. The preconnect/QUIC features cover a preconnect to a Google
+// redirector that also bypassed the background-networking switch.
 app.commandLine.appendSwitch(
   "disable-features",
-  "SafeBrowsing,OptimizationHints,MediaRouter,Translate,AutofillServerCommunication,InterestFeedContentSuggestions,DnsOverHttps,NetworkTimeServiceQuerying,OptimizationGuideModelDownloading,OptimizationHintsFetching",
+  "SafeBrowsing,OptimizationHints,MediaRouter,Translate,AutofillServerCommunication,InterestFeedContentSuggestions,DnsOverHttps,DnsOverHttpsUpgrade,DohAutoupgrade,DohSpecified,NetworkPrediction,PreconnectToSearch,PreconnectToSearchWithProxy,Quic,NetworkTimeServiceQuerying,OptimizationGuideModelDownloading,OptimizationHintsFetching",
 );
+
+app.on("session-created", (createdSession) => {
+  createdSession.setSpellCheckerEnabled(false);
+  createdSession.setSpellCheckerLanguages([]);
+});
 
 if (process.env.TTMD_NETLOG) {
   app.commandLine.appendSwitch("log-net-log", process.env.TTMD_NETLOG);
@@ -5298,11 +5310,19 @@ function delay(ms: number): Promise<void> {
 app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
 
+  // The app UI loads local files and has no remote content. Point the default
+  // session at a dead loopback proxy so Chromium's background services cannot
+  // dial out; the dashboard uses its own partition and the tunnel proxy.
+  await session.defaultSession.setProxy({
+    proxyRules: "http=127.0.0.1:9;https=127.0.0.1:9",
+  });
+
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
     callback(false);
   });
   session.defaultSession.setPermissionCheckHandler(() => false);
   session.defaultSession.setSpellCheckerEnabled(false);
+  session.defaultSession.setSpellCheckerLanguages([]);
 
   await settingsStore.load();
   await startCore();

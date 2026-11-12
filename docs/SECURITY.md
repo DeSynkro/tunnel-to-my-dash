@@ -193,3 +193,10 @@ services. Blocking Chromium's own DNS removed them, and the real dashboard
 still loaded through the proxy with the normal VPN active. Chromium's resolver
 is now disabled with `host-resolver-rules`; anything that tries to look up a
 name fails closed.
+
+A later audit caught Chromium downloading its en-GB spellcheck dictionary from
+`redirector.gvt1.com`, which also triggered a DoH/preconnect attempt to Google
+DNS. The spellchecker is now disabled when a session is created, the default
+session is pinned to a dead loopback proxy, and preconnect and DNS prefetch are
+off. Only the dashboard partition receives the tunnel proxy. The real dashboard
+still loads through it.
