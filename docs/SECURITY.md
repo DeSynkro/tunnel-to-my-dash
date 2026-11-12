@@ -79,10 +79,12 @@ Out of scope:
   saved URLs to their origin; an existing origin and username with a new
   password prompts to update, and ambiguous same-origin matches are refused
   rather than updated blindly.
-- Fill is manual: it only runs from the toolbar, only when the saved origin
-  matches the current page origin. The secret goes from the main process to
-  the isolated dashboard preload and into the page's own fields; the toolbar
-  renderer never receives it. Fill never submits the form.
+- Fill is manual: it runs from the toolbar or from the inline pill, only when
+  the saved origin matches the current page origin. The inline pill asks the
+  main process whether a login matches and requests one fill on a real click.
+  The secret goes from the main process to the isolated dashboard preload and
+  into the page's own fields; the toolbar renderer never receives it. Fill
+  never submits the form. The page can see the pill but cannot invoke it.
 - There is no automatic fill on page load and no password reveal in the UI.
   Editing a saved login leaves the stored password untouched unless a new one
   is typed.

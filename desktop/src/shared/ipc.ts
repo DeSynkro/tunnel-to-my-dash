@@ -38,6 +38,8 @@ export const IPC = {
   loginCandidate: "ttmd:login-candidate",
   autofillLogin: "ttmd:autofill-login",
   autofillResult: "ttmd:autofill-result",
+  inlineFillAvailable: "ttmd:inline-fill-available",
+  inlineFill: "ttmd:inline-fill",
   dashboardUnlock: "ttmd:dashboard-unlock",
   dashboardLocked: "ttmd:dashboard-locked",
   quit: "ttmd:quit",

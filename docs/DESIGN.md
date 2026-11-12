@@ -278,6 +278,14 @@ the input events framework forms expect. There is no auto-submit, and Fill
 never appears for a different origin. Each row also has a two-step delete:
 the × arms, and a second click removes the login from the vault.
 
+Focusing a password field on a page with a matching saved login also shows a
+small Fill pill next to that field. It is a fixed overlay in the dashboard
+preload, not part of the page layout. Clicking it fills that form and hides
+the pill; it never submits. It only appears on single-password login forms,
+not on new-password fields, and only in the top-level document. Pages with
+fields inside iframes or several password forms still have the toolbar panel
+as the reliable route.
+
 The toolbar panel pins the floating bar open while it is visible and closes
 on an outside click, Escape, navigation, window blur or lock. Editing a saved
 login leaves the stored password untouched unless a new one is typed.

@@ -3,6 +3,8 @@ import { IPC } from "./shared/ipc";
 import type {
   AutofillRequest,
   AutofillResult,
+  InlineFillAvailability,
+  InlineFillResult,
   LoginCandidate,
 } from "./shared/types";
 
@@ -318,4 +320,236 @@ if (window.top === window) {
     }
     ipcRenderer.send(IPC.autofillResult, request.id, fillLogin(request));
   });
+
+  let activeField: HTMLInputElement | null = null;
+  let hideTimer: number | null = null;
+  let positionTimer: number | null = null;
+
+  const fillHost = document.createElement("div");
+  fillHost.id = "__ttmd_fill_host";
+  fillHost.style.cssText =
+    "position:fixed;z-index:2147483647;display:none;pointer-events:auto;";
+  const fillShadow = fillHost.attachShadow({ mode: "closed" });
+  const fillButton = document.createElement("button");
+  fillButton.type = "button";
+  fillButton.textContent = "Fill";
+  fillButton.title = "Fill saved login";
+  fillButton.style.cssText = [
+    "all:initial",
+    "display:block",
+    "box-sizing:border-box",
+    "padding:5px 10px",
+    "border:1px solid rgba(240,163,90,.5)",
+    "border-radius:8px",
+    "background:rgba(14,14,14,.96)",
+    "color:#ece7dd",
+    "font:600 11px/1.2 system-ui,sans-serif",
+    "cursor:pointer",
+    "box-shadow:0 8px 24px rgba(0,0,0,.45)",
+  ].join(";");
+  fillShadow.append(fillButton);
+
+  function ensureFillHost(): void {
+    if (fillHost.isConnected) {
+      return;
+    }
+    if (document.documentElement) {
+      document.documentElement.append(fillHost);
+    } else {
+      document.addEventListener(
+        "DOMContentLoaded",
+        () => document.documentElement.append(fillHost),
+        { once: true },
+      );
+    }
+  }
+  ensureFillHost();
+
+  function isLoginPasswordField(field: HTMLInputElement): boolean {
+    if (field.autocomplete === "new-password") {
+      return false;
+    }
+    const form = field.closest("form");
+    if (form) {
+      const passwords = collectPasswordInputs(form).filter(visible);
+      if (passwords.length > 1) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function positionFillPill(): void {
+    const field = activeField;
+    if (!field || !field.isConnected) {
+      hideFillPill();
+      return;
+    }
+    ensureFillHost();
+    const rect = field.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) {
+      hideFillPill();
+      return;
+    }
+    if (rect.bottom < 0 || rect.top > window.innerHeight) {
+      fillHost.style.display = "none";
+      return;
+    }
+    const width = 44;
+    const left = Math.min(
+      window.innerWidth - width - 8,
+      Math.max(8, rect.right - width),
+    );
+    let top = rect.bottom + 6;
+    if (top + 28 > window.innerHeight) {
+      top = rect.top - 32;
+    }
+    fillHost.style.left = `${left}px`;
+    fillHost.style.top = `${Math.max(8, top)}px`;
+    fillHost.style.display = "block";
+  }
+
+  function hideFillPill(): void {
+    activeField = null;
+    fillHost.style.display = "none";
+    if (positionTimer !== null) {
+      window.clearInterval(positionTimer);
+      positionTimer = null;
+    }
+  }
+
+  async function showFillPill(field: HTMLInputElement): Promise<void> {
+    if (!isLoginPasswordField(field)) {
+      hideFillPill();
+      return;
+    }
+    activeField = field;
+    let availability: InlineFillAvailability;
+    try {
+      availability = (await ipcRenderer.invoke(
+        IPC.inlineFillAvailable,
+      )) as InlineFillAvailability;
+    } catch {
+      hideFillPill();
+      return;
+    }
+    if (activeField !== field || !field.isConnected) {
+      return;
+    }
+    if (!availability.available) {
+      hideFillPill();
+      return;
+    }
+    fillButton.title = availability.name
+      ? `Fill saved login for ${availability.name}`
+      : "Fill saved login";
+    positionFillPill();
+    if (positionTimer === null) {
+      positionTimer = window.setInterval(positionFillPill, 250);
+    }
+  }
+
+  function scheduleHideFillPill(): void {
+    if (hideTimer !== null) {
+      window.clearTimeout(hideTimer);
+    }
+    hideTimer = window.setTimeout(() => {
+      hideTimer = null;
+      hideFillPill();
+    }, 200);
+  }
+
+  function passwordFromPath(event: Event): HTMLInputElement | null {
+    for (const node of event.composedPath()) {
+      if (
+        node instanceof HTMLInputElement &&
+        node.type === "password" &&
+        visible(node)
+      ) {
+        return node;
+      }
+    }
+    return null;
+  }
+
+  document.addEventListener(
+    "focusin",
+    (event) => {
+      const field = passwordFromPath(event);
+      if (field) {
+        if (hideTimer !== null) {
+          window.clearTimeout(hideTimer);
+          hideTimer = null;
+        }
+        void showFillPill(field);
+      } else {
+        scheduleHideFillPill();
+      }
+    },
+    true,
+  );
+
+  document.addEventListener(
+    "focusout",
+    (event) => {
+      if (passwordFromPath(event)) {
+        scheduleHideFillPill();
+      }
+    },
+    true,
+  );
+
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (activeField) {
+        positionFillPill();
+      }
+    },
+    true,
+  );
+  window.addEventListener("resize", () => {
+    if (activeField) {
+      positionFillPill();
+    }
+  });
+
+  fillButton.addEventListener("mousedown", (event) => {
+    event.preventDefault();
+  });
+  fillButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!event.isTrusted) {
+      return;
+    }
+    const field = activeField;
+    if (!field) {
+      return;
+    }
+    hideFillPill();
+    void fillInline(field);
+  });
+
+  async function fillInline(field: HTMLInputElement): Promise<void> {
+    let result: InlineFillResult;
+    try {
+      result = (await ipcRenderer.invoke(IPC.inlineFill)) as InlineFillResult;
+    } catch {
+      return;
+    }
+    if (
+      !result.ok ||
+      typeof result.password !== "string" ||
+      !field.isConnected
+    ) {
+      return;
+    }
+    const username = usernameInputFor(field);
+    if (username && result.username) {
+      setInputValue(username, result.username);
+    }
+    setInputValue(field, result.password);
+    field.focus();
+  }
 }

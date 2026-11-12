@@ -105,6 +105,17 @@ export interface AutofillResult {
   password: boolean;
 }
 
+export interface InlineFillAvailability {
+  available: boolean;
+  name?: string;
+}
+
+export interface InlineFillResult {
+  ok: boolean;
+  username?: string;
+  password?: string;
+}
+
 export interface ConfigFile {
   name: string;
   text: string;

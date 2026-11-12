@@ -612,6 +612,72 @@ ipcMain.on(IPC.autofillResult, (event, requestID: unknown, result: unknown) => {
   resolve({ ok: raw.ok, username: raw.username, password: raw.password });
 });
 
+ipcMain.handle(IPC.inlineFillAvailable, async (event) => {
+  if (
+    !dashboardView ||
+    event.sender !== dashboardView.webContents ||
+    event.senderFrame !== dashboardView.webContents.mainFrame
+  ) {
+    throw new Error("Invalid request.");
+  }
+  const profileID = dashboardProfileID;
+  if (!control || !profileID || dashboardLocked) {
+    return { available: false };
+  }
+  const origin = dashboardOrigin();
+  if (!origin) {
+    return { available: false };
+  }
+  try {
+    const match = await matchingCredentialForPage(control, profileID, origin);
+    return match
+      ? { available: true, name: match.name }
+      : { available: false };
+  } catch {
+    return { available: false };
+  }
+});
+
+ipcMain.handle(IPC.inlineFill, async (event) => {
+  if (
+    !dashboardView ||
+    event.sender !== dashboardView.webContents ||
+    event.senderFrame !== dashboardView.webContents.mainFrame
+  ) {
+    throw new Error("Invalid request.");
+  }
+  const profileID = dashboardProfileID;
+  const epoch = vaultLockEpoch;
+  if (!control || !profileID || dashboardLocked) {
+    return { ok: false };
+  }
+  const origin = dashboardOrigin();
+  if (!origin) {
+    return { ok: false };
+  }
+  try {
+    const match = await matchingCredentialForPage(control, profileID, origin);
+    if (!match) {
+      return { ok: false };
+    }
+    const secret = await control.credentialSecret(profileID, match.id);
+    if (
+      dashboardLocked ||
+      dashboardProfileID !== profileID ||
+      epoch !== vaultLockEpoch
+    ) {
+      return { ok: false };
+    }
+    return {
+      ok: true,
+      username: secret.username,
+      password: secret.password,
+    };
+  } catch {
+    return { ok: false };
+  }
+});
+
 function startIdleMonitor(): void {
   stopIdleMonitor();
   idleMonitor = setInterval(() => {
@@ -871,6 +937,41 @@ function normalizedOrigin(value: string): string {
   } catch {
     return value;
   }
+}
+
+function dashboardOrigin(): string | null {
+  const view = dashboardView;
+  if (!view) {
+    return null;
+  }
+  const page = view.webContents.getURL();
+  if (!isPrivateHttpUrl(page)) {
+    return null;
+  }
+  try {
+    return new URL(page).origin;
+  } catch {
+    return null;
+  }
+}
+
+async function matchingCredentialForPage(
+  client: ControlClient,
+  profileID: string,
+  origin: string,
+): Promise<CredentialSummary | null> {
+  const credentials = await client.listCredentials(profileID);
+  const matches = credentials.filter(
+    (credential) => normalizedOrigin(credential.url ?? "") === origin,
+  );
+  if (matches.length <= 1) {
+    return matches[0] ?? null;
+  }
+  const title = dashboardView?.webContents.getTitle() ?? "";
+  const name = credentialName(title, origin).toLowerCase();
+  return (
+    matches.find((match) => match.name.toLowerCase() === name) ?? matches[0]
+  );
 }
 
 function clearPendingLogin(): void {
@@ -2366,7 +2467,32 @@ async function runCredentialsSmoke(window: BrowserWindow): Promise<void> {
     if (fillable) {
       throw new Error("a login for another origin showed a fill button");
     }
-    console.log("[smoke] credentials panel=2 fill-guard=ok");
+    const view = dashboardView;
+    if (!view) {
+      throw new Error("the dashboard view is missing");
+    }
+    await view.webContents.executeJavaScript(
+      `(() => {
+        document.getElementById("__ttmd_guard_form")?.remove();
+        const form = document.createElement("form");
+        form.id = "__ttmd_guard_form";
+        const pass = document.createElement("input");
+        pass.type = "password";
+        pass.name = "password";
+        form.append(pass);
+        document.body.append(form);
+        pass.focus();
+      })()`,
+      true,
+    );
+    await delay(700);
+    const pillVisible = (await view.webContents.executeJavaScript(
+      'document.getElementById("__ttmd_fill_host")?.style.display || ""',
+    )) as string;
+    if (pillVisible === "block") {
+      throw new Error("the inline fill pill appeared without a matching login");
+    }
+    console.log("[smoke] credentials panel=2 fill-guard=ok inline-guard=ok");
 
     await toolbar.webContents.executeJavaScript(
       `(() => {
@@ -2672,6 +2798,70 @@ async function runCaptureSmoke(window: BrowserWindow): Promise<void> {
       throw new Error("a password appeared in the toolbar DOM");
     }
     console.log("[smoke] capture toolbar clean");
+
+    await view.webContents.executeJavaScript(
+      `(() => {
+        const form = document.getElementById("__ttmd_fill_form");
+        const user = form?.querySelector('input[name="username"]');
+        const pass = form?.querySelector('input[type="password"]');
+        if (user) user.value = "";
+        if (pass) {
+          pass.value = "";
+          pass.focus();
+        }
+      })()`,
+      true,
+    );
+    if (
+      !(await waitForCondition(async () => {
+        const display = (await view.webContents.executeJavaScript(
+          'document.getElementById("__ttmd_fill_host")?.style.display || ""',
+        )) as string;
+        return display === "block";
+      }, 3000))
+    ) {
+      throw new Error("the inline fill pill did not appear");
+    }
+    const pill = (await view.webContents.executeJavaScript(
+      `(() => {
+        const host = document.getElementById("__ttmd_fill_host");
+        if (!host) return null;
+        const rect = host.getBoundingClientRect();
+        return {
+          x: Math.round(rect.left + rect.width / 2),
+          y: Math.round(rect.top + rect.height / 2),
+        };
+      })()`,
+    )) as { x: number; y: number } | null;
+    if (!pill) {
+      throw new Error("the inline fill pill has no position");
+    }
+    view.webContents.sendInputEvent({
+      type: "mouseDown",
+      x: pill.x,
+      y: pill.y,
+      button: "left",
+      clickCount: 1,
+    });
+    view.webContents.sendInputEvent({
+      type: "mouseUp",
+      x: pill.x,
+      y: pill.y,
+      button: "left",
+      clickCount: 1,
+    });
+    if (
+      !(await waitForCondition(async () => {
+        const values = (await view.webContents.executeJavaScript(`({
+          username: document.querySelector("#__ttmd_fill_form input[name=username]")?.value || "",
+          password: document.querySelector("#__ttmd_fill_form input[type=password]")?.value || "",
+        })`)) as { username: string; password: string };
+        return values.username === "alex" && values.password === "new-secret";
+      }, 5000))
+    ) {
+      throw new Error("the inline fill did not work");
+    }
+    console.log("[smoke] capture inline filled");
 
     await toolbar.webContents.executeJavaScript(
       'document.querySelector(".credential-delete")?.click()',
