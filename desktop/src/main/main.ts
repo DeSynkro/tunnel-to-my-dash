@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import net from "node:net";
 import {
   app,
   BaseWindow,
@@ -93,6 +94,7 @@ let dashboardError: WebContentsView | null = null;
 let dashboardErrorVisible = false;
 let currentError: ErrorState | null = null;
 let dashboardLoadWatch: ReturnType<typeof setTimeout> | null = null;
+let smokeUnlockFailures = 0;
 let dashboardHomeURL = "";
 let dashboardPartition = "";
 let dashboardPasswordProtected = false;
@@ -333,6 +335,18 @@ function startDashboardLoadWatch(): void {
     });
   }, 20_000);
   dashboardLoadWatch.unref?.();
+}
+
+function loadDashboardURL(url: string): void {
+  const view = dashboardView;
+  if (!view || dashboardLocked) {
+    return;
+  }
+  startDashboardLoadWatch();
+  void view.webContents.loadURL(url).catch((error) => {
+    console.error(`[dashboard] ${errorMessage(error)}`);
+  });
+  view.webContents.focus();
 }
 
 function showDashboardError(state: ErrorState): void {
@@ -1339,14 +1353,16 @@ const navigation: NavigationActions = {
     dashboardView?.webContents.focus();
   },
   reload: () => {
-    dashboardView?.webContents.reload();
-    dashboardView?.webContents.focus();
+    const view = dashboardView;
+    if (!view) {
+      return;
+    }
+    startDashboardLoadWatch();
+    view.webContents.reload();
+    view.webContents.focus();
   },
   home: () => {
-    if (dashboardView) {
-      void dashboardView.webContents.loadURL(dashboardHomeURL);
-      dashboardView.webContents.focus();
-    }
+    loadDashboardURL(dashboardHomeURL);
   },
   backToApp: () => {
     if (dashboardWindow) {
@@ -1412,23 +1428,66 @@ async function lockDashboard(): Promise<void> {
   dashboardLock.webContents.send(IPC.dashboardLocked, snapshot);
 }
 
+async function connectPasswordProtectedDashboard(
+  client: ControlClient,
+  password: string,
+): Promise<{ profileID: string; result: ConnectResult }> {
+  let unlocked = false;
+  try {
+    await client.unlock(password);
+    unlocked = true;
+    if (process.env.TTMD_SMOKE === "unlockfail" && smokeUnlockFailures === 0) {
+      smokeUnlockFailures += 1;
+      throw new Error("resolve endpoint: temporary failure in name resolution");
+    }
+    const status = await client.status();
+    const profileID = status.active_profile;
+    if (!profileID) {
+      throw new Error("No dashboard profile is active");
+    }
+
+    const result = await client.connect(profileID);
+    const dashboardSession = session.fromPartition(dashboardPartition);
+    await dashboardSession.setProxy({
+      proxyRules: `http=${result.proxy};https=${result.proxy}`,
+    });
+    return { profileID, result };
+  } catch (error) {
+    if (unlocked) {
+      try {
+        await lockVault();
+      } catch (lockError) {
+        console.error(`[lock] ${errorMessage(lockError)}`);
+      }
+    }
+    throw new Error(tunnelConnectionMessage(error));
+  }
+}
+
+function tunnelConnectionMessage(error: unknown): string {
+  const message = errorMessage(error);
+  if (/name resolution|no such host|\bresolve\b|\blookup\b/i.test(message)) {
+    return "The tunnel endpoint could not be resolved. Check your connection and try again.";
+  }
+  if (
+    /connection refused|no route to host|\bunreachable\b|timed out|\btimeout\b|deadline exceeded|network is down/i.test(
+      message,
+    )
+  ) {
+    return "The tunnel endpoint did not respond. Check your connection and try again.";
+  }
+  return message;
+}
+
 async function unlockDashboard(password: string): Promise<void> {
   if (!dashboardLocked || !control) {
     throw new Error("The dashboard is not locked.");
   }
 
-  await control.unlock(password);
-  const status = await control.status();
-  const profileID = status.active_profile;
-  if (!profileID) {
-    throw new Error("No dashboard profile is active");
-  }
-
-  const result = await control.connect(profileID);
-  const dashboardSession = session.fromPartition(dashboardPartition);
-  await dashboardSession.setProxy({
-    proxyRules: `http=${result.proxy};https=${result.proxy}`,
-  });
+  const { profileID, result } = await connectPasswordProtectedDashboard(
+    control,
+    password,
+  );
 
   dashboardHomeURL = result.dashboard_url;
   dashboardProfileID = profileID;
@@ -1633,7 +1692,12 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
     closeToolbarPanel();
     handleLoginNavigation();
     sendNavState();
-    if (dashboardErrorVisible) {
+    if (httpResponseCode >= 500) {
+      showDashboardError({
+        title: "The dashboard returned an error",
+        detail: `HTTP ${httpResponseCode} from ${url}\n\nThe tunnel may be up but the dashboard is not responding.`,
+      });
+    } else if (dashboardErrorVisible) {
       if (httpResponseCode >= 400) {
         showDashboardError({
           title: "The dashboard returned an error",
@@ -1811,7 +1875,9 @@ function createWindow(): void {
     process.env.TTMD_SMOKE === "dashboarderror" ||
     process.env.TTMD_SMOKE === "capturedecline" ||
     process.env.TTMD_SMOKE === "idleclip" ||
-    process.env.TTMD_SMOKE === "quitclip"
+    process.env.TTMD_SMOKE === "quitclip" ||
+    process.env.TTMD_SMOKE === "navhang" ||
+    process.env.TTMD_SMOKE === "unlockfail"
   ) {
     mainWindow.webContents.once("did-finish-load", () => {
       if (mainWindow) {
@@ -1842,6 +1908,8 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
   const captureDeclineSmoke = process.env.TTMD_SMOKE === "capturedecline";
   const idleClipSmoke = process.env.TTMD_SMOKE === "idleclip";
   const quitClipSmoke = process.env.TTMD_SMOKE === "quitclip";
+  const navHangSmoke = process.env.TTMD_SMOKE === "navhang";
+  const unlockFailSmoke = process.env.TTMD_SMOKE === "unlockfail";
   const deadline =
     Date.now() +
     (full ||
@@ -1862,7 +1930,9 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
     dashboardErrorSmoke ||
     captureDeclineSmoke ||
     idleClipSmoke ||
-    quitClipSmoke
+    quitClipSmoke ||
+    navHangSmoke ||
+    unlockFailSmoke
       ? 60_000
       : 12_000);
   let submitted = false;
@@ -1926,6 +1996,16 @@ async function runSmoke(window: BrowserWindow): Promise<void> {
 
   if (dashboardErrorSmoke) {
     await runDashboardErrorSmoke(window);
+    return;
+  }
+
+  if (navHangSmoke) {
+    await runNavHangSmoke(window);
+    return;
+  }
+
+  if (unlockFailSmoke) {
+    await runUnlockFailSmoke(window);
     return;
   }
 
@@ -3792,6 +3872,243 @@ async function runDashboardErrorSmoke(window: BrowserWindow): Promise<void> {
     app.quit();
   } catch (error) {
     console.error(`[smoke] dashboarderror failed: ${errorMessage(error)}`);
+    process.exitCode = 1;
+    app.quit();
+  }
+}
+
+async function runNavHangSmoke(window: BrowserWindow): Promise<void> {
+  let proxy: net.Server | null = null;
+  let held: net.Socket[] = [];
+  const closeProxy = async (): Promise<void> => {
+    for (const socket of held) {
+      socket.destroy();
+    }
+    held = [];
+    if (proxy) {
+      await new Promise<void>((resolve) => proxy?.close(() => resolve()));
+      proxy = null;
+    }
+  };
+
+  try {
+    console.log("[smoke] navhang start");
+    if (!(await waitForScreen(window, "main", 5000))) {
+      throw new Error("the dashboard list did not load");
+    }
+    if (!(await waitForProfileButton(window, 3000))) {
+      throw new Error("the profile card did not render");
+    }
+    await window.webContents.executeJavaScript(
+      'document.querySelector(".profile-actions button")?.click()',
+      true,
+    );
+    if (!(await waitForDashboard(5000)) || !(await waitForDashboardLoad(30_000))) {
+      throw new Error("the dashboard did not open");
+    }
+    const toolbar = dashboardToolbar;
+    const view = dashboardView;
+    if (!toolbar || !view) {
+      throw new Error("the dashboard views did not open");
+    }
+    if (!control) {
+      throw new Error("the core is not ready");
+    }
+
+    const dashboardSession = session.fromPartition(dashboardPartition);
+    const startProxy = async (mode: "hang" | "502"): Promise<void> => {
+      proxy = net.createServer((socket) => {
+        held.push(socket);
+        console.log(`[smoke] navhang proxy hit (${mode})`);
+        if (mode === "502") {
+          socket.once("data", () => {
+            socket.end(
+              "HTTP/1.1 502 Bad Gateway\r\nContent-Type: text/plain\r\nContent-Length: 20\r\nConnection: close\r\n\r\nupstream unavailable",
+            );
+          });
+        }
+        socket.on("error", () => {});
+      });
+      await new Promise<void>((resolve, reject) => {
+        proxy?.once("error", reject);
+        proxy?.listen(0, "127.0.0.1", () => resolve());
+      });
+      const address = proxy.address();
+      if (!address || typeof address === "string") {
+        throw new Error("the test proxy did not get a port");
+      }
+      await dashboardSession.setProxy({
+        proxyRules: `http=127.0.0.1:${address.port};https=127.0.0.1:${address.port}`,
+      });
+      await dashboardSession.closeAllConnections();
+    };
+    const clickHome = async (): Promise<void> => {
+      await toolbar.webContents.executeJavaScript(
+        'document.getElementById("home")?.click()',
+        true,
+      );
+    };
+    const waitForErrorTitle = async (
+      timeoutMs: number,
+      label: string,
+    ): Promise<string> => {
+      if (
+        !(await waitForCondition(
+          async () => dashboardError?.getVisible() === true,
+          timeoutMs,
+        ))
+      ) {
+        throw new Error(`Home did not surface the ${label} dashboard failure`);
+      }
+      const title = (await dashboardError?.webContents.executeJavaScript(
+        'document.getElementById("error-title")?.textContent || ""',
+      )) as string;
+      console.log(`[smoke] navhang ${label}: ${title}`);
+      return title;
+    };
+    const retry = async (): Promise<void> => {
+      await dashboardError?.webContents.executeJavaScript(
+        'document.getElementById("error-retry")?.click()',
+        true,
+      );
+      if (
+        !(await waitForCondition(
+          async () => dashboardError?.getVisible() === false,
+          25_000,
+        ))
+      ) {
+        throw new Error("the retry did not hide the error view");
+      }
+      if (!(await waitForDashboardLoad(30_000))) {
+        throw new Error("the dashboard did not reload after retry");
+      }
+    };
+
+    await control.disconnect();
+    await startProxy("502");
+    await clickHome();
+    const badGateway = await waitForErrorTitle(8000, "502");
+    if (!badGateway.toLowerCase().includes("returned an error")) {
+      throw new Error(`the 502 error title read: ${badGateway}`);
+    }
+    await closeProxy();
+    await retry();
+    console.log("[smoke] navhang 502 recovered");
+
+    await control.disconnect();
+    await startProxy("hang");
+    await clickHome();
+    const stalled = await waitForErrorTitle(25_000, "hang");
+    if (!stalled.toLowerCase().includes("taking too long")) {
+      throw new Error(`the hang error title read: ${stalled}`);
+    }
+    await closeProxy();
+    await retry();
+    console.log("[smoke] navhang hang recovered");
+
+    app.quit();
+  } catch (error) {
+    await closeProxy();
+    console.error(`[smoke] navhang failed: ${errorMessage(error)}`);
+    process.exitCode = 1;
+    app.quit();
+  }
+}
+
+async function runUnlockFailSmoke(window: BrowserWindow): Promise<void> {
+  try {
+    console.log("[smoke] unlockfail start");
+    let unlocked = false;
+    const loginDeadline = Date.now() + 15_000;
+    while (Date.now() < loginDeadline) {
+      const screen = (await window.webContents.executeJavaScript(
+        'document.body.dataset.screen || ""',
+      )) as string;
+      if (screen === "main") {
+        break;
+      }
+      if (screen === "lock" && !unlocked) {
+        await window.webContents.executeJavaScript(
+          `(() => {
+            const node = document.getElementById("lock-password");
+            if (node) node.value = "smoke-pass";
+            document.getElementById("lock-form")?.requestSubmit();
+          })()`,
+          true,
+        );
+        unlocked = true;
+      }
+      await delay(100);
+    }
+
+    if (!(await waitForProfileButton(window, 3000))) {
+      throw new Error("the profile card did not render");
+    }
+    await window.webContents.executeJavaScript(
+      'document.querySelector(".profile-actions button")?.click()',
+      true,
+    );
+    if (!(await waitForDashboard(5000)) || !(await waitForDashboardLoad(30_000))) {
+      throw new Error("the dashboard did not open");
+    }
+    if (!control) {
+      throw new Error("the core is not ready");
+    }
+    const client = control;
+
+    await dashboardToolbar?.webContents.executeJavaScript(
+      'document.getElementById("lock")?.click()',
+      true,
+    );
+    if (!(await waitForLockView(true, 5000))) {
+      throw new Error("the lock overlay did not open");
+    }
+
+    const submit = `(() => {
+      const node = document.getElementById("lock-password");
+      if (node) node.value = "smoke-pass";
+      document.getElementById("lock-form")?.requestSubmit();
+    })()`;
+    await dashboardLock?.webContents.executeJavaScript(submit, true);
+    if (
+      !(await waitForCondition(async () => {
+        const hidden = (await dashboardLock?.webContents.executeJavaScript(
+          'document.getElementById("lock-error")?.hidden',
+        )) as boolean;
+        return hidden === false;
+      }, 5000))
+    ) {
+      throw new Error("the failed unlock did not show an error");
+    }
+    const text = (await dashboardLock?.webContents.executeJavaScript(
+      'document.getElementById("lock-error")?.textContent || ""',
+    )) as string;
+    console.log(`[smoke] unlockfail error="${text.trim()}"`);
+
+    const status = await client.status();
+    if (!status.locked) {
+      throw new Error("the vault stayed unlocked after a failed reconnect");
+    }
+    if (
+      !text.toLowerCase().includes("tunnel endpoint") ||
+      text.toLowerCase().includes("error invoking remote method")
+    ) {
+      throw new Error(`the unlock error was not friendly: ${text.trim()}`);
+    }
+    console.log("[smoke] unlockfail relocked");
+
+    await dashboardLock?.webContents.executeJavaScript(submit, true);
+    if (!(await waitForLockView(false, 15_000))) {
+      throw new Error("the second unlock did not go through");
+    }
+    if (!(await waitForDashboardLoad(30_000))) {
+      throw new Error("the dashboard did not reload after unlock");
+    }
+    console.log("[smoke] unlockfail recovered");
+
+    app.quit();
+  } catch (error) {
+    console.error(`[smoke] unlockfail failed: ${errorMessage(error)}`);
     process.exitCode = 1;
     app.quit();
   }

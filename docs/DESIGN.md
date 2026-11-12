@@ -74,13 +74,17 @@ The desktop app has four parts:
   full-width row above the view, so it covers nothing and has no floating pill
   frame. A dashboard page can enter HTML fullscreen; the window follows, the
   toolbar hides, and leaving fullscreen restores the toolbar row. If a page
-  fails to load or takes longer than 20 seconds, a local error card replaces
-  the view with Try again and Main menu; retry reconnects the tunnel and
-  reloads. If the handshake fails before the window opens, the main window
-  shows a native retry dialog. The window X quits the app; the Main menu
-  button returns to the main menu. A padlock shows an opaque lock overlay over a blurred
+  fails to load, returns a 5xx or takes longer than 20 seconds, a local error
+  card replaces the view with Try again and Main menu; retry reconnects the
+  tunnel and reloads. Home, Reload and retry all start the same 20-second
+  watchdog, so a dropped tunnel cannot leave a stale page in place. If the
+  handshake fails before the window opens, the main window shows a native
+  retry dialog. The window X quits the app; the Main menu button returns to
+  the main menu. A padlock shows an opaque lock overlay over a blurred
   snapshot of the page, hides the live page, disconnects the tunnel and
-  reconnects the same dashboard after unlock. Back to main menu from that
+  reconnects the same dashboard after unlock. If the reconnect fails after
+  the password is accepted, the vault is locked again and the overlay shows a
+  friendly error, so the password can be retried. Back to main menu from that
   overlay suppresses auto-open once so the next unlock lands on the main menu.
   Embedding the dashboard in the main shell is a later refinement.
 - **Go core.** A userspace WireGuard device, a TCP/IP stack, a localhost HTTP

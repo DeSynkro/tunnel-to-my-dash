@@ -22,9 +22,16 @@ const submit = element<HTMLButtonElement>("lock-submit");
 const back = element<HTMLButtonElement>("lock-back");
 const backdrop = element<HTMLElement>("lock-backdrop");
 
+function cleanMessage(text: string): string {
+  return text.replace(
+    /^Error invoking remote method '[^']+':\s*(?:Error:\s*)?/,
+    "",
+  );
+}
+
 function message(caught: unknown): string {
   if (caught instanceof Error) {
-    return caught.message;
+    return cleanMessage(caught.message);
   }
   if (
     typeof caught === "object" &&
@@ -32,9 +39,9 @@ function message(caught: unknown): string {
     "message" in caught &&
     typeof (caught as { message: unknown }).message === "string"
   ) {
-    return (caught as { message: string }).message;
+    return cleanMessage((caught as { message: string }).message);
   }
-  return String(caught);
+  return cleanMessage(String(caught));
 }
 
 function setBusy(busy: boolean): void {

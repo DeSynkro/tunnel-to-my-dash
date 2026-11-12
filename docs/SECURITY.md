@@ -146,7 +146,9 @@ so.
 The dashboard padlock shows an opaque local lock view over a blurred snapshot
 of the page, hides the live dashboard view, mutes its audio and disconnects the
 tunnel. The snapshot is held in memory only and is never written to disk.
-Unlocking reconnects and reloads the configured dashboard. The idle lock uses
+Unlocking reconnects and reloads the configured dashboard. If the reconnect
+fails after the password is accepted, the vault is locked again before the
+error is shown, so the lock screen cannot leave it unlocked. The idle lock uses
 the same path and pauses while the dashboard is audible, so media playback is
 not cut off. Closing the dashboard window quits the app instead of leaving a
 hidden tunnel behind.

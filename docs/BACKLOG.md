@@ -5,7 +5,8 @@ they land, and keep the Done section for the record.
 
 ## Linux v1 — release blockers
 
-- [ ] Tunnel drop and reconnect on the latest build.
+- [ ] Tunnel drop and reconnect on the latest build, after the navigation and
+  unlock fixes.
 - [ ] Jellyfin transcode check. Fullscreen already passes in the packaged
   build.
 - [ ] Confirm the first hosted CI run.
@@ -24,6 +25,14 @@ they land, and keep the Done section for the record.
 
 ## Done
 
+- Dashboard navigation resilience: Home and Reload start the same 20-second
+  watchdog as the initial load; a proxy 5xx response shows the local error
+  card immediately. Retry reconnects and reloads. The `navhang` smoke covers a
+  502, a stalled proxy and recovery.
+- Failed dashboard unlock: if the tunnel cannot reconnect after the password
+  is accepted, the vault is locked again and the lock screen shows a friendly
+  error instead of the raw IPC message. A later retry works; the `unlockfail`
+  smoke covers it.
 - Real-world checks: Jellyfin playback and HTML fullscreen pass in the
   packaged build; a remote network over a phone hotspot passes on an earlier
   build, and the networking path is unchanged since.
