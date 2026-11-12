@@ -1,24 +1,34 @@
 # Backlog
 
-Ideas and follow-ups that are not part of the current phase. Move an item into
-`docs/ROADMAP.md` when it is picked up.
+Everything still left before the Windows and Android ports. Check items off as
+they land, and keep the Done section for the record.
 
-## Interface
+## Linux v1 — release blockers
 
-- Give the peek pill a visible edge over light dashboards. Its light fill
+- [ ] Finish saved passwords: add a DOM success signal for SPA logins that
+  stay on the same path, and tests for clipboard clearing on quit and idle
+  lock, the dialog's Not now path, and URL matching.
+- [ ] Friendly tunnel error pages for endpoint and handshake failures, with
+  reconnect.
+- [ ] Real-world failure pass: tunnel drop and reconnect, remote network and
+  home Wi-Fi.
+- [ ] Jellyfin playback inside the app, including a transcoding check.
+- [ ] GPG-signed release artifacts.
+- [ ] Automated network audit in CI.
+- [ ] Confirm the first hosted CI run.
+
+## Linux v1 — polish
+
+- [ ] Give the peek pill a visible edge over light dashboards. Its light fill
   disappears against a white page; a darker fill or a thin border would fix
   it without changing the dark-theme look.
-- Move the navigation bar into the main app window and embed the dashboard in
-  the shell instead of a separate dashboard window. This is a larger UI
-  refactor and belongs with the unslop pass.
-
-
-## App behaviour
-
-- Offer a deliberate "open in normal browser" path for public dashboard
+- [ ] Offer a deliberate "open in normal browser" path for public dashboard
   links, instead of leaving them dead.
-- Let users choose whether dashboard links open in the same window or in a
-  new window. Same-window is the current default.
+- [ ] Let users choose whether dashboard links open in the same window or in
+  a new window. Same-window is the current default.
+- [ ] Make the toolbar Fill use the focused login form on pages with several
+  forms, instead of the first visible one. The inline pill already does this.
+
 ## Done
 
 - Saved passwords: per-profile logins in the encrypted vault, edited in the
@@ -82,29 +92,27 @@ Ideas and follow-ups that are not part of the current phase. Move an item into
 - Homarr-style `target="_blank"` service links now navigate in the same
   dashboard view for private http(s) URLs. Public URLs stay blocked.
 
-## Saved-password follow-ups
-
-- Capture success currently waits for the dashboard to navigate to a
-  different path. SPA logins that stay on the same path do not prompt; add a
-  DOM-based success signal (the password field disappearing) for them.
-- Add tests for clipboard clearing on quit and idle lock, the dialog's Not now
-  path, and URL matching.
-
-## Later
+## Deferred after Linux v1
 
 - Launch at login on Linux. An autostart `.desktop` is easy to write, but the
-  AppImage path can move and the file lives outside the portable folder, so it
-  is deferred.
-- Start minimized and close to tray. These need a tray icon and menu; defer
-  until the distribution artwork work.
+  AppImage path can move and the file lives outside the portable folder.
+- Start minimized and close to tray. The artwork is in place; the tray menu
+  and lifecycle still need design.
 - Decide lock-on-leave semantics: Main menu button versus minimize/background.
 - Advanced tunnel details panel: endpoint, proxy, handshake age and last
   probe result.
 - Profile switcher UI while a dashboard is open.
-- Jellyfin playback test inside the app.
-- Friendly tunnel error pages and reconnect.
 - Evaluate an ad/tracker blocker. uBlock Origin's MV2 build does not load in
   current Chromium; possible routes are an MV3 blocker or a filter-list proxy.
   Keep it off by default and do not phone home for filter updates.
-- GPG-signed release artifacts.
-- Automated network audit in CI.
+- Move the navigation bar into the main app window and embed the dashboard in
+  the shell instead of a separate dashboard window. Larger UI refactor.
+- Self-signed certificate trust for LAN HTTPS services.
+- mDNS names such as `homeassistant.local`.
+- Optional direct mode when already on the home LAN.
+- Inline fill for login forms inside iframes.
+
+## After Linux v1: platforms
+
+- Windows portable `.exe` with the same Electron shell.
+- Android app: Kotlin, Compose, system WebView, same Go core through gomobile.

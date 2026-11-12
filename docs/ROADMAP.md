@@ -1,7 +1,8 @@
 # Roadmap
 
 This is the build order. Each phase ends with something we can run and test.
-Later phases do not start until the current one works.
+Later phases do not start until the current one works. The remaining Linux v1
+work is tracked in `docs/BACKLOG.md`.
 
 ## Phase 0 — Repository and docs
 
