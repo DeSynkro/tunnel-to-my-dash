@@ -29,15 +29,15 @@ env: dirs ## Show the project-local build environment
 toolchain: ## Install the pinned Go toolchain into .tools/
 	@scripts/toolchain.sh
 
-fmt: ## Format Go code
+fmt: dirs ## Format Go code
 	@test -d core || { echo "core/ not created yet"; exit 1; }
 	@cd core && $(GO) fmt ./...
 
-test: ## Run Go tests
+test: dirs ## Run Go tests
 	@test -d core || { echo "core/ not created yet"; exit 1; }
 	@cd core && $(GO) test ./...
 
-core: ## Build the core CLI
+core: dirs ## Build the core CLI
 	@test -d core || { echo "core/ not created yet"; exit 1; }
 	@mkdir -p build
 	@cd core && $(GO) build -trimpath -o ../build/ttmd-core ./cmd/ttmd-core
@@ -51,10 +51,10 @@ check: test ## Format check, vet, tests and no-TUN guard
 		echo "error: CreateTUN is not allowed"; exit 1; \
 	fi
 
-desktop-deps: ## Install desktop dependencies
+desktop-deps: dirs ## Install desktop dependencies
 	@cd desktop && npm install
 
-desktop-check: ## Type-check and build the desktop shell
+desktop-check: dirs ## Type-check and build the desktop shell
 	@cd desktop && npm run check
 
 audit-network: core desktop-check ## Run the no-dashboard network audit
