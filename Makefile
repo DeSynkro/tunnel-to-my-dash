@@ -67,7 +67,7 @@ desktop-start: desktop-check ## Run the desktop shell
 	@cd desktop && npm start
 
 appimage: core desktop-check ## Build the Linux AppImage
-	@cd desktop && ./node_modules/.bin/electron --version >/dev/null
+	@test -x desktop/node_modules/electron/dist/electron || { echo "error: Electron binary missing; run make desktop-deps"; exit 1; }
 	@cd desktop && npm run dist
 
 checksums: ## Write SHA-256 checksums for the AppImage
