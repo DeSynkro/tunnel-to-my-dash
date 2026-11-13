@@ -168,7 +168,13 @@ they land, and keep the Done section for the record.
 
 - [x] Project-local toolchain and a Compose/WebView connectivity spike with
   the shared Go core through `gomobile`.
-- [ ] Test the spike on the S21 (adb/logcat) and Pixel (manual install):
+- [x] Test the spike on the S21 (adb/logcat) and Pixel (manual install):
   proxy override, dashboard, Jellyfin playback and fullscreen.
-- [ ] If the spike passes, build the real client: vault, profiles, lock,
-  toolbar and error handling. Decide lifecycle/background behaviour then.
+- [x] Fix the WebView viewport: hosting the live WebView in Compose's
+  `AndroidView` left the top-level layout viewport at zero, collapsing
+  full-height dashboards. The live WebView now runs in a native
+  `FrameLayout`; the dashboard, Glances, OpenCode, Pi-hole, the portfolio
+  lightbox, Jellyfin playback and fullscreen all pass on the Pixel.
+- [ ] Build the real client: vault, profiles, lock, toolbar, error handling,
+  per-profile external settings and lifecycle. Decide lifecycle/background
+  behaviour then.
