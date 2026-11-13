@@ -17,7 +17,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
-fun AppRoot(viewModel: AppViewModel, onConnect: (String) -> Unit = {}) {
+fun AppRoot(
+    viewModel: AppViewModel,
+    onConnect: (String) -> Unit = {},
+    onExternalActivityStart: () -> Unit = {},
+    onExternalActivityEnd: () -> Unit = {},
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     when (val screen = state.screen) {
@@ -53,6 +58,8 @@ fun AppRoot(viewModel: AppViewModel, onConnect: (String) -> Unit = {}) {
                     forceLANOnly = state.settings.forceLANOnly,
                     onSave = viewModel::saveProfile,
                     onBack = viewModel::backToProfiles,
+                    onExternalActivityStart = onExternalActivityStart,
+                    onExternalActivityEnd = onExternalActivityEnd,
                 )
             }
         }
@@ -63,6 +70,8 @@ fun AppRoot(viewModel: AppViewModel, onConnect: (String) -> Unit = {}) {
             onExport = viewModel::exportVault,
             onImport = viewModel::importVault,
             onBack = viewModel::backToProfiles,
+            onExternalActivityStart = onExternalActivityStart,
+            onExternalActivityEnd = onExternalActivityEnd,
         )
     }
 }

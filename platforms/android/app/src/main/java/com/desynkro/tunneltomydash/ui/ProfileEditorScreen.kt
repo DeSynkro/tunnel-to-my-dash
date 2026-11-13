@@ -38,6 +38,8 @@ fun ProfileEditorScreen(
     forceLANOnly: Boolean,
     onSave: (ProfileDraft) -> Unit,
     onBack: () -> Unit,
+    onExternalActivityStart: () -> Unit = {},
+    onExternalActivityEnd: () -> Unit = {},
 ) {
     val context = LocalContext.current
     var name by remember(detail?.id) { mutableStateOf(detail?.name ?: "") }
@@ -50,6 +52,7 @@ fun ProfileEditorScreen(
     var localError by remember(detail?.id) { mutableStateOf<String?>(null) }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        onExternalActivityEnd()
         if (uri == null) {
             return@rememberLauncherForActivityResult
         }
@@ -122,7 +125,10 @@ fun ProfileEditorScreen(
             style = MaterialTheme.typography.bodyMedium,
         )
         OutlinedButton(
-            onClick = { picker.launch(arrayOf("*/*")) },
+            onClick = {
+                onExternalActivityStart()
+                picker.launch(arrayOf("*/*"))
+            },
             enabled = !busy,
         ) {
             Text(if (hasConfig) "Replace .conf" else "Choose .conf")

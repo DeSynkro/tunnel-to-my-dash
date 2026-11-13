@@ -40,6 +40,8 @@ fun SettingsScreen(
     onExport: suspend (String) -> ByteArray,
     onImport: suspend (ByteArray, String) -> Unit,
     onBack: () -> Unit,
+    onExternalActivityStart: () -> Unit = {},
+    onExternalActivityEnd: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -58,6 +60,7 @@ fun SettingsScreen(
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/octet-stream"),
     ) { uri ->
+        onExternalActivityEnd()
         if (uri != null) {
             pendingExportUri = uri
         }
@@ -65,6 +68,7 @@ fun SettingsScreen(
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri ->
+        onExternalActivityEnd()
         if (uri == null) {
             return@rememberLauncherForActivityResult
         }
@@ -164,14 +168,20 @@ fun SettingsScreen(
             }
         }
         OutlinedButton(
-            onClick = { exportLauncher.launch("tunnel-to-my-dash-backup.ttmd") },
+            onClick = {
+                onExternalActivityStart()
+                exportLauncher.launch("tunnel-to-my-dash-backup.ttmd")
+            },
             enabled = !busy,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text("Export vault")
         }
         OutlinedButton(
-            onClick = { importLauncher.launch(arrayOf("application/octet-stream", "*/*")) },
+            onClick = {
+                onExternalActivityStart()
+                importLauncher.launch(arrayOf("application/octet-stream", "*/*"))
+            },
             enabled = !busy,
             modifier = Modifier.fillMaxWidth(),
         ) {
