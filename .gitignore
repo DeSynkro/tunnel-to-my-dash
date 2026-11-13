@@ -63,3 +63,10 @@ Thumbs.db
 # Logs and crash dumps
 *.log
 core.*
+
+# Android
+/platforms/android/.gradle/
+/platforms/android/app/build/
+/platforms/android/app/libs/*.aar
+/platforms/android/local.properties
+/platforms/android/.idea/

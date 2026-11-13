@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# adb with its keys kept inside the project.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+export HOME="$ROOT/.cache/android-home"
+mkdir -p "$HOME"
+exec "$ROOT/.tools/android-sdk/platform-tools/adb" "$@"

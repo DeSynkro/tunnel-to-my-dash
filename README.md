@@ -64,7 +64,7 @@ More detail in [docs/DESIGN.md](docs/DESIGN.md).
 - No system VPN, root or firewall changes.
 - Strict LAN-only by default; fail closed.
 - WireGuard keys never stored in plaintext.
-- Linux first; Android and Windows later.
+- Linux and Windows first; Android is a separate client.
 
 ## Layout
 
@@ -120,7 +120,8 @@ one. The app does not phone home for updates.
   always visible.
 - Launch at login, start minimized and close to tray are deferred until the
   tray icon exists.
-- Windows portable `.exe` is built by the Windows CI job; Android comes later.
+- Windows portable `.exe` is built by the Windows CI job. The Android
+  connectivity spike is in progress.
 - Jellyfin playback, fullscreen and the remote network have been tested by the
   user. The Linux no-dashboard network audit runs in CI.
 - Release artifacts have SHA-256 checksums; GPG signing is deferred.

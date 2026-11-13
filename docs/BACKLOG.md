@@ -166,6 +166,9 @@ they land, and keep the Done section for the record.
 
 ## Android
 
-- Feasibility spike: Kotlin/Compose, system WebView and the Go core through
-  `gomobile`.
-- Decide lifecycle, vault storage and tunnel ownership on Android.
+- [x] Project-local toolchain and a Compose/WebView connectivity spike with
+  the shared Go core through `gomobile`.
+- [ ] Test the spike on the S21 (adb/logcat) and Pixel (manual install):
+  proxy override, dashboard, Jellyfin playback and fullscreen.
+- [ ] If the spike passes, build the real client: vault, profiles, lock,
+  toolbar and error handling. Decide lifecycle/background behaviour then.

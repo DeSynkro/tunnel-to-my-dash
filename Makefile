@@ -14,7 +14,7 @@ export ELECTRON_CACHE := $(CACHE)/electron
 export ELECTRON_BUILDER_CACHE := $(CACHE)/electron-builder
 export PATH := $(ROOT)/.tools/go/bin:$(PATH)
 
-.PHONY: help dirs env toolchain fmt test core check desktop-deps desktop-check audit-network desktop desktop-start appimage checksums release clean
+.PHONY: help dirs env toolchain fmt test core check desktop-deps desktop-check audit-network desktop desktop-start appimage checksums release clean android-setup android-bind android-apk android-install
 
 help: ## List available targets
 	@awk 'BEGIN {FS = ":.*## "; printf "Targets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-10s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -75,6 +75,24 @@ checksums: ## Write SHA-256 checksums for the AppImage
 	@cat desktop/release/SHA256SUMS
 
 release: appimage checksums ## Build the AppImage and its checksums
+
+android-setup: ## Install the project-local Android SDK, NDK, JDK and gomobile
+	@platforms/android/setup.sh
+
+android-bind: ## Build the Go core into an Android AAR
+	@. platforms/android/env.sh && mkdir -p platforms/android/app/libs && cd core && gomobile bind -target=android/arm64 -androidapi 29 -o ../platforms/android/app/libs/core.aar ./mobile
+
+android-apk: android-bind ## Build the debug Android APK
+	@. platforms/android/env.sh && cd platforms/android && ./gradlew assembleDebug
+
+android-install: android-apk ## Install the debug APK on the connected device
+	@platforms/android/adb install -r platforms/android/app/build/outputs/apk/debug/app-debug.apk
+
+android-devices: ## List connected Android devices
+	@platforms/android/adb devices
+
+android-logcat: ## Show app and crash logs from the connected device
+	@platforms/android/adb logcat -s TTMD:V AndroidRuntime:E
 
 clean: ## Remove build output and local caches
 	@rm -rf "$(ROOT)/build" "$(ROOT)/dist" "$(CACHE)" "$(TMP)"
