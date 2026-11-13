@@ -18,6 +18,7 @@ interface VaultGateway {
     suspend fun settings(): AppSettings
     suspend fun saveSettings(settings: AppSettings)
     suspend fun changePassword(oldPassword: String, newPassword: String)
+    suspend fun verifyPassword(password: String)
 
     suspend fun exportVault(password: String): ByteArray
     suspend fun importVault(data: ByteArray, password: String)

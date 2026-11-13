@@ -21,6 +21,7 @@ const (
 var (
 	ErrExists             = errors.New("vault already exists")
 	ErrLocked             = errors.New("vault is locked")
+	ErrPasswordless       = errors.New("vault has no password")
 	ErrWrongPassword      = errors.New("wrong password")
 	ErrLockedOut          = errors.New("too many failed attempts; try again later")
 	ErrCorrupt            = errors.New("vault is damaged or was tampered with")
@@ -274,6 +275,18 @@ func (s *Store) checkPassword(password string) error {
 		return ErrWrongPassword
 	}
 	return nil
+}
+
+// VerifyPassword checks a password against the open vault without changing its
+// unlocked state. It is used before enabling biometric unlock.
+func (s *Store) VerifyPassword(password string) error {
+	if !s.unlocked {
+		return ErrLocked
+	}
+	if s.meta.Mode != modePassword {
+		return ErrPasswordless
+	}
+	return s.checkPassword(password)
 }
 
 func (s *Store) Lock() {

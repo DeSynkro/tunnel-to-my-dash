@@ -92,7 +92,11 @@ fun ProfilesScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        if (profile.externalMode == "off") "LAN only" else "External content allowed",
+                        when (profile.externalMode) {
+                            "off" -> "LAN only"
+                            "origins" -> "External content: specific origins"
+                            else -> "External content: all"
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

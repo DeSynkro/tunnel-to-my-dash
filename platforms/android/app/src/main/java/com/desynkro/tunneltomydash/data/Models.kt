@@ -22,6 +22,7 @@ data class ProfileDetail(
     val name: String,
     val dashboardURL: String,
     val externalMode: String,
+    val externalOrigins: List<String>,
     val hasTunnelConfig: Boolean,
 )
 
@@ -30,11 +31,9 @@ data class ProfileDraft(
     val name: String,
     val tunnelConfig: String,
     val dashboardURL: String,
-    val allowExternal: Boolean,
-) {
-    val externalMode: String
-        get() = if (allowExternal) "all" else "off"
-}
+    val externalMode: String,
+    val externalOrigins: List<String>,
+)
 
 data class AppSettings(
     val forceLANOnly: Boolean,
@@ -85,11 +84,15 @@ private fun parseProfileSummary(json: JSONObject): ProfileSummary = ProfileSumma
 
 internal fun parseProfileDetail(raw: String): ProfileDetail {
     val json = JSONObject(raw)
+    val origins = json.optJSONArray("external_origins")?.let { array ->
+        (0 until array.length()).map { index -> array.getString(index) }
+    }.orEmpty()
     return ProfileDetail(
         id = json.optString("id"),
         name = json.optString("name"),
         dashboardURL = json.optString("dashboard_url"),
         externalMode = json.optString("external_mode", "off"),
+        externalOrigins = origins,
         hasTunnelConfig = json.optBoolean("has_tunnel_config", false),
     )
 }
@@ -128,7 +131,21 @@ internal fun ProfileDraft.toJson(): String = JSONObject().apply {
     }
     put("dashboard_url", dashboardURL)
     put("external_mode", externalMode)
+    if (externalMode == "origins") {
+        put("external_origins", JSONArray(externalOrigins))
+    }
 }.toString()
+
+/**
+ * Maps the "Allow external content" switch to a stored mode. A profile that
+ * already uses an exact-origin allowlist keeps that mode: the Android editor
+ * can turn external content off, but cannot widen it to "all" by accident.
+ */
+internal fun resolveExternalMode(allowExternal: Boolean, storedMode: String): String = when {
+    !allowExternal -> "off"
+    storedMode == "origins" -> "origins"
+    else -> "all"
+}
 
 internal fun AppSettings.toJson(): String = JSONObject().apply {
     put("force_lan_only", forceLANOnly)

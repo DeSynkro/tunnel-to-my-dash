@@ -11,9 +11,10 @@ import (
 )
 
 var (
-	mu     sync.Mutex
-	active *app.App
-	store  *vault.Store
+	mu        sync.Mutex
+	active    *app.App
+	store     *vault.Store
+	storePath string
 )
 
 // Start parses a WireGuard configuration, starts the userspace tunnel and the

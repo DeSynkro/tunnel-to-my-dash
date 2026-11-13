@@ -32,20 +32,27 @@ func CreateVault(path, password string) error {
 		return err
 	}
 	store = created
+	storePath = path
 	return nil
 }
 
 // OpenVault opens an existing vault. Password vaults stay locked until
-// UnlockVault; keyfile vaults open unlocked.
+// UnlockVault; keyfile vaults open unlocked. Reopening the vault that is
+// already open is a no-op, so an activity restart does not discard an unlocked
+// vault or its state.
 func OpenVault(path string) error {
 	mu.Lock()
 	defer mu.Unlock()
 
+	if store != nil && storePath == path {
+		return nil
+	}
 	opened, err := vault.Open(path)
 	if err != nil {
 		return err
 	}
 	store = opened
+	storePath = path
 	return nil
 }
 
@@ -66,7 +73,7 @@ func LockVault() {
 	mu.Lock()
 	defer mu.Unlock()
 
-	if store != nil {
+	if store != nil && store.PasswordProtected() {
 		store.Lock()
 	}
 }
@@ -94,6 +101,18 @@ func ChangeVaultPassword(oldPassword, newPassword string) error {
 		return errors.New("no vault is open")
 	}
 	return store.ChangePassword(oldPassword, newPassword)
+}
+
+// VerifyVaultPassword checks a password against the open vault without
+// changing its lock state.
+func VerifyVaultPassword(password string) error {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if store == nil {
+		return errors.New("no vault is open")
+	}
+	return store.VerifyPassword(password)
 }
 
 // ProfilesJSON returns the non-secret profile list.
@@ -131,6 +150,7 @@ func ProfileJSON(id string) (string, error) {
 		Name:            profile.Name,
 		DashboardURL:    profile.DashboardURL,
 		ExternalMode:    profile.EffectiveExternalMode(),
+		ExternalOrigins: append([]string(nil), profile.ExternalOrigins...),
 		HasTunnelConfig: strings.TrimSpace(profile.TunnelConfig) != "",
 	})
 }
@@ -154,11 +174,12 @@ func AddProfileJSON(input string) (string, error) {
 		return "", err
 	}
 	profile, err := s.AddProfile(vault.Profile{
-		Name:          profileInput.Name,
-		TunnelConfig:  profileInput.TunnelConfig,
-		DashboardURL:  profileInput.DashboardURL,
-		AllowExternal: mode != external.ModeOff,
-		ExternalMode:  mode,
+		Name:            profileInput.Name,
+		TunnelConfig:    profileInput.TunnelConfig,
+		DashboardURL:    profileInput.DashboardURL,
+		AllowExternal:   mode != external.ModeOff,
+		ExternalMode:    mode,
+		ExternalOrigins: append([]string(nil), profileInput.ExternalOrigins...),
 	})
 	if err != nil {
 		return "", err
@@ -203,6 +224,7 @@ func UpdateProfileJSON(input string) (string, error) {
 	}
 	profile.AllowExternal = mode != external.ModeOff
 	profile.ExternalMode = mode
+	profile.ExternalOrigins = append([]string(nil), profileInput.ExternalOrigins...)
 	if err := s.UpdateProfile(profile); err != nil {
 		return "", err
 	}
@@ -325,6 +347,8 @@ func normalizeProfileMode(raw string) (string, error) {
 		return external.ModeOff, nil
 	case external.ModeAll:
 		return external.ModeAll, nil
+	case external.ModeOrigins:
+		return external.ModeOrigins, nil
 	default:
 		return "", fmt.Errorf("unsupported external mode %q", raw)
 	}

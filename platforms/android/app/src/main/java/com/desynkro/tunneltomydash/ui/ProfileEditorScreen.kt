@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.desynkro.tunneltomydash.data.ProfileDetail
 import com.desynkro.tunneltomydash.data.ProfileDraft
+import com.desynkro.tunneltomydash.data.resolveExternalMode
 
 @Composable
 fun ProfileEditorScreen(
@@ -45,8 +46,10 @@ fun ProfileEditorScreen(
     var name by remember(detail?.id) { mutableStateOf(detail?.name ?: "") }
     var dashboardURL by remember(detail?.id) { mutableStateOf(detail?.dashboardURL ?: "") }
     var allowExternal by remember(detail?.id) {
-        mutableStateOf(detail?.externalMode != "off")
+        mutableStateOf(detail?.externalMode.orEmpty().ifEmpty { "off" } != "off")
     }
+    val storedExternalMode = detail?.externalMode.orEmpty().ifEmpty { "off" }
+    val storedOrigins = detail?.externalOrigins.orEmpty()
     var tunnelConfig by remember(detail?.id) { mutableStateOf("") }
     var hasConfig by remember(detail?.id) { mutableStateOf(detail?.hasTunnelConfig == true) }
     var localError by remember(detail?.id) { mutableStateOf<String?>(null) }
@@ -118,6 +121,13 @@ fun ProfileEditorScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        } else if (allowExternal && storedExternalMode == "origins") {
+            Text(
+                "This profile allows only the specific public origins saved in the vault. " +
+                    "Use the desktop app to change that list.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         Text(
@@ -161,13 +171,15 @@ fun ProfileEditorScreen(
                     return@Button
                 }
                 localError = null
+                val externalMode = resolveExternalMode(allowExternal, storedExternalMode)
                 onSave(
                     ProfileDraft(
                         id = detail?.id,
                         name = name.trim(),
                         tunnelConfig = tunnelConfig.trim(),
                         dashboardURL = dashboardURL.trim(),
-                        allowExternal = allowExternal,
+                        externalMode = externalMode,
+                        externalOrigins = if (externalMode == "origins") storedOrigins else emptyList(),
                     ),
                 )
             },

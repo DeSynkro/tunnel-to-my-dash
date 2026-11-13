@@ -19,21 +19,23 @@ type ProfileSummary struct {
 // ProfileDetail is the non-secret profile view used by the editor. The tunnel
 // config and saved credentials never cross this boundary.
 type ProfileDetail struct {
-	ID              string `json:"id"`
-	Name            string `json:"name"`
-	DashboardURL    string `json:"dashboard_url"`
-	ExternalMode    string `json:"external_mode"`
-	HasTunnelConfig bool   `json:"has_tunnel_config"`
+	ID              string   `json:"id"`
+	Name            string   `json:"name"`
+	DashboardURL    string   `json:"dashboard_url"`
+	ExternalMode    string   `json:"external_mode"`
+	ExternalOrigins []string `json:"external_origins"`
+	HasTunnelConfig bool     `json:"has_tunnel_config"`
 }
 
 // ProfileInput is the editable profile data. An empty TunnelConfig on update
 // keeps the stored config; credentials are always preserved by the bridge.
 type ProfileInput struct {
-	ID           string `json:"id,omitempty"`
-	Name         string `json:"name"`
-	TunnelConfig string `json:"tunnel_config,omitempty"`
-	DashboardURL string `json:"dashboard_url"`
-	ExternalMode string `json:"external_mode"`
+	ID              string   `json:"id,omitempty"`
+	Name            string   `json:"name"`
+	TunnelConfig    string   `json:"tunnel_config,omitempty"`
+	DashboardURL    string   `json:"dashboard_url"`
+	ExternalMode    string   `json:"external_mode"`
+	ExternalOrigins []string `json:"external_origins,omitempty"`
 }
 
 // Settings combines the shared LAN policy with the Android-only preferences.

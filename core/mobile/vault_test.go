@@ -57,9 +57,9 @@ AllowedIPs = 0.0.0.0/0
 func addTestProfile(t *testing.T, name, externalMode string) ProfileSummary {
 	t.Helper()
 	input, err := json.Marshal(ProfileInput{
-		Name:          name,
-		TunnelConfig:  validTunnelConfig(t),
-		DashboardURL:  "http://192.168.0.3:3000",
+		Name:         name,
+		TunnelConfig: validTunnelConfig(t),
+		DashboardURL: "http://192.168.0.3:3000",
 		ExternalMode: externalMode,
 	})
 	if err != nil {
@@ -162,9 +162,9 @@ func TestVaultKeyfileLifecycle(t *testing.T) {
 	}
 
 	update, err := json.Marshal(ProfileInput{
-		ID:            home.ID,
-		Name:          "Home updated",
-		DashboardURL:  "http://192.168.0.3:3000",
+		ID:           home.ID,
+		Name:         "Home updated",
+		DashboardURL: "http://192.168.0.3:3000",
 		ExternalMode: "all",
 	})
 	if err != nil {
@@ -240,9 +240,9 @@ func TestProfileUpdatePreservesCredentials(t *testing.T) {
 	}
 
 	input, err := json.Marshal(ProfileInput{
-		ID:            home.ID,
-		Name:          "Home renamed",
-		DashboardURL:  "http://192.168.0.3:3000",
+		ID:           home.ID,
+		Name:         "Home renamed",
+		DashboardURL: "http://192.168.0.3:3000",
 		ExternalMode: "all",
 	})
 	if err != nil {
@@ -364,5 +364,120 @@ func TestLockedProfileError(t *testing.T) {
 	_, err := ProfilesJSON()
 	if !errors.Is(err, vault.ErrLocked) {
 		t.Fatalf("ProfilesJSON error = %v, want ErrLocked", err)
+	}
+}
+
+func TestVerifyPasswordBridge(t *testing.T) {
+	resetBridge(t)
+	path := filepath.Join(t.TempDir(), "vault")
+	if err := CreateVault(path, "correct horse"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := VerifyVaultPassword("correct horse"); err != nil {
+		t.Fatalf("correct password error = %v", err)
+	}
+	if err := VerifyVaultPassword("wrong"); !errors.Is(err, vault.ErrWrongPassword) {
+		t.Fatalf("wrong password error = %v, want ErrWrongPassword", err)
+	}
+}
+
+func TestOpenVaultIsIdempotent(t *testing.T) {
+	resetBridge(t)
+	path := filepath.Join(t.TempDir(), "vault")
+	if err := CreateVault(path, "secret"); err != nil {
+		t.Fatal(err)
+	}
+	addTestProfile(t, "Home", "off")
+
+	if err := OpenVault(path); err != nil {
+		t.Fatal(err)
+	}
+	if status := decodeStatus(t); status.Locked {
+		t.Fatalf("reopening the same vault locked it: %+v", status)
+	}
+	if profiles := decodeProfiles(t); len(profiles) != 1 {
+		t.Fatalf("profiles after idempotent reopen = %+v", profiles)
+	}
+}
+
+func TestProfileOriginsPreserved(t *testing.T) {
+	resetBridge(t)
+	path := filepath.Join(t.TempDir(), "vault")
+	if err := CreateVault(path, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	input, err := json.Marshal(ProfileInput{
+		Name:            "Home",
+		TunnelConfig:    validTunnelConfig(t),
+		DashboardURL:    "http://192.168.0.3:3000",
+		ExternalMode:    "origins",
+		ExternalOrigins: []string{"https://example.com"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := AddProfileJSON(string(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var summary ProfileSummary
+	if err := json.Unmarshal([]byte(raw), &summary); err != nil {
+		t.Fatal(err)
+	}
+
+	detailRaw, err := ProfileJSON(summary.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var detail ProfileDetail
+	if err := json.Unmarshal([]byte(detailRaw), &detail); err != nil {
+		t.Fatal(err)
+	}
+	if detail.ExternalMode != "origins" || len(detail.ExternalOrigins) != 1 {
+		t.Fatalf("detail = %+v", detail)
+	}
+
+	update, err := json.Marshal(ProfileInput{
+		ID:              summary.ID,
+		Name:            "Home renamed",
+		DashboardURL:    "http://192.168.0.3:3000",
+		ExternalMode:    "origins",
+		ExternalOrigins: []string{"https://example.com"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := UpdateProfileJSON(string(update)); err != nil {
+		t.Fatal(err)
+	}
+	detailRaw, err = ProfileJSON(summary.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(detailRaw), &detail); err != nil {
+		t.Fatal(err)
+	}
+	if detail.Name != "Home renamed" || detail.ExternalMode != "origins" ||
+		len(detail.ExternalOrigins) != 1 || detail.ExternalOrigins[0] != "https://example.com" {
+		t.Fatalf("detail after update = %+v", detail)
+	}
+}
+
+func TestLockVaultLeavesKeyfileOpen(t *testing.T) {
+	resetBridge(t)
+	path := filepath.Join(t.TempDir(), "vault")
+	if err := CreateVault(path, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	LockVault()
+
+	if status := decodeStatus(t); status.Locked {
+		t.Fatalf("keyfile vault locked: %+v", status)
+	}
+	if _, err := ProfilesJSON(); err != nil {
+		t.Fatalf("ProfilesJSON after LockVault = %v", err)
 	}
 }

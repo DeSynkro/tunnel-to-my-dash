@@ -65,6 +65,10 @@ class VaultRepository(private val vaultPath: String) : VaultGateway {
             Mobile.changeVaultPassword(oldPassword, newPassword)
         }
 
+    override suspend fun verifyPassword(password: String) = withContext(Dispatchers.IO) {
+        Mobile.verifyVaultPassword(password)
+    }
+
     override suspend fun exportVault(password: String): ByteArray = withContext(Dispatchers.IO) {
         Mobile.exportVault(password)
     }

@@ -22,6 +22,8 @@ internal class FakeVaultGateway(
     var updateError: Throwable? = null,
     var deleteError: Throwable? = null,
     var changePasswordError: Throwable? = null,
+    var verifyPasswordError: Throwable? = null,
+    var lastVerifiedPassword: String? = null,
     var exportResult: ByteArray = ByteArray(0),
     var exportError: Throwable? = null,
     var importError: Throwable? = null,
@@ -66,6 +68,7 @@ internal class FakeVaultGateway(
             name = summary.name,
             dashboardURL = summary.dashboardURL,
             externalMode = summary.externalMode,
+            externalOrigins = emptyList(),
             hasTunnelConfig = true,
         )
     }
@@ -118,6 +121,11 @@ internal class FakeVaultGateway(
     override suspend fun changePassword(oldPassword: String, newPassword: String) {
         changePasswordError?.let { throw it }
         lastChangedPassword = oldPassword to newPassword
+    }
+
+    override suspend fun verifyPassword(password: String) {
+        verifyPasswordError?.let { throw it }
+        lastVerifiedPassword = password
     }
 
     override suspend fun exportVault(password: String): ByteArray {
