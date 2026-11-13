@@ -18,7 +18,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -82,7 +84,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, true)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         biometricEnabled = container.biometric.isEnabled()
         connectionState = container.tunnel.state.value
         restoredProfileID = savedInstanceState?.getString(KEY_PROFILE_ID)
@@ -90,6 +92,11 @@ class MainActivity : FragmentActivity() {
 
         rootView = FrameLayout(this).apply {
             setBackgroundColor(Color.BLACK)
+        }
+        ViewCompat.setOnApplyWindowInsetsListener(rootView) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
         }
         composeView = ComposeView(this).apply {
             setContent {
@@ -164,6 +171,7 @@ class MainActivity : FragmentActivity() {
             ),
         )
         setContentView(rootView)
+        ViewCompat.requestApplyInsets(rootView)
 
         onBackPressedDispatcher.addCallback(this) {
             when {
