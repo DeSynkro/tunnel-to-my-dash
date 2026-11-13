@@ -8,6 +8,7 @@ import com.desynkro.tunneltomydash.data.ProfileSummary
 import com.desynkro.tunneltomydash.data.VaultGateway
 import com.desynkro.tunneltomydash.data.VaultStatus
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -93,6 +94,22 @@ class AppViewModelTest {
         viewModel.unlock("correct horse")
 
         assertEquals(AppScreen.Profiles, viewModel.state.value.screen)
+    }
+
+    @Test
+    fun lockingKeyfileVaultDoesNothing() {
+        val fake = FakeVaultGateway(
+            hasVaultResult = true,
+            openResult = VaultStatus(true, false, false),
+            statusResult = VaultStatus(true, false, false),
+        )
+        val viewModel = AppViewModel(fake)
+        assertEquals(AppScreen.Profiles, viewModel.state.value.screen)
+
+        viewModel.lock()
+
+        assertEquals(AppScreen.Profiles, viewModel.state.value.screen)
+        assertFalse(viewModel.state.value.vaultStatus.locked)
     }
 
     @Test

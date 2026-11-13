@@ -4,8 +4,11 @@ import com.desynkro.tunneltomydash.data.ConnectionInfo
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -20,7 +23,7 @@ class TunnelControllerTest {
     @Test
     fun connectEmitsConnectingThenConnected() = runTest {
         val core = FakeCore(info = info, suspendStart = true)
-        val controller = TunnelController(core)
+        val controller = TunnelController(core, UnconfinedTestDispatcher(testScheduler))
 
         val job = launch { controller.connect("profile") }
         core.started.await()
@@ -37,7 +40,7 @@ class TunnelControllerTest {
             info = info,
             error = IllegalStateException("tunnel failed"),
         )
-        val controller = TunnelController(core)
+        val controller = TunnelController(core, UnconfinedTestDispatcher(testScheduler))
 
         controller.connect("profile")
 
@@ -47,19 +50,20 @@ class TunnelControllerTest {
     @Test
     fun stopStopsCoreAndMovesToStopped() = runTest {
         val core = FakeCore(info = info)
-        val controller = TunnelController(core)
+        val controller = TunnelController(core, UnconfinedTestDispatcher(testScheduler))
         controller.connect("profile")
 
         controller.stop()
 
         assertEquals(ConnectionState.Stopped, controller.state.value)
         assertEquals(1, core.stopCalls)
+        assertFalse(core.tunnelActive)
     }
 
     @Test
     fun secondConnectWhileRunningDoesNotStartTwice() = runTest {
         val core = FakeCore(info = info, suspendStart = true)
-        val controller = TunnelController(core)
+        val controller = TunnelController(core, UnconfinedTestDispatcher(testScheduler))
 
         val first = launch { controller.connect("profile") }
         core.started.await()
@@ -74,18 +78,33 @@ class TunnelControllerTest {
     }
 
     @Test
-    fun stopDuringConnectDoesNotBecomeConnected() = runTest {
-        val core = FakeCore(info = info, suspendStart = true)
-        val controller = TunnelController(core)
+    fun connectWhileConnectedIsIgnored() = runTest {
+        val core = FakeCore(info = info)
+        val controller = TunnelController(core, UnconfinedTestDispatcher(testScheduler))
+        controller.connect("profile")
 
-        val job = launch { controller.connect("profile") }
+        controller.connect("profile")
+
+        assertEquals(1, core.startCalls)
+        assertEquals(ConnectionState.Connected(info), controller.state.value)
+    }
+
+    @Test
+    fun stopDuringConnectWaitsForLateStartAndClosesIt() = runTest {
+        val core = FakeCore(info = info, suspendStart = true)
+        val controller = TunnelController(core, UnconfinedTestDispatcher(testScheduler))
+
+        val connectJob = launch { controller.connect("profile") }
         core.started.await()
-        controller.stop()
+        val stopJob = launch { controller.stop() }
         core.release.complete(Unit)
-        job.join()
+        connectJob.join()
+        stopJob.join()
 
         assertEquals(ConnectionState.Stopped, controller.state.value)
         assertEquals(1, core.stopCalls)
+        assertFalse(core.tunnelActive)
+        assertTrue(core.stoppedAfterStart)
     }
 }
 
@@ -96,6 +115,8 @@ private class FakeCore(
 ) : CoreGateway {
     var startCalls = 0
     var stopCalls = 0
+    var tunnelActive = false
+    var stoppedAfterStart = false
     val started = CompletableDeferred<Unit>()
     val release = CompletableDeferred<Unit>()
 
@@ -106,10 +127,15 @@ private class FakeCore(
             release.await()
         }
         error?.let { throw it }
+        tunnelActive = true
         return info.copy(profileID = profileID)
     }
 
     override fun stop() {
         stopCalls++
+        if (startCalls > 0) {
+            stoppedAfterStart = true
+        }
+        tunnelActive = false
     }
 }

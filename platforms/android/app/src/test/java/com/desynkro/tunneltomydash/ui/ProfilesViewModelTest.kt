@@ -60,6 +60,7 @@ class ProfilesViewModelTest {
         assertEquals(AppScreen.Profiles, viewModel.state.value.screen)
         assertEquals("Home updated", viewModel.state.value.profiles[0].name)
         assertEquals("all", viewModel.state.value.profiles[0].externalMode)
+        assertEquals("", fake.lastDraft?.tunnelConfig)
     }
 
     @Test

@@ -35,13 +35,16 @@ class WebViewScreen(
     context: Context,
     private val info: ConnectionInfo,
     private val openPublicLinks: Boolean,
+    private val lockEnabled: Boolean,
     private val navigationKind: (String) -> NavigationKind,
+    private val isConnectionAlive: () -> Boolean,
     private val callbacks: Callbacks,
 ) : FrameLayout(context) {
     interface Callbacks {
         fun onProfiles()
         fun onLock()
         fun onStop()
+        fun onReconnect()
     }
 
     private val activity = context as Activity
@@ -54,6 +57,8 @@ class WebViewScreen(
     private var fullscreenView: View? = null
     private var fullscreenCallback: WebChromeClient.CustomViewCallback? = null
     private var errorActive = false
+    private var destroyed = false
+    private var loadRunnable: Runnable? = null
 
     private val watchdog = Runnable {
         showError(
@@ -100,12 +105,19 @@ class WebViewScreen(
             onProfiles = { callbacks.onProfiles() },
             onLock = { callbacks.onLock() },
             onStop = { callbacks.onStop() },
+            allowLock = lockEnabled,
         )
         addView(toolbar, LayoutParams(LayoutParams.MATCH_PARENT, toolbarHeight))
 
         errorView = DashboardErrorView(
             context = context,
-            onRetry = { retry() },
+            onRetry = {
+                if (isConnectionAlive()) {
+                    retry()
+                } else {
+                    callbacks.onReconnect()
+                }
+            },
             onProfiles = { callbacks.onProfiles() },
         )
         addView(
@@ -176,11 +188,19 @@ class WebViewScreen(
                 response: WebResourceResponse?,
             ) {
                 val status = response?.statusCode ?: 0
-                if (request?.isForMainFrame == true && status >= 500) {
-                    showError(
-                        "The dashboard returned $status",
-                        request.url.toString(),
-                    )
+                if (request?.isForMainFrame == true) {
+                    if (status == 401) {
+                        auth.clearCredentials()
+                        showError(
+                            "Sign-in failed",
+                            "Check the username and password, then try again.",
+                        )
+                    } else if (status >= 500) {
+                        showError(
+                            "The dashboard returned $status",
+                            request.url.toString(),
+                        )
+                    }
                 }
             }
 
@@ -238,6 +258,14 @@ class WebViewScreen(
         }
     }
 
+    fun handleBack(): Boolean {
+        if (webView.canGoBack()) {
+            webView.goBack()
+            return true
+        }
+        return false
+    }
+
     fun setProxyAndLoad(proxy: String) {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
             showError(
@@ -250,11 +278,14 @@ class WebViewScreen(
             ProxyConfig.Builder().addProxyRule(proxy).build(),
             ContextCompat.getMainExecutor(context),
         ) {
-            loadWhenReady()
+            loadHome()
         }
     }
 
     fun destroyScreen() {
+        destroyed = true
+        loadRunnable?.let { handler.removeCallbacks(it) }
+        loadRunnable = null
         hideFullscreen()
         cancelWatchdog()
         auth.clear()
@@ -274,29 +305,50 @@ class WebViewScreen(
         super.onDetachedFromWindow()
     }
 
-    private fun loadWhenReady() {
-        val attempt = object : Runnable {
-            override fun run() {
-                if (!isAttachedToWindow || webView.width <= 0 || webView.height <= 0) {
-                    postDelayed(this, 16L)
-                    return
-                }
-                loadHome()
-            }
-        }
-        post(attempt)
-    }
-
     private fun loadHome() {
         clearError()
-        startWatchdog()
-        webView.loadUrl(info.dashboardURL)
+        whenReady {
+            startWatchdog()
+            webView.loadUrl(info.dashboardURL)
+        }
     }
 
     private fun retry() {
         clearError()
-        startWatchdog()
-        webView.reload()
+        whenReady {
+            startWatchdog()
+            webView.reload()
+        }
+    }
+
+    /**
+     * Runs [action] only after the WebView is attached and has a real size.
+     * Loading into a zero-height WebView collapses full-height dashboards.
+     */
+    private fun whenReady(action: () -> Unit) {
+        if (destroyed) {
+            return
+        }
+        if (isAttachedToWindow && webView.width > 0 && webView.height > 0) {
+            action()
+            return
+        }
+        loadRunnable?.let { handler.removeCallbacks(it) }
+        val runnable = object : Runnable {
+            override fun run() {
+                if (destroyed) {
+                    return
+                }
+                if (!isAttachedToWindow || webView.width <= 0 || webView.height <= 0) {
+                    handler.postDelayed(this, 16L)
+                    return
+                }
+                loadRunnable = null
+                action()
+            }
+        }
+        loadRunnable = runnable
+        handler.post(runnable)
     }
 
     private fun clearError() {

@@ -18,6 +18,7 @@ class DashboardToolbar(
     private val onProfiles: () -> Unit,
     private val onLock: () -> Unit,
     private val onStop: () -> Unit,
+    private val allowLock: Boolean = true,
 ) : LinearLayout(context) {
     init {
         orientation = HORIZONTAL
@@ -46,7 +47,9 @@ class DashboardToolbar(
         overflow.setOnClickListener { anchor ->
             val popup = PopupMenu(context, anchor)
             popup.menu.add("Profiles")
-            popup.menu.add("Lock")
+            if (allowLock) {
+                popup.menu.add("Lock")
+            }
             popup.menu.add("Stop")
             popup.setOnMenuItemClickListener { item ->
                 when (item.title.toString()) {

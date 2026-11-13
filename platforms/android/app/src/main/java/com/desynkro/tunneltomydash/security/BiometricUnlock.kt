@@ -15,6 +15,9 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 class BiometricUnlock(context: Context) {
     private val appContext = context.applicationContext
@@ -31,16 +34,89 @@ class BiometricUnlock(context: Context) {
             prefs.contains(KEY_IV) &&
             runCatching { keyStore.containsAlias(KEY_ALIAS) }.getOrDefault(false)
 
-    fun enable(password: String) {
+    /**
+     * Creates an auth-per-use key and encrypts the vault password only after a
+     * successful biometric prompt. Returns false when the user cancels.
+     */
+    suspend fun enable(activity: FragmentActivity, password: String): Boolean {
         disable()
         val key = getOrCreateKey()
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.ENCRYPT_MODE, key)
-        val ciphertext = cipher.doFinal(password.toByteArray(Charsets.UTF_8))
-        prefs.edit()
-            .putString(KEY_CIPHERTEXT, Base64.encodeToString(ciphertext, Base64.NO_WRAP))
-            .putString(KEY_IV, Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
-            .apply()
+        val cipher = Cipher.getInstance(TRANSFORMATION).apply {
+            init(Cipher.ENCRYPT_MODE, key)
+        }
+
+        return suspendCancellableCoroutine { continuation ->
+            val prompt = BiometricPrompt(
+                activity,
+                ContextCompat.getMainExecutor(activity),
+                object : BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(
+                        result: BiometricPrompt.AuthenticationResult,
+                    ) {
+                        if (!continuation.isActive) {
+                            return
+                        }
+                        try {
+                            val authorized = result.cryptoObject?.cipher
+                                ?: error("missing cipher")
+                            val ciphertext = authorized.doFinal(
+                                password.toByteArray(Charsets.UTF_8),
+                            )
+                            prefs.edit()
+                                .putString(
+                                    KEY_CIPHERTEXT,
+                                    Base64.encodeToString(ciphertext, Base64.NO_WRAP),
+                                )
+                                .putString(
+                                    KEY_IV,
+                                    Base64.encodeToString(authorized.iv, Base64.NO_WRAP),
+                                )
+                                .commit()
+                            continuation.resume(true)
+                        } catch (caught: Throwable) {
+                            disable()
+                            continuation.resumeWithException(
+                                IllegalStateException(
+                                    caught.message ?: "Could not enable fingerprint unlock",
+                                    caught,
+                                ),
+                            )
+                        }
+                    }
+
+                    override fun onAuthenticationError(
+                        errorCode: Int,
+                        errString: CharSequence,
+                    ) {
+                        if (!continuation.isActive) {
+                            return
+                        }
+                        disable()
+                        if (errorCode in CANCEL_CODES) {
+                            continuation.resume(false)
+                        } else {
+                            continuation.resumeWithException(
+                                BiometricException(errorCode, errString.toString()),
+                            )
+                        }
+                    }
+
+                    override fun onAuthenticationFailed() {
+                    }
+                },
+            )
+
+            continuation.invokeOnCancellation {
+                runCatching { prompt.cancelAuthentication() }
+            }
+
+            val info = BiometricPrompt.PromptInfo.Builder()
+                .setTitle("Enable fingerprint unlock")
+                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                .setNegativeButtonText("Cancel")
+                .build()
+            prompt.authenticate(info, BiometricPrompt.CryptoObject(cipher))
+        }
     }
 
     fun disable() {
@@ -89,6 +165,9 @@ class BiometricUnlock(context: Context) {
                             Base64.decode(ciphertext, Base64.NO_WRAP),
                         ) ?: error("missing cipher")
                         onSuccess(String(plaintext, Charsets.UTF_8))
+                    } catch (invalidated: KeyPermanentlyInvalidatedException) {
+                        disable()
+                        onError(-1, "Fingerprint data changed. Enable fingerprint unlock again.")
                     } catch (caught: Throwable) {
                         onError(-1, caught.message ?: "Could not unlock the vault")
                     }
@@ -149,5 +228,13 @@ class BiometricUnlock(context: Context) {
         private const val PREFS = "biometric_unlock"
         private const val KEY_CIPHERTEXT = "ciphertext"
         private const val KEY_IV = "iv"
+
+        private val CANCEL_CODES = setOf(
+            BiometricPrompt.ERROR_NEGATIVE_BUTTON,
+            BiometricPrompt.ERROR_CANCELED,
+            BiometricPrompt.ERROR_USER_CANCELED,
+        )
     }
 }
+
+class BiometricException(val code: Int, message: String) : Exception(message)

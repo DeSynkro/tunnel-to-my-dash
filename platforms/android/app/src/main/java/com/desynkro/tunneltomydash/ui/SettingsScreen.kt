@@ -44,8 +44,9 @@ fun SettingsScreen(
     onExternalActivityEnd: () -> Unit = {},
     biometricAvailable: Boolean = false,
     biometricEnabled: Boolean = false,
-    onEnableBiometrics: suspend (String) -> Unit = {},
+    onEnableBiometrics: suspend (String) -> Boolean = { false },
     onDisableBiometrics: () -> Unit = {},
+    connectionActive: Boolean = false,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -53,6 +54,7 @@ fun SettingsScreen(
     var message by remember { mutableStateOf<String?>(null) }
     var messageIsError by remember { mutableStateOf(false) }
     var showChangePassword by remember { mutableStateOf(false) }
+    var showSetPassword by remember { mutableStateOf(false) }
     var showEnableBiometric by remember { mutableStateOf(false) }
     var pendingExportUri by remember { mutableStateOf<Uri?>(null) }
     var pendingImportData by remember { mutableStateOf<ByteArray?>(null) }
@@ -104,11 +106,18 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("Settings", style = MaterialTheme.typography.headlineMedium)
+        if (connectionActive) {
+            Text(
+                "Stop the tunnel before changing settings.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
 
         SettingSwitch(
             label = "Force LAN-only",
             checked = state.settings.forceLANOnly,
-            enabled = !busy,
+            enabled = !busy && !connectionActive,
             onCheckedChange = {
                 onSaveSettings(state.settings.copy(forceLANOnly = it))
             },
@@ -123,7 +132,7 @@ fun SettingsScreen(
             SettingSwitch(
                 label = "Lock when the app is backgrounded",
                 checked = state.settings.lockOnBackground,
-                enabled = !busy,
+                enabled = !busy && !connectionActive,
                 onCheckedChange = {
                     onSaveSettings(state.settings.copy(lockOnBackground = it))
                 },
@@ -137,7 +146,7 @@ fun SettingsScreen(
                 SettingSwitch(
                     label = "Fingerprint unlock",
                     checked = biometricEnabled,
-                    enabled = !busy,
+                    enabled = !busy && !connectionActive,
                     onCheckedChange = { enable ->
                         if (enable) {
                             showEnableBiometric = true
@@ -153,12 +162,19 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            OutlinedButton(
+                onClick = { showSetPassword = true },
+                enabled = !busy && !connectionActive,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Set vault password")
+            }
         }
 
         SettingSwitch(
             label = "Connect automatically on launch",
             checked = state.settings.autoConnect,
-            enabled = !busy,
+            enabled = !busy && !connectionActive,
             onCheckedChange = {
                 onSaveSettings(state.settings.copy(autoConnect = it))
             },
@@ -166,7 +182,7 @@ fun SettingsScreen(
         SettingSwitch(
             label = "Open public links in the system browser",
             checked = state.settings.openPublicLinksInBrowser,
-            enabled = !busy,
+            enabled = !busy && !connectionActive,
             onCheckedChange = {
                 onSaveSettings(state.settings.copy(openPublicLinksInBrowser = it))
             },
@@ -180,7 +196,7 @@ fun SettingsScreen(
         if (state.vaultStatus.passwordProtected) {
             OutlinedButton(
                 onClick = { showChangePassword = true },
-                enabled = !busy,
+                enabled = !busy && !connectionActive,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Change vault password")
@@ -191,7 +207,7 @@ fun SettingsScreen(
                 onExternalActivityStart()
                 exportLauncher.launch("tunnel-to-my-dash-backup.ttmd")
             },
-            enabled = !busy,
+            enabled = !busy && !connectionActive,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text("Export vault")
@@ -201,7 +217,7 @@ fun SettingsScreen(
                 onExternalActivityStart()
                 importLauncher.launch(arrayOf("application/octet-stream", "*/*"))
             },
-            enabled = !busy,
+            enabled = !busy && !connectionActive,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text("Import vault")
@@ -241,8 +257,11 @@ fun SettingsScreen(
                 scope.launch {
                     busy = true
                     try {
-                        onEnableBiometrics(password)
-                        report("Fingerprint unlock enabled", false)
+                        if (onEnableBiometrics(password)) {
+                            report("Fingerprint unlock enabled", false)
+                        } else {
+                            report("Fingerprint unlock was not enabled", true)
+                        }
                     } catch (caught: Throwable) {
                         report(
                             caught.message ?: "Could not enable fingerprint unlock",
@@ -253,6 +272,27 @@ fun SettingsScreen(
                     }
                 }
             },
+        )
+    }
+
+    if (showSetPassword) {
+        ChangePasswordDialog(
+            onDismiss = { showSetPassword = false },
+            onConfirm = { _, newPassword ->
+                showSetPassword = false
+                scope.launch {
+                    busy = true
+                    try {
+                        onChangePassword("", newPassword)
+                        report("Vault password set", false)
+                    } catch (caught: Throwable) {
+                        report(caught.message ?: "Could not set the password", true)
+                    } finally {
+                        busy = false
+                    }
+                }
+            },
+            showCurrentPassword = false,
         )
     }
 
@@ -280,7 +320,14 @@ fun SettingsScreen(
         PasswordDialog(
             title = "Password for the export",
             confirmLabel = "Export",
-            onDismiss = { pendingExportUri = null },
+            onDismiss = {
+                pendingExportUri = null
+                scope.launch {
+                    withContext(Dispatchers.IO) {
+                        runCatching { context.contentResolver.delete(uri, null, null) }
+                    }
+                }
+            },
             onConfirm = { password ->
                 pendingExportUri = null
                 scope.launch {

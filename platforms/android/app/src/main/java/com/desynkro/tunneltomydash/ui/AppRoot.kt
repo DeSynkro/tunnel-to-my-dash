@@ -15,20 +15,27 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.desynkro.tunneltomydash.service.ConnectionState
 
 @Composable
 fun AppRoot(
     viewModel: AppViewModel,
     onConnect: (String) -> Unit = {},
+    onDisconnect: () -> Unit = {},
+    onRetryLostConnection: () -> Unit = {},
+    connectionState: ConnectionState = ConnectionState.Stopped,
+    lostConnection: Boolean = false,
     onExternalActivityStart: () -> Unit = {},
     onExternalActivityEnd: () -> Unit = {},
     biometricAvailable: Boolean = false,
     biometricEnabled: Boolean = false,
-    onEnableBiometrics: suspend (String) -> Unit = {},
+    onEnableBiometrics: suspend (String) -> Boolean = { false },
     onDisableBiometrics: () -> Unit = {},
     onBiometricUnlock: () -> Unit = {},
+    onChangePassword: suspend (String, String) -> Unit = viewModel::changePassword,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val connectionActive = connectionState !is ConnectionState.Stopped
 
     when (val screen = state.screen) {
         AppScreen.Initializing -> LoadingScreen()
@@ -47,7 +54,11 @@ fun AppRoot(
         )
         AppScreen.Profiles -> ProfilesScreen(
             state = state,
+            connectionState = connectionState,
+            lostConnection = lostConnection,
             onConnect = onConnect,
+            onDisconnect = onDisconnect,
+            onRetryLostConnection = onRetryLostConnection,
             onAdd = { viewModel.openEditor(null) },
             onEdit = { viewModel.openEditor(it) },
             onSetActive = viewModel::setActiveProfile,
@@ -56,8 +67,15 @@ fun AppRoot(
             onLock = viewModel::lock,
         )
         is AppScreen.EditProfile -> {
-            if (screen.id != null && state.busy && state.editingProfile == null) {
-                LoadingScreen()
+            if (screen.id != null && state.editingProfile == null) {
+                if (state.busy) {
+                    LoadingScreen()
+                } else {
+                    ProfileLoadErrorScreen(
+                        message = state.error,
+                        onBack = viewModel::backToProfiles,
+                    )
+                }
             } else {
                 ProfileEditorScreen(
                     detail = state.editingProfile,
@@ -74,7 +92,7 @@ fun AppRoot(
         AppScreen.Settings -> SettingsScreen(
             state = state,
             onSaveSettings = viewModel::saveSettings,
-            onChangePassword = viewModel::changePassword,
+            onChangePassword = onChangePassword,
             onExport = viewModel::exportVault,
             onImport = viewModel::importVault,
             onBack = viewModel::backToProfiles,
@@ -84,6 +102,7 @@ fun AppRoot(
             biometricEnabled = biometricEnabled,
             onEnableBiometrics = onEnableBiometrics,
             onDisableBiometrics = onDisableBiometrics,
+            connectionActive = connectionActive,
         )
     }
 }
@@ -92,5 +111,25 @@ fun AppRoot(
 private fun LoadingScreen() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         CircularProgressIndicator()
+    }
+}
+
+@Composable
+private fun ProfileLoadErrorScreen(message: String?, onBack: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text("Could not load the profile", style = MaterialTheme.typography.headlineMedium)
+        Text(
+            message ?: "The profile could not be read from the vault.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedButton(onClick = onBack) {
+            Text("Back")
+        }
     }
 }

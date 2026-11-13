@@ -5,8 +5,8 @@ interface VaultGateway {
     suspend fun createVault(password: String): VaultStatus
     suspend fun openVault(): VaultStatus
     suspend fun unlock(password: String)
-    fun lock()
-    fun status(): VaultStatus
+    suspend fun lock()
+    suspend fun status(): VaultStatus
 
     suspend fun profiles(): List<ProfileSummary>
     suspend fun profile(id: String): ProfileDetail

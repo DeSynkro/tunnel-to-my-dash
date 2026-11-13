@@ -14,6 +14,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import com.desynkro.tunneltomydash.AppContainer
 import com.desynkro.tunneltomydash.MainActivity
 import com.desynkro.tunneltomydash.R
 import com.desynkro.tunneltomydash.TtmdApplication
@@ -26,8 +27,11 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 class TunnelService : Service() {
+    private val container: AppContainer
+        get() = (application as TtmdApplication).container
+
     private val controller: TunnelController
-        get() = (application as TtmdApplication).container.tunnel
+        get() = container.tunnel
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var observeJob: Job? = null
@@ -73,8 +77,12 @@ class TunnelService : Service() {
     override fun onDestroy() {
         foregroundStarted = false
         observeJob?.cancel()
+        // The application scope outlives this service, so a stop that has to
+        // wait for an in-flight start still closes the Go tunnel.
+        container.appScope.launch {
+            container.tunnel.stop()
+        }
         serviceScope.cancel()
-        runCatching { controller.stop() }
         runCatching { stopForeground(STOP_FOREGROUND_REMOVE) }
         super.onDestroy()
     }
@@ -107,7 +115,9 @@ class TunnelService : Service() {
         val openIntent = PendingIntent.getActivity(
             this,
             0,
-            Intent(this, MainActivity::class.java),
+            Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val stopIntent = PendingIntent.getService(
@@ -117,7 +127,7 @@ class TunnelService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.icon)
+            .setSmallIcon(R.drawable.ic_stat_ttmd)
             .setContentTitle("Tunnel to My Dash")
             .setContentText(text)
             .setContentIntent(openIntent)

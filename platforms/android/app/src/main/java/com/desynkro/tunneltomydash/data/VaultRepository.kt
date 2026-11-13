@@ -21,11 +21,13 @@ class VaultRepository(private val vaultPath: String) : VaultGateway {
         Mobile.unlockVault(password)
     }
 
-    override fun lock() {
+    override suspend fun lock() = withContext(Dispatchers.IO) {
         Mobile.lockVault()
     }
 
-    override fun status(): VaultStatus = parseVaultStatus(Mobile.vaultStatusJSON())
+    override suspend fun status(): VaultStatus = withContext(Dispatchers.IO) {
+        parseVaultStatus(Mobile.vaultStatusJSON())
+    }
 
     override suspend fun profiles(): List<ProfileSummary> = withContext(Dispatchers.IO) {
         parseProfiles(Mobile.profilesJSON())

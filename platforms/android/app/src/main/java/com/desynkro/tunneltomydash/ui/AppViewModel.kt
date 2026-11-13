@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 sealed interface AppScreen {
     data object Initializing : AppScreen
@@ -44,6 +46,7 @@ data class AppUiState(
 class AppViewModel(private val gateway: VaultGateway) : ViewModel() {
     private val _state = MutableStateFlow(AppUiState())
     val state: StateFlow<AppUiState> = _state.asStateFlow()
+    private val settingsSaveLock = Mutex()
 
     init {
         bootstrap()
@@ -119,17 +122,22 @@ class AppViewModel(private val gateway: VaultGateway) : ViewModel() {
     }
 
     fun lock() {
-        gateway.lock()
-        val status = runCatching { gateway.status() }.getOrElse {
-            _state.value.vaultStatus.copy(locked = true)
+        if (!_state.value.vaultStatus.passwordProtected) {
+            return
         }
-        _state.update {
-            it.copy(
-                vaultStatus = status,
-                screen = if (status.passwordProtected) AppScreen.Unlock else AppScreen.Profiles,
-                busy = false,
-                error = null,
-            )
+        viewModelScope.launch {
+            runCatching { gateway.lock() }
+            val status = runCatching { gateway.status() }.getOrElse {
+                _state.value.vaultStatus.copy(locked = true)
+            }
+            _state.update {
+                it.copy(
+                    vaultStatus = status,
+                    screen = AppScreen.Unlock,
+                    busy = false,
+                    error = null,
+                )
+            }
         }
     }
 
@@ -141,26 +149,18 @@ class AppViewModel(private val gateway: VaultGateway) : ViewModel() {
         }
     }
 
-    fun loadSettings() {
-        viewModelScope.launch {
-            runCatching { gateway.settings() }.onSuccess { settings ->
-                _state.update { it.copy(settings = settings) }
-            }
-        }
-    }
-
     fun saveSettings(settings: AppSettings) {
+        _state.update { it.copy(settings = settings, error = null) }
         viewModelScope.launch {
-            val previous = _state.value.settings
-            _state.update { it.copy(settings = settings, error = null) }
-            try {
-                gateway.saveSettings(settings)
-            } catch (caught: Throwable) {
-                _state.update {
-                    it.copy(
-                        settings = previous,
-                        error = caught.message ?: "Could not save the settings",
-                    )
+            // Serialize writes and persist the latest snapshot, so rapid switch
+            // toggles cannot complete out of order.
+            settingsSaveLock.withLock {
+                try {
+                    gateway.saveSettings(_state.value.settings)
+                } catch (caught: Throwable) {
+                    _state.update {
+                        it.copy(error = caught.message ?: "Could not save the settings")
+                    }
                 }
             }
         }
@@ -168,6 +168,10 @@ class AppViewModel(private val gateway: VaultGateway) : ViewModel() {
 
     suspend fun changePassword(oldPassword: String, newPassword: String) {
         gateway.changePassword(oldPassword, newPassword)
+        val status = runCatching { gateway.status() }.getOrNull()
+        if (status != null) {
+            _state.update { it.copy(vaultStatus = status) }
+        }
     }
 
     suspend fun exportVault(password: String): ByteArray = gateway.exportVault(password)
@@ -268,10 +272,6 @@ class AppViewModel(private val gateway: VaultGateway) : ViewModel() {
     fun backToProfiles() {
         _state.update { it.copy(screen = AppScreen.Profiles, error = null) }
         loadProfiles()
-    }
-
-    fun clearError() {
-        _state.update { it.copy(error = null) }
     }
 
     private suspend fun enterProfiles() {

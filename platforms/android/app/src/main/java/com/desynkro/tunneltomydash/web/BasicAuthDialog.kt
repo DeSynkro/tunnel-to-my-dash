@@ -29,6 +29,10 @@ class BasicAuthController(private val activity: Activity) {
         showNext()
     }
 
+    fun clearCredentials() {
+        credentials.clear()
+    }
+
     fun clear() {
         currentDialog?.dismiss()
         currentDialog = null
@@ -38,6 +42,11 @@ class BasicAuthController(private val activity: Activity) {
     }
 
     private fun showNext() {
+        if (activity.isFinishing || activity.isDestroyed) {
+            pending.forEach { it.handler.cancel() }
+            pending.clear()
+            return
+        }
         if (currentDialog?.isShowing == true) {
             return
         }

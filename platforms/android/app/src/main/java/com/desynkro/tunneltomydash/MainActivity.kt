@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.Toast
+import androidx.activity.addCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.biometric.BiometricPrompt
@@ -47,6 +48,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private val lockCoordinator = LockCoordinator()
+    private val uiPrefs by lazy { getSharedPreferences("ui", MODE_PRIVATE) }
     private lateinit var rootView: FrameLayout
     private lateinit var composeView: ComposeView
     private var webViewScreen: WebViewScreen? = null
@@ -56,6 +58,9 @@ class MainActivity : FragmentActivity() {
     private var autoConnectAttempted = false
     private var connectionErrorDialog: AlertDialog? = null
     private var biometricEnabled by mutableStateOf(false)
+    private var connectionState by mutableStateOf<ConnectionState>(ConnectionState.Stopped)
+    private var lostConnection by mutableStateOf(false)
+    private var restoredProfileID: String? = null
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -79,6 +84,9 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, true)
         biometricEnabled = container.biometric.isEnabled()
+        connectionState = container.tunnel.state.value
+        restoredProfileID = savedInstanceState?.getString(KEY_PROFILE_ID)
+        lostConnection = savedInstanceState?.getBoolean(KEY_WAS_CONNECTED) == true
 
         rootView = FrameLayout(this).apply {
             setBackgroundColor(Color.BLACK)
@@ -93,15 +101,25 @@ class MainActivity : FragmentActivity() {
                                 .firstOrNull { it.id == profileID }
                                 ?.let(::connect)
                         },
+                        onDisconnect = ::stopConnection,
+                        onRetryLostConnection = ::retryLostConnection,
+                        connectionState = connectionState,
+                        lostConnection = lostConnection &&
+                            connectionState is ConnectionState.Stopped,
                         onExternalActivityStart = lockCoordinator::enterExternalActivity,
                         onExternalActivityEnd = lockCoordinator::leaveExternalActivity,
                         biometricAvailable = container.biometric.isAvailable(),
                         biometricEnabled = biometricEnabled,
                         onEnableBiometrics = { password ->
                             withContext(Dispatchers.IO) {
-                                container.biometric.enable(password)
+                                container.repository.verifyPassword(password)
                             }
-                            biometricEnabled = true
+                            val enabled = container.biometric.enable(
+                                this@MainActivity,
+                                password,
+                            )
+                            biometricEnabled = enabled
+                            enabled
                         },
                         onDisableBiometrics = {
                             container.biometric.disable()
@@ -112,6 +130,9 @@ class MainActivity : FragmentActivity() {
                                 this@MainActivity,
                                 onSuccess = { password -> viewModel.unlock(password) },
                                 onError = { code, message ->
+                                    if (!container.biometric.isEnabled()) {
+                                        biometricEnabled = false
+                                    }
                                     if (
                                         code != BiometricPrompt.ERROR_NEGATIVE_BUTTON &&
                                         code != BiometricPrompt.ERROR_CANCELED &&
@@ -126,6 +147,11 @@ class MainActivity : FragmentActivity() {
                                 },
                             )
                         },
+                        onChangePassword = { oldPassword, newPassword ->
+                            viewModel.changePassword(oldPassword, newPassword)
+                            container.biometric.disable()
+                            biometricEnabled = false
+                        },
                     )
                 }
             }
@@ -139,15 +165,38 @@ class MainActivity : FragmentActivity() {
         )
         setContentView(rootView)
 
+        onBackPressedDispatcher.addCallback(this) {
+            when {
+                webViewScreen?.handleBack() == true -> Unit
+                viewModel.state.value.vaultStatus.locked -> finish()
+                connectionState is ConnectionState.Connecting -> stopConnection()
+                viewModel.state.value.screen is AppScreen.EditProfile ||
+                    viewModel.state.value.screen == AppScreen.Settings ->
+                    viewModel.backToProfiles()
+                else -> finish()
+            }
+        }
+
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                launch {
-                    viewModel.state.collect { state -> onAppState(state) }
-                }
-                launch {
-                    container.tunnel.state.collect { state -> onConnectionState(state) }
-                }
+                viewModel.state.collect { state -> onAppState(state) }
             }
+        }
+        lifecycleScope.launch {
+            container.tunnel.state.collect { state -> onConnectionState(state) }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        biometricEnabled = container.biometric.isEnabled()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(KEY_WAS_CONNECTED, connectionState !is ConnectionState.Stopped)
+        (currentInfo?.profileID ?: lastConnectProfile?.id)?.let {
+            outState.putString(KEY_PROFILE_ID, it)
         }
     }
 
@@ -165,27 +214,41 @@ class MainActivity : FragmentActivity() {
         connectionErrorDialog?.dismiss()
         connectionErrorDialog = null
         destroyWebViewScreen()
-        if (isFinishing) {
-            TunnelService.stop(this)
-        }
         super.onDestroy()
     }
 
     private fun connect(profile: ProfileSummary) {
+        if (
+            connectionState !is ConnectionState.Stopped &&
+            connectionState !is ConnectionState.Error
+        ) {
+            return
+        }
         lastConnectProfile = profile
+        lostConnection = false
         if (
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(
                 this,
                 Manifest.permission.POST_NOTIFICATIONS,
-            ) != PackageManager.PERMISSION_GRANTED
+            ) != PackageManager.PERMISSION_GRANTED &&
+            !uiPrefs.getBoolean(KEY_NOTIFICATION_ASKED, false)
         ) {
+            uiPrefs.edit().putBoolean(KEY_NOTIFICATION_ASKED, true).apply()
             pendingConnect = profile
             lockCoordinator.enterExternalActivity()
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             return
         }
         TunnelService.start(this, profile.id, profile.name)
+    }
+
+    private fun retryLostConnection() {
+        val profiles = viewModel.state.value.profiles
+        val profile = profiles.firstOrNull { it.id == restoredProfileID }
+            ?: profiles.firstOrNull { it.active }
+            ?: return
+        connect(profile)
     }
 
     private fun onAppState(state: AppUiState) {
@@ -198,6 +261,8 @@ class MainActivity : FragmentActivity() {
         val connection = container.tunnel.state.value
         if (connection is ConnectionState.Connected) {
             showDashboard(connection.info)
+        } else if (connection is ConnectionState.Error) {
+            showConnectionError(connection.message)
         }
 
         if (
@@ -211,11 +276,15 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun onConnectionState(state: ConnectionState) {
+        connectionState = state
+        if (state !is ConnectionState.Stopped) {
+            lostConnection = false
+        }
         when (state) {
             is ConnectionState.Connected -> {
                 if (viewModel.state.value.vaultStatus.locked) {
                     destroyWebViewScreen()
-                } else {
+                } else if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
                     showDashboard(state.info)
                 }
             }
@@ -226,7 +295,9 @@ class MainActivity : FragmentActivity() {
             is ConnectionState.Error -> {
                 composeView.visibility = View.VISIBLE
                 destroyWebViewScreen()
-                showConnectionError(state.message)
+                if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+                    showConnectionError(state.message)
+                }
             }
             ConnectionState.Stopped -> {
                 composeView.visibility = View.VISIBLE
@@ -249,13 +320,19 @@ class MainActivity : FragmentActivity() {
             context = this,
             info = info,
             openPublicLinks = viewModel.state.value.settings.openPublicLinksInBrowser,
+            lockEnabled = viewModel.state.value.vaultStatus.passwordProtected,
             navigationKind = { url -> container.repository.navigationKind(url) },
+            isConnectionAlive = { container.tunnel.state.value is ConnectionState.Connected },
             callbacks = object : WebViewScreen.Callbacks {
                 override fun onProfiles() = stopConnection()
 
                 override fun onLock() = lockUi()
 
                 override fun onStop() = stopConnection()
+
+                override fun onReconnect() {
+                    lastConnectProfile?.let(::connect) ?: retryLostConnection()
+                }
             },
         )
         rootView.addView(
@@ -279,13 +356,20 @@ class MainActivity : FragmentActivity() {
 
     private fun stopConnection() {
         TunnelService.stop(this)
+        container.appScope.launch { container.tunnel.stop() }
         lastConnectProfile = null
-        viewModel.backToProfiles()
+        lostConnection = false
+        if (!viewModel.state.value.vaultStatus.locked) {
+            viewModel.backToProfiles()
+        }
         composeView.visibility = View.VISIBLE
         destroyWebViewScreen()
     }
 
     private fun lockUi() {
+        if (!viewModel.state.value.vaultStatus.passwordProtected) {
+            return
+        }
         viewModel.lock()
         destroyWebViewScreen()
         composeView.visibility = View.VISIBLE
@@ -300,6 +384,7 @@ class MainActivity : FragmentActivity() {
             .setMessage(message)
             .setPositiveButton("Try again") { _, _ ->
                 lastConnectProfile?.let(::connect)
+                    ?: retryLostConnection()
             }
             .setNegativeButton("Profile list") { _, _ ->
                 stopConnection()
@@ -313,5 +398,11 @@ class MainActivity : FragmentActivity() {
         }
         connectionErrorDialog = dialog
         dialog.show()
+    }
+
+    companion object {
+        private const val KEY_WAS_CONNECTED = "was_connected"
+        private const val KEY_PROFILE_ID = "profile_id"
+        private const val KEY_NOTIFICATION_ASKED = "notification_permission_asked"
     }
 }

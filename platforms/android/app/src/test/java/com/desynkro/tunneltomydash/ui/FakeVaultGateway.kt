@@ -31,6 +31,7 @@ internal class FakeVaultGateway(
     var lastExportedPassword: String? = null,
     var lastImportedData: ByteArray? = null,
     var lastImportedPassword: String? = null,
+    var lastDraft: ProfileDraft? = null,
 ) : VaultGateway {
     override fun hasVault(): Boolean = hasVaultResult
 
@@ -50,11 +51,11 @@ internal class FakeVaultGateway(
         statusResult = statusResult.copy(locked = false)
     }
 
-    override fun lock() {
+    override suspend fun lock() {
         statusResult = statusResult.copy(locked = true)
     }
 
-    override fun status(): VaultStatus = statusResult
+    override suspend fun status(): VaultStatus = statusResult
 
     override suspend fun profiles(): List<ProfileSummary> = profilesResult
 
@@ -75,6 +76,7 @@ internal class FakeVaultGateway(
 
     override suspend fun addProfile(draft: ProfileDraft): ProfileSummary {
         addError?.let { throw it }
+        lastDraft = draft
         val summary = ProfileSummary(
             id = "new-${profilesResult.size + 1}",
             name = draft.name,
@@ -88,6 +90,7 @@ internal class FakeVaultGateway(
 
     override suspend fun updateProfile(draft: ProfileDraft): ProfileSummary {
         updateError?.let { throw it }
+        lastDraft = draft
         val id = draft.id ?: error("a profile id is required")
         profilesResult = profilesResult.map { profile ->
             if (profile.id == id) {

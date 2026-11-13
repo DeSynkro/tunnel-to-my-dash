@@ -1,6 +1,7 @@
 package com.desynkro.tunneltomydash.service
 
 import com.desynkro.tunneltomydash.data.AppSettings
+import com.desynkro.tunneltomydash.data.ConnectionInfo
 import com.desynkro.tunneltomydash.data.ProfileSummary
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -55,6 +56,27 @@ class ConnectionPolicyTest {
                 settings,
                 listOf(profile),
                 ConnectionState.Connecting(profile.id),
+            ),
+        )
+        assertFalse(
+            shouldAutoConnect(
+                settings,
+                listOf(profile),
+                ConnectionState.Connected(
+                    ConnectionInfo(
+                        proxy = "127.0.0.1:41000",
+                        dashboardURL = profile.dashboardURL,
+                        profileID = profile.id,
+                        profileName = profile.name,
+                    ),
+                ),
+            ),
+        )
+        assertFalse(
+            shouldAutoConnect(
+                settings,
+                listOf(profile),
+                ConnectionState.Error("failed"),
             ),
         )
     }

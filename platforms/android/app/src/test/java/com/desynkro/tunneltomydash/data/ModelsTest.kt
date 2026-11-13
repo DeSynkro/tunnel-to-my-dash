@@ -44,6 +44,16 @@ class ModelsTest {
     }
 
     @Test
+    fun parsesProfileDetailWithMissingFields() {
+        val profile = parseProfileDetail("""{"id":"home"}""")
+        assertEquals("home", profile.id)
+        assertEquals("", profile.name)
+        assertEquals("off", profile.externalMode)
+        assertTrue(profile.externalOrigins.isEmpty())
+        assertFalse(profile.hasTunnelConfig)
+    }
+
+    @Test
     fun parsesSettingsAndSerializesBack() {
         val settings = parseSettings(
             """{"force_lan_only":false,"lock_on_background":true,"auto_connect":false,"open_public_links_in_browser":true}""",

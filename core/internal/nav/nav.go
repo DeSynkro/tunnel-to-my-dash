@@ -63,6 +63,13 @@ func Classify(raw string) Kind {
 		return Blocked
 	}
 
+	// Browsers accept non-canonical numeric IPv4 forms such as 127.1,
+	// 2130706433 and 0x7f000001. Classifying those as private would let them
+	// keep the tunnel and bypass the public-link switch, so block them.
+	if isNumericHost(host) {
+		return Blocked
+	}
+
 	if host == "localhost" {
 		return Blocked
 	}
@@ -75,4 +82,16 @@ func Classify(raw string) Kind {
 		}
 	}
 	return Public
+}
+
+func isNumericHost(host string) bool {
+	if strings.HasPrefix(host, "0x") {
+		return true
+	}
+	for _, r := range host {
+		if r != '.' && (r < '0' || r > '9') {
+			return false
+		}
+	}
+	return host != ""
 }

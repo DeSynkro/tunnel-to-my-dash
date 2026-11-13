@@ -62,6 +62,7 @@ fun PasswordDialog(
 fun ChangePasswordDialog(
     onDismiss: () -> Unit,
     onConfirm: (String, String) -> Unit,
+    showCurrentPassword: Boolean = true,
 ) {
     var oldPassword by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
@@ -70,21 +71,23 @@ fun ChangePasswordDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Change vault password") },
+        title = { Text(if (showCurrentPassword) "Change vault password" else "Set vault password") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = oldPassword,
-                    onValueChange = {
-                        oldPassword = it
-                        localError = null
-                    },
-                    label = { Text("Current password") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                if (showCurrentPassword) {
+                    OutlinedTextField(
+                        value = oldPassword,
+                        onValueChange = {
+                            oldPassword = it
+                            localError = null
+                        },
+                        label = { Text("Current password") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
                 OutlinedTextField(
                     value = newPassword,
                     onValueChange = {
@@ -123,7 +126,7 @@ fun ChangePasswordDialog(
                         onConfirm(oldPassword, newPassword)
                     }
                 },
-                enabled = oldPassword.isNotBlank() &&
+                enabled = (!showCurrentPassword || oldPassword.isNotBlank()) &&
                     newPassword.isNotBlank() &&
                     confirmPassword.isNotBlank(),
             ) {
