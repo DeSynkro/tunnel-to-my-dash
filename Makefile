@@ -14,7 +14,7 @@ export ELECTRON_CACHE := $(CACHE)/electron
 export ELECTRON_BUILDER_CACHE := $(CACHE)/electron-builder
 export PATH := $(ROOT)/.tools/go/bin:$(PATH)
 
-.PHONY: help dirs env toolchain fmt test core check desktop-deps desktop-check audit-network desktop desktop-start appimage checksums release clean android-setup android-bind android-apk android-install
+.PHONY: help dirs env toolchain fmt test core check desktop-deps desktop-check audit-network desktop desktop-start appimage checksums release clean android-setup android-bind android-apk android-test android-install
 
 help: ## List available targets
 	@awk 'BEGIN {FS = ":.*## "; printf "Targets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-10s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -84,6 +84,9 @@ android-bind: ## Build the Go core into an Android AAR
 
 android-apk: android-bind ## Build the debug Android APK
 	@. platforms/android/env.sh && cd platforms/android && ./gradlew assembleDebug
+
+android-test: android-bind ## Run Android unit tests
+	@. platforms/android/env.sh && cd platforms/android && ./gradlew testDebugUnitTest
 
 android-install: android-apk ## Install the debug APK on the connected device
 	@platforms/android/adb install -r platforms/android/app/build/outputs/apk/debug/app-debug.apk
