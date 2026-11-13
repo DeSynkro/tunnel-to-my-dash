@@ -13,12 +13,18 @@ android {
         minSdk = 29
         targetSdk = 35
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "1.0"
     }
 
     signingConfigs {
         getByName("debug") {
             storeFile = rootProject.projectDir.resolve("../../.cache/android/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+        create("github") {
+            storeFile = rootProject.projectDir.resolve("../../local/android-signing/github.keystore")
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
@@ -31,6 +37,7 @@ android {
         }
         getByName("release") {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("github")
         }
     }
 

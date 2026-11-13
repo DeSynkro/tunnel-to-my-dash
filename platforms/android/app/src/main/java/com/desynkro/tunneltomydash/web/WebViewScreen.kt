@@ -148,7 +148,9 @@ class WebViewScreen(
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
-                Log.i(TAG, "page finished $url")
+                if (BuildConfig.DEBUG) {
+                    Log.i(TAG, "page finished $url")
+                }
                 if (!errorActive) {
                     cancelWatchdog()
                     errorView.hide()
