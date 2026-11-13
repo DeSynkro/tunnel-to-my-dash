@@ -7,11 +7,13 @@ import (
 	"github.com/desynkro/tunnel-to-my-dash/core/internal/app"
 	"github.com/desynkro/tunnel-to-my-dash/core/internal/config"
 	"github.com/desynkro/tunnel-to-my-dash/core/internal/external"
+	"github.com/desynkro/tunnel-to-my-dash/core/internal/vault"
 )
 
 var (
 	mu     sync.Mutex
 	active *app.App
+	store  *vault.Store
 )
 
 // Start parses a WireGuard configuration, starts the userspace tunnel and the
