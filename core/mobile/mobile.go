@@ -6,6 +6,7 @@ import (
 
 	"github.com/desynkro/tunnel-to-my-dash/core/internal/app"
 	"github.com/desynkro/tunnel-to-my-dash/core/internal/config"
+	"github.com/desynkro/tunnel-to-my-dash/core/internal/external"
 )
 
 var (
@@ -15,7 +16,7 @@ var (
 
 // Start parses a WireGuard configuration, starts the userspace tunnel and the
 // local HTTP proxy, and returns the proxy address (127.0.0.1:port).
-func Start(tunnelConfig string) (string, error) {
+func Start(tunnelConfig string, allowExternal bool) (string, error) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -26,7 +27,11 @@ func Start(tunnelConfig string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	instance, err := app.Start(cfg, app.Options{})
+	mode := external.ModeOff
+	if allowExternal {
+		mode = external.ModeAll
+	}
+	instance, err := app.Start(cfg, app.Options{ExternalMode: mode})
 	if err != nil {
 		return "", err
 	}
