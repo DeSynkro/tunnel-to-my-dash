@@ -65,8 +65,9 @@ lightbox, Jellyfin playback and fullscreen work on the Pixel test profile.
   WebView a zero-height layout viewport: `innerHeight` was 918 while `100vh`
   and `min-height` media queries resolved to 0. A plain `FrameLayout` WebView
   reports 918.095 px and all sites render correctly.
-- Only `INTERNET` and notification/foreground-service permissions are needed.
-  No storage, contacts, location, camera or microphone permissions.
+- Only `INTERNET`, notification/foreground-service permissions and
+  `USE_BIOMETRIC` are needed. No storage, contacts, location, camera or
+  microphone permissions.
 - App-private data only. The vault and keyfile live under the app's private
   files directory; `allowBackup` stays false.
 - Project-local Android, JDK, Gradle and gomobile caches.

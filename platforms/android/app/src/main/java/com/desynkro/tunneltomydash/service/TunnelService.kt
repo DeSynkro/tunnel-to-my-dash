@@ -60,6 +60,9 @@ class TunnelService : Service() {
                 )
                 serviceScope.launch {
                     controller.connect(profileID)
+                    if (foregroundStarted) {
+                        updateNotification(controller.state.value)
+                    }
                 }
             }
             ACTION_STOP -> stopSelf()

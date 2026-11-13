@@ -131,7 +131,7 @@ internal fun ProfileDraft.toJson(): String = JSONObject().apply {
     }
     put("dashboard_url", dashboardURL)
     put("external_mode", externalMode)
-    if (externalMode == "origins") {
+    if (externalOrigins.isNotEmpty()) {
         put("external_origins", JSONArray(externalOrigins))
     }
 }.toString()
@@ -141,9 +141,13 @@ internal fun ProfileDraft.toJson(): String = JSONObject().apply {
  * already uses an exact-origin allowlist keeps that mode: the Android editor
  * can turn external content off, but cannot widen it to "all" by accident.
  */
-internal fun resolveExternalMode(allowExternal: Boolean, storedMode: String): String = when {
+internal fun resolveExternalMode(
+    allowExternal: Boolean,
+    storedMode: String,
+    storedOrigins: List<String> = emptyList(),
+): String = when {
     !allowExternal -> "off"
-    storedMode == "origins" -> "origins"
+    storedMode == "origins" || storedOrigins.isNotEmpty() -> "origins"
     else -> "all"
 }
 

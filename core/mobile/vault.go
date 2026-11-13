@@ -179,7 +179,7 @@ func AddProfileJSON(input string) (string, error) {
 		DashboardURL:    profileInput.DashboardURL,
 		AllowExternal:   mode != external.ModeOff,
 		ExternalMode:    mode,
-		ExternalOrigins: append([]string(nil), profileInput.ExternalOrigins...),
+		ExternalOrigins: originsForMode(mode, profileInput.ExternalOrigins),
 	})
 	if err != nil {
 		return "", err
@@ -224,7 +224,19 @@ func UpdateProfileJSON(input string) (string, error) {
 	}
 	profile.AllowExternal = mode != external.ModeOff
 	profile.ExternalMode = mode
-	profile.ExternalOrigins = append([]string(nil), profileInput.ExternalOrigins...)
+	switch mode {
+	case external.ModeOrigins:
+		// Keep the stored allowlist when the editor only sends the mode back
+		// (an empty list would otherwise silently drop every origin).
+		if len(profileInput.ExternalOrigins) > 0 {
+			profile.ExternalOrigins = append([]string(nil), profileInput.ExternalOrigins...)
+		}
+	case external.ModeAll:
+		profile.ExternalOrigins = nil
+	case external.ModeOff:
+		// Turning external content off keeps the allowlist, so turning it
+		// back on cannot widen the profile to all origins.
+	}
 	if err := s.UpdateProfile(profile); err != nil {
 		return "", err
 	}
@@ -338,6 +350,13 @@ func requireUnlocked() (*vault.Store, error) {
 		return nil, vault.ErrLocked
 	}
 	return store, nil
+}
+
+func originsForMode(mode string, origins []string) []string {
+	if mode != external.ModeOrigins {
+		return nil
+	}
+	return append([]string(nil), origins...)
 }
 
 func normalizeProfileMode(raw string) (string, error) {

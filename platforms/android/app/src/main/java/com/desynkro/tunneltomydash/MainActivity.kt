@@ -38,6 +38,7 @@ import com.desynkro.tunneltomydash.ui.LockCoordinator
 import com.desynkro.tunneltomydash.ui.TtmdTheme
 import com.desynkro.tunneltomydash.web.WebViewScreen
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -46,7 +47,7 @@ class MainActivity : FragmentActivity() {
         get() = (application as TtmdApplication).container
 
     private val viewModel: AppViewModel by viewModels {
-        AppViewModel.factory(container.repository)
+        AppViewModel.factory(container.repository, container.appScope)
     }
 
     private val lockCoordinator = LockCoordinator()
@@ -67,6 +68,7 @@ class MainActivity : FragmentActivity() {
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
+        uiPrefs.edit().putBoolean(KEY_NOTIFICATION_ASKED, true).apply()
         lockCoordinator.leaveExternalActivity()
         val pending = pendingConnect
         pendingConnect = null
@@ -94,7 +96,9 @@ class MainActivity : FragmentActivity() {
             setBackgroundColor(Color.BLACK)
         }
         ViewCompat.setOnApplyWindowInsetsListener(rootView) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime(),
+            )
             view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
             insets
         }
@@ -155,9 +159,11 @@ class MainActivity : FragmentActivity() {
                             )
                         },
                         onChangePassword = { oldPassword, newPassword ->
-                            viewModel.changePassword(oldPassword, newPassword)
-                            container.biometric.disable()
-                            biometricEnabled = false
+                            withContext(NonCancellable) {
+                                viewModel.changePassword(oldPassword, newPassword)
+                                container.biometric.disable()
+                                biometricEnabled = false
+                            }
                         },
                     )
                 }
@@ -221,6 +227,12 @@ class MainActivity : FragmentActivity() {
     override fun onDestroy() {
         connectionErrorDialog?.dismiss()
         connectionErrorDialog = null
+        val state = viewModel.state.value
+        if (lockCoordinator.shouldLock(state.vaultStatus, state.settings)) {
+            container.appScope.launch {
+                runCatching { container.repository.lock() }
+            }
+        }
         destroyWebViewScreen()
         super.onDestroy()
     }
@@ -242,7 +254,6 @@ class MainActivity : FragmentActivity() {
             ) != PackageManager.PERMISSION_GRANTED &&
             !uiPrefs.getBoolean(KEY_NOTIFICATION_ASKED, false)
         ) {
-            uiPrefs.edit().putBoolean(KEY_NOTIFICATION_ASKED, true).apply()
             pendingConnect = profile
             lockCoordinator.enterExternalActivity()
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)

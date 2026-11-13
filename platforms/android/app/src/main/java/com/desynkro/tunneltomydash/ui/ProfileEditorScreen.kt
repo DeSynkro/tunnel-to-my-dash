@@ -171,7 +171,11 @@ fun ProfileEditorScreen(
                     return@Button
                 }
                 localError = null
-                val externalMode = resolveExternalMode(allowExternal, storedExternalMode)
+                val externalMode = resolveExternalMode(
+                    allowExternal,
+                    storedExternalMode,
+                    storedOrigins,
+                )
                 onSave(
                     ProfileDraft(
                         id = detail?.id,
@@ -179,7 +183,7 @@ fun ProfileEditorScreen(
                         tunnelConfig = tunnelConfig.trim(),
                         dashboardURL = dashboardURL.trim(),
                         externalMode = externalMode,
-                        externalOrigins = if (externalMode == "origins") storedOrigins else emptyList(),
+                        externalOrigins = storedOrigins,
                     ),
                 )
             },

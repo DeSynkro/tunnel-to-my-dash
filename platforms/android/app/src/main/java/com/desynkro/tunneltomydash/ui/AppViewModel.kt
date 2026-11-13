@@ -11,6 +11,7 @@ import com.desynkro.tunneltomydash.data.ProfileDraft
 import com.desynkro.tunneltomydash.data.ProfileSummary
 import com.desynkro.tunneltomydash.data.VaultGateway
 import com.desynkro.tunneltomydash.data.VaultStatus
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,7 +44,10 @@ data class AppUiState(
     val error: String? = null,
 )
 
-class AppViewModel(private val gateway: VaultGateway) : ViewModel() {
+class AppViewModel(
+    private val gateway: VaultGateway,
+    private val lockScope: CoroutineScope? = null,
+) : ViewModel() {
     private val _state = MutableStateFlow(AppUiState())
     val state: StateFlow<AppUiState> = _state.asStateFlow()
     private val settingsSaveLock = Mutex()
@@ -125,7 +129,9 @@ class AppViewModel(private val gateway: VaultGateway) : ViewModel() {
         if (!_state.value.vaultStatus.passwordProtected) {
             return
         }
-        viewModelScope.launch {
+        // Use the application scope when supplied so finishing the activity
+        // cannot cancel a lock that is already in flight.
+        (lockScope ?: viewModelScope).launch {
             runCatching { gateway.lock() }
             val status = runCatching { gateway.status() }.getOrElse {
                 _state.value.vaultStatus.copy(locked = true)
@@ -293,8 +299,11 @@ class AppViewModel(private val gateway: VaultGateway) : ViewModel() {
     }
 
     companion object {
-        fun factory(gateway: VaultGateway): ViewModelProvider.Factory = viewModelFactory {
-            initializer { AppViewModel(gateway) }
+        fun factory(
+            gateway: VaultGateway,
+            lockScope: CoroutineScope? = null,
+        ): ViewModelProvider.Factory = viewModelFactory {
+            initializer { AppViewModel(gateway, lockScope) }
         }
     }
 }

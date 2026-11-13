@@ -1,6 +1,7 @@
 package com.desynkro.tunneltomydash.service
 
 import com.desynkro.tunneltomydash.data.ConnectionInfo
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,34 +23,35 @@ class TunnelController(
     private val generation = AtomicInteger(0)
 
     suspend fun connect(profileID: String) {
-        val current = _state.value
-        if (current is ConnectionState.Connecting || current is ConnectionState.Connected) {
-            return
-        }
-        if (!connectLock.tryLock()) {
-            return
-        }
-        val token = generation.incrementAndGet()
-        try {
-            _state.value = ConnectionState.Connecting(profileID)
-            val info = withContext(ioDispatcher) { core.startProfile(profileID) }
-            if (token == generation.get()) {
-                _state.value = ConnectionState.Connected(info)
+        connectLock.withLock {
+            val current = _state.value
+            if (current is ConnectionState.Connecting || current is ConnectionState.Connected) {
+                return
             }
-        } catch (caught: Throwable) {
-            if (token == generation.get()) {
-                _state.value = ConnectionState.Error(
-                    caught.message ?: "Could not connect to the dashboard",
-                )
+            val token = generation.incrementAndGet()
+            try {
+                _state.value = ConnectionState.Connecting(profileID)
+                val info = withContext(ioDispatcher) { core.startProfile(profileID) }
+                if (token == generation.get()) {
+                    _state.value = ConnectionState.Connected(info)
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (caught: Throwable) {
+                if (token == generation.get()) {
+                    _state.value = ConnectionState.Error(
+                        caught.message ?: "Could not connect to the dashboard",
+                    )
+                }
             }
-        } finally {
-            connectLock.unlock()
         }
     }
 
     /**
      * Stops the tunnel. If a start is in flight, this waits for it to finish
-     * and then closes it, so a late start cannot orphan the Go tunnel.
+     * and then closes it, so a late start cannot orphan the Go tunnel. A
+     * connect that arrives while stop is finishing waits for the lock and
+     * starts afterwards instead of being dropped.
      */
     suspend fun stop() {
         generation.incrementAndGet()
@@ -57,7 +59,7 @@ class TunnelController(
             withContext(ioDispatcher) {
                 runCatching { core.stop() }
             }
+            _state.value = ConnectionState.Stopped
         }
-        _state.value = ConnectionState.Stopped
     }
 }

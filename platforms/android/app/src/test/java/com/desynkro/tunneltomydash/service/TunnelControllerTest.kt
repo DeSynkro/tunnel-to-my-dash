@@ -68,13 +68,28 @@ class TunnelControllerTest {
         val first = launch { controller.connect("profile") }
         core.started.await()
         val second = launch { controller.connect("profile") }
-        second.join()
-
-        assertEquals(1, core.startCalls)
 
         core.release.complete(Unit)
         first.join()
+        second.join()
+
+        assertEquals(1, core.startCalls)
         assertEquals(ConnectionState.Connected(info), controller.state.value)
+    }
+
+    @Test
+    fun connectAfterStopStartsAgain() = runTest {
+        val core = FakeCore(info = info)
+        val controller = TunnelController(core, UnconfinedTestDispatcher(testScheduler))
+        controller.connect("profile")
+
+        controller.stop()
+        controller.connect("profile")
+
+        assertEquals(2, core.startCalls)
+        assertEquals(1, core.stopCalls)
+        assertEquals(ConnectionState.Connected(info), controller.state.value)
+        assertTrue(core.tunnelActive)
     }
 
     @Test

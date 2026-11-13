@@ -1,5 +1,6 @@
 package com.desynkro.tunneltomydash.ui
 
+import androidx.lifecycle.viewModelScope
 import com.desynkro.tunneltomydash.data.AppSettings
 import com.desynkro.tunneltomydash.data.NavigationKind
 import com.desynkro.tunneltomydash.data.ProfileDetail
@@ -7,6 +8,9 @@ import com.desynkro.tunneltomydash.data.ProfileDraft
 import com.desynkro.tunneltomydash.data.ProfileSummary
 import com.desynkro.tunneltomydash.data.VaultGateway
 import com.desynkro.tunneltomydash.data.VaultStatus
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -94,6 +98,23 @@ class AppViewModelTest {
         viewModel.unlock("correct horse")
 
         assertEquals(AppScreen.Profiles, viewModel.state.value.screen)
+    }
+
+    @Test
+    fun lockCompletesWhenViewModelScopeIsCancelled() = runTest {
+        val fake = FakeVaultGateway(
+            hasVaultResult = true,
+            openResult = VaultStatus(true, false, true),
+            statusResult = VaultStatus(true, false, true),
+        )
+        val viewModel = AppViewModel(fake, this)
+        viewModel.viewModelScope.cancel()
+
+        viewModel.lock()
+        advanceUntilIdle()
+
+        assertEquals(AppScreen.Unlock, viewModel.state.value.screen)
+        assertTrue(viewModel.state.value.vaultStatus.locked)
     }
 
     @Test

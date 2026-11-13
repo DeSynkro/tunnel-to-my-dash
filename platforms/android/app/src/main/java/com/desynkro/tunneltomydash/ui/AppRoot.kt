@@ -35,7 +35,8 @@ fun AppRoot(
     onChangePassword: suspend (String, String) -> Unit = viewModel::changePassword,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val connectionActive = connectionState !is ConnectionState.Stopped
+    val connectionActive =
+        connectionState is ConnectionState.Connecting || connectionState is ConnectionState.Connected
 
     when (val screen = state.screen) {
         AppScreen.Initializing -> LoadingScreen()

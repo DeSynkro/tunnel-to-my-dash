@@ -473,6 +473,53 @@ func TestProfileOriginsPreserved(t *testing.T) {
 		len(detail.ExternalOrigins) != 1 || detail.ExternalOrigins[0] != "https://example.com" {
 		t.Fatalf("detail after update = %+v", detail)
 	}
+
+	offUpdate, err := json.Marshal(ProfileInput{
+		ID:           summary.ID,
+		Name:         "Home renamed",
+		DashboardURL: "http://192.168.0.3:3000",
+		ExternalMode: "off",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := UpdateProfileJSON(string(offUpdate)); err != nil {
+		t.Fatal(err)
+	}
+	detailRaw, err = ProfileJSON(summary.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(detailRaw), &detail); err != nil {
+		t.Fatal(err)
+	}
+	if detail.ExternalMode != "off" || len(detail.ExternalOrigins) != 1 {
+		t.Fatalf("origins after turning external off = %+v", detail)
+	}
+
+	onUpdate, err := json.Marshal(ProfileInput{
+		ID:           summary.ID,
+		Name:         "Home renamed",
+		DashboardURL: "http://192.168.0.3:3000",
+		ExternalMode: "origins",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := UpdateProfileJSON(string(onUpdate)); err != nil {
+		t.Fatal(err)
+	}
+	detailRaw, err = ProfileJSON(summary.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(detailRaw), &detail); err != nil {
+		t.Fatal(err)
+	}
+	if detail.ExternalMode != "origins" || len(detail.ExternalOrigins) != 1 ||
+		detail.ExternalOrigins[0] != "https://example.com" {
+		t.Fatalf("origins after turning external back on = %+v", detail)
+	}
 }
 
 func TestLockVaultLeavesKeyfileOpen(t *testing.T) {

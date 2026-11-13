@@ -129,5 +129,21 @@ class ModelsTest {
         assertEquals("off", resolveExternalMode(allowExternal = false, storedMode = "off"))
         assertEquals("all", resolveExternalMode(allowExternal = true, storedMode = "off"))
         assertEquals("all", resolveExternalMode(allowExternal = true, storedMode = "all"))
+        assertEquals(
+            "off",
+            resolveExternalMode(
+                allowExternal = false,
+                storedMode = "off",
+                storedOrigins = listOf("https://example.com"),
+            ),
+        )
+        assertEquals(
+            "origins",
+            resolveExternalMode(
+                allowExternal = true,
+                storedMode = "off",
+                storedOrigins = listOf("https://example.com"),
+            ),
+        )
     }
 }
