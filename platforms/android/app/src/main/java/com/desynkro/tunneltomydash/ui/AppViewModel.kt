@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.desynkro.tunneltomydash.data.AppSettings
+import com.desynkro.tunneltomydash.data.ProfileDetail
+import com.desynkro.tunneltomydash.data.ProfileDraft
 import com.desynkro.tunneltomydash.data.ProfileSummary
 import com.desynkro.tunneltomydash.data.VaultGateway
 import com.desynkro.tunneltomydash.data.VaultStatus
@@ -28,6 +30,7 @@ data class AppUiState(
     val screen: AppScreen = AppScreen.Initializing,
     val vaultStatus: VaultStatus = VaultStatus(false, true, false),
     val profiles: List<ProfileSummary> = emptyList(),
+    val editingProfile: ProfileDetail? = null,
     val settings: AppSettings = AppSettings(
         forceLANOnly = false,
         lockOnBackground = true,
@@ -147,7 +150,83 @@ class AppViewModel(private val gateway: VaultGateway) : ViewModel() {
     }
 
     fun openEditor(id: String?) {
-        _state.update { it.copy(screen = AppScreen.EditProfile(id), error = null) }
+        if (id == null) {
+            _state.update {
+                it.copy(
+                    screen = AppScreen.EditProfile(null),
+                    editingProfile = null,
+                    busy = false,
+                    error = null,
+                )
+            }
+            return
+        }
+        viewModelScope.launch {
+            _state.update {
+                it.copy(
+                    screen = AppScreen.EditProfile(id),
+                    editingProfile = null,
+                    busy = true,
+                    error = null,
+                )
+            }
+            try {
+                val detail = gateway.profile(id)
+                _state.update { it.copy(editingProfile = detail, busy = false) }
+            } catch (caught: Throwable) {
+                _state.update {
+                    it.copy(busy = false, error = caught.message ?: "Could not load the profile")
+                }
+            }
+        }
+    }
+
+    fun saveProfile(draft: ProfileDraft) {
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null) }
+            try {
+                if (draft.id == null) {
+                    gateway.addProfile(draft)
+                } else {
+                    gateway.updateProfile(draft)
+                }
+                _state.update {
+                    it.copy(
+                        screen = AppScreen.Profiles,
+                        editingProfile = null,
+                        busy = false,
+                        error = null,
+                    )
+                }
+                loadProfiles()
+            } catch (caught: Throwable) {
+                _state.update {
+                    it.copy(busy = false, error = caught.message ?: "Could not save the profile")
+                }
+            }
+        }
+    }
+
+    fun deleteProfile(id: String) {
+        viewModelScope.launch {
+            try {
+                gateway.deleteProfile(id)
+                loadProfiles()
+            } catch (caught: Throwable) {
+                _state.update { it.copy(error = caught.message ?: "Could not delete the profile") }
+            }
+        }
+    }
+
+    fun setActiveProfile(id: String) {
+        viewModelScope.launch {
+            try {
+                gateway.setActiveProfile(id)
+                loadProfiles()
+            } catch (caught: Throwable) {
+                _state.update { it.copy(error = caught.message ?: "Could not set the active profile") }
+            }
+        }
     }
 
     fun openSettings() {
