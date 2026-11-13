@@ -22,6 +22,11 @@ fun AppRoot(
     onConnect: (String) -> Unit = {},
     onExternalActivityStart: () -> Unit = {},
     onExternalActivityEnd: () -> Unit = {},
+    biometricAvailable: Boolean = false,
+    biometricEnabled: Boolean = false,
+    onEnableBiometrics: suspend (String) -> Unit = {},
+    onDisableBiometrics: () -> Unit = {},
+    onBiometricUnlock: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -36,6 +41,9 @@ fun AppRoot(
             busy = state.busy,
             error = state.error,
             onUnlock = viewModel::unlock,
+            biometricAvailable = biometricAvailable,
+            biometricEnabled = biometricEnabled,
+            onBiometricUnlock = onBiometricUnlock,
         )
         AppScreen.Profiles -> ProfilesScreen(
             state = state,
@@ -72,6 +80,10 @@ fun AppRoot(
             onBack = viewModel::backToProfiles,
             onExternalActivityStart = onExternalActivityStart,
             onExternalActivityEnd = onExternalActivityEnd,
+            biometricAvailable = biometricAvailable,
+            biometricEnabled = biometricEnabled,
+            onEnableBiometrics = onEnableBiometrics,
+            onDisableBiometrics = onDisableBiometrics,
         )
     }
 }

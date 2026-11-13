@@ -42,6 +42,10 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onExternalActivityStart: () -> Unit = {},
     onExternalActivityEnd: () -> Unit = {},
+    biometricAvailable: Boolean = false,
+    biometricEnabled: Boolean = false,
+    onEnableBiometrics: suspend (String) -> Unit = {},
+    onDisableBiometrics: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -49,6 +53,7 @@ fun SettingsScreen(
     var message by remember { mutableStateOf<String?>(null) }
     var messageIsError by remember { mutableStateOf(false) }
     var showChangePassword by remember { mutableStateOf(false) }
+    var showEnableBiometric by remember { mutableStateOf(false) }
     var pendingExportUri by remember { mutableStateOf<Uri?>(null) }
     var pendingImportData by remember { mutableStateOf<ByteArray?>(null) }
 
@@ -128,6 +133,20 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (biometricAvailable) {
+                SettingSwitch(
+                    label = "Fingerprint unlock",
+                    checked = biometricEnabled,
+                    enabled = !busy,
+                    onCheckedChange = { enable ->
+                        if (enable) {
+                            showEnableBiometric = true
+                        } else {
+                            onDisableBiometrics()
+                        }
+                    },
+                )
+            }
         } else {
             Text(
                 "Set a vault password to enable lock-on-background.",
@@ -210,6 +229,31 @@ fun SettingsScreen(
         ) {
             Text("Back")
         }
+    }
+
+    if (showEnableBiometric) {
+        PasswordDialog(
+            title = "Confirm vault password",
+            confirmLabel = "Enable",
+            onDismiss = { showEnableBiometric = false },
+            onConfirm = { password ->
+                showEnableBiometric = false
+                scope.launch {
+                    busy = true
+                    try {
+                        onEnableBiometrics(password)
+                        report("Fingerprint unlock enabled", false)
+                    } catch (caught: Throwable) {
+                        report(
+                            caught.message ?: "Could not enable fingerprint unlock",
+                            true,
+                        )
+                    } finally {
+                        busy = false
+                    }
+                }
+            },
+        )
     }
 
     if (showChangePassword) {

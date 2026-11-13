@@ -9,12 +9,16 @@ import android.os.Bundle
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.Toast
-import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.biometric.BiometricPrompt
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -30,9 +34,11 @@ import com.desynkro.tunneltomydash.ui.AppViewModel
 import com.desynkro.tunneltomydash.ui.LockCoordinator
 import com.desynkro.tunneltomydash.ui.TtmdTheme
 import com.desynkro.tunneltomydash.web.WebViewScreen
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     private val container: AppContainer
         get() = (application as TtmdApplication).container
 
@@ -49,6 +55,7 @@ class MainActivity : ComponentActivity() {
     private var pendingConnect: ProfileSummary? = null
     private var autoConnectAttempted = false
     private var connectionErrorDialog: AlertDialog? = null
+    private var biometricEnabled by mutableStateOf(false)
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -71,6 +78,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, true)
+        biometricEnabled = container.biometric.isEnabled()
 
         rootView = FrameLayout(this).apply {
             setBackgroundColor(Color.BLACK)
@@ -87,6 +95,37 @@ class MainActivity : ComponentActivity() {
                         },
                         onExternalActivityStart = lockCoordinator::enterExternalActivity,
                         onExternalActivityEnd = lockCoordinator::leaveExternalActivity,
+                        biometricAvailable = container.biometric.isAvailable(),
+                        biometricEnabled = biometricEnabled,
+                        onEnableBiometrics = { password ->
+                            withContext(Dispatchers.IO) {
+                                container.biometric.enable(password)
+                            }
+                            biometricEnabled = true
+                        },
+                        onDisableBiometrics = {
+                            container.biometric.disable()
+                            biometricEnabled = false
+                        },
+                        onBiometricUnlock = {
+                            container.biometric.prompt(
+                                this@MainActivity,
+                                onSuccess = { password -> viewModel.unlock(password) },
+                                onError = { code, message ->
+                                    if (
+                                        code != BiometricPrompt.ERROR_NEGATIVE_BUTTON &&
+                                        code != BiometricPrompt.ERROR_CANCELED &&
+                                        code != BiometricPrompt.ERROR_USER_CANCELED
+                                    ) {
+                                        Toast.makeText(
+                                            this@MainActivity,
+                                            message,
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                    }
+                                },
+                            )
+                        },
                     )
                 }
             }

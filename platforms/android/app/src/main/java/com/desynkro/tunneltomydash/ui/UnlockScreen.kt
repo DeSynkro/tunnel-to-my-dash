@@ -10,6 +10,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,6 +28,9 @@ fun UnlockScreen(
     busy: Boolean,
     error: String?,
     onUnlock: (String) -> Unit,
+    biometricAvailable: Boolean = false,
+    biometricEnabled: Boolean = false,
+    onBiometricUnlock: () -> Unit = {},
 ) {
     var password by remember { mutableStateOf("") }
 
@@ -54,6 +58,15 @@ fun UnlockScreen(
         )
         if (error != null) {
             Text(error, color = MaterialTheme.colorScheme.error)
+        }
+        if (biometricAvailable && biometricEnabled) {
+            OutlinedButton(
+                onClick = onBiometricUnlock,
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Use fingerprint")
+            }
         }
         Button(
             onClick = { onUnlock(password) },
