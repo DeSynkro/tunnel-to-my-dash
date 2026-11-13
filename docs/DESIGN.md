@@ -2,10 +2,12 @@
 
 ## Summary
 
-Tunnel to My Dash is a Linux desktop app (Android and Windows later) that
+Tunnel to My Dash is a cross-platform app (Linux, Windows and Android) that
 opens a self-hosted LAN dashboard through a WireGuard tunnel owned by the app.
 It is not a VPN client for the whole machine. The tunnel lives inside the app,
 the browser can only reach the LAN, and the system VPN is untouched.
+
+The Android client is specified separately in [ANDROID.md](ANDROID.md).
 
 Working name: Tunnel to My Dash. Short name in code and paths: `ttmd`.
 

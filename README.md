@@ -6,14 +6,14 @@
 
 Open your home dashboard from anywhere without switching off your VPN.
 
-Tunnel to My Dash is a desktop app that runs a WireGuard tunnel inside the
-application and uses that tunnel for one thing: browsing your local network.
-It does not create a system VPN, ask for root, or change your routing table.
-Your normal VPN keeps running.
+Tunnel to My Dash is a desktop and Android app that runs a WireGuard tunnel
+inside the application and uses that tunnel for one thing: browsing your local
+network. It does not create a system VPN, ask for root, or change your routing
+table. Your normal VPN keeps running.
 
-Status: early development. The Linux AppImage builds and runs: first-run
-setup, encrypted vault, profiles, the dashboard window and portable data.
-Mobile and Windows are next.
+Status: early development. The Linux AppImage and portable Windows build run:
+first-run setup, encrypted vault, profiles, the dashboard window and portable
+data. The Android client is in progress.
 
 ## Why
 
@@ -56,7 +56,8 @@ the app's own traffic uses the tunnel.
   returns to the main menu. Back to main menu from the lock overlay also lands
   on the main menu after unlocking.
 
-More detail in [docs/DESIGN.md](docs/DESIGN.md).
+More detail in [docs/DESIGN.md](docs/DESIGN.md). The Android client design is in
+[docs/ANDROID.md](docs/ANDROID.md).
 
 ## Principles
 
@@ -64,7 +65,8 @@ More detail in [docs/DESIGN.md](docs/DESIGN.md).
 - No system VPN, root or firewall changes.
 - Strict LAN-only by default; fail closed.
 - WireGuard keys never stored in plaintext.
-- Linux and Windows first; Android is a separate client.
+- Linux, Windows and Android share the same core; each has a platform-specific
+  shell.
 
 ## Layout
 
@@ -73,12 +75,12 @@ More detail in [docs/DESIGN.md](docs/DESIGN.md).
     platforms/
       linux/        AppImage build and Linux-only scripts
       windows/      portable .exe build
-      android/      future Kotlin/Compose app
+      android/      Kotlin/Compose Android client (in progress)
     docs/           design, roadmap, plan and security notes
 
-The shared code stays at the top so Linux, Windows and the future Android
-client do not drift apart. Only packaging and platform-specific helpers live
-under `platforms/`.
+The shared code stays at the top so Linux, Windows and the Android client do not
+drift apart. Only packaging and platform-specific helpers live under
+`platforms/`.
 
 ## Run it
 
@@ -120,8 +122,8 @@ one. The app does not phone home for updates.
   always visible.
 - Launch at login, start minimized and close to tray are deferred until the
   tray icon exists.
-- Windows portable `.exe` is built by the Windows CI job. The Android
-  connectivity spike is in progress.
+- Windows portable `.exe` is built by the Windows CI job. The Android client is
+  in progress.
 - Jellyfin playback, fullscreen and the remote network have been tested by the
   user. The Linux no-dashboard network audit runs in CI.
 - Release artifacts have SHA-256 checksums; GPG signing is deferred.
