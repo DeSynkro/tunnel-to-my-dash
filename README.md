@@ -11,9 +11,9 @@ inside the application and uses that tunnel for one thing: browsing your local
 network. It does not create a system VPN, ask for root, or change your routing
 table. Your normal VPN keeps running.
 
-Status: early development. The Linux AppImage and portable Windows build run:
-first-run setup, encrypted vault, profiles, the dashboard window and portable
-data. The Android client is in progress.
+Status: 1.0. The Linux AppImage, portable Windows build and signed Android APK
+provide first-run setup, encrypted vault, profiles, the dashboard window and
+portable data.
 
 ## Why
 
@@ -75,7 +75,7 @@ More detail in [docs/DESIGN.md](docs/DESIGN.md). The Android client design is in
     platforms/
       linux/        AppImage build and Linux-only scripts
       windows/      portable .exe build
-      android/      Kotlin/Compose Android client (in progress)
+      android/      Kotlin/Compose Android client
     docs/           design, roadmap, plan and security notes
 
 The shared code stays at the top so Linux, Windows and the Android client do not
@@ -122,8 +122,8 @@ one. The app does not phone home for updates.
   always visible.
 - Launch at login, start minimized and close to tray are deferred until the
   tray icon exists.
-- Windows portable `.exe` is built by the Windows CI job. The Android client is
-  in progress.
+- Windows portable `.exe` is built by the Windows CI job. The signed Android
+  APK is built with `make android-release`.
 - Jellyfin playback, fullscreen and the remote network have been tested by the
   user. The Linux no-dashboard network audit runs in CI.
 - Release artifacts have SHA-256 checksums; GPG signing is deferred.

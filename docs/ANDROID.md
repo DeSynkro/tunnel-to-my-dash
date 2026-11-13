@@ -9,11 +9,9 @@ ProtonVPN and other VPN apps remain usable. The client stores profiles and
 WireGuard configurations in an encrypted, app-managed vault, is LAN-only by
 default, and never sends telemetry.
 
-The existing Android spike proved the architecture: the Go core runs through
-`gomobile`, the WebView uses a per-app proxy override, and the dashboard,
-Glances, OpenCode, Pi-hole, the portfolio lightbox, Jellyfin playback and
-fullscreen all work on the Pixel test profile. The spike is not the product;
-this design replaces it with the real client.
+The Android client runs the Go core through `gomobile`, and the WebView uses a
+per-app proxy override. The dashboard, Glances, OpenCode, Pi-hole, the portfolio
+lightbox, Jellyfin playback and fullscreen work on the Pixel test profile.
 
 ## Goals
 
@@ -63,15 +61,15 @@ this design replaces it with the real client.
 - The Go core is linked with `gomobile`; the core must remain usable from the
   desktop/CLI builds.
 - The live WebView must be a native child of a `FrameLayout`, never inside a
-  Compose `AndroidView`. The spike proved that Compose's `AndroidView` host
-  gives the top-level WebView a zero-height layout viewport: `innerHeight` was
-  918 while `100vh` and `min-height` media queries resolved to 0. A plain
-  `FrameLayout` WebView reports 918.095 px and all sites render correctly.
+  Compose `AndroidView`. A Compose `AndroidView` host gives the top-level
+  WebView a zero-height layout viewport: `innerHeight` was 918 while `100vh`
+  and `min-height` media queries resolved to 0. A plain `FrameLayout` WebView
+  reports 918.095 px and all sites render correctly.
 - Only `INTERNET` and notification/foreground-service permissions are needed.
   No storage, contacts, location, camera or microphone permissions.
 - App-private data only. The vault and keyfile live under the app's private
   files directory; `allowBackup` stays false.
-- Project-local Android/JDK/Gradle/gomobile caches, as in the spike.
+- Project-local Android, JDK, Gradle and gomobile caches.
 - Primary test device: Pixel 10 Pro on GrapheneOS, in a disposable test
   profile. The S21 is not a target; its WebView is old.
 
@@ -144,9 +142,10 @@ this design replaces it with the real client.
 - First-run and profile editor import a `.conf` through the system file picker,
   validate it through the Go core, and save it into the vault.
 - Default external mode is `off` (LAN only). The profile editor offers an
-  "Allow external content" switch that sets mode `all`; specific origins stay in
-  the data model for a later UI. The global `ForceLANOnly` setting overrides
-  per-profile external access.
+  "Allow external content" switch. A profile with an exact-origin list keeps
+  that list: on Android the switch can turn external content off or back on in
+  origins mode, but cannot widen it to `all`. The global `ForceLANOnly` setting
+  overrides per-profile external access.
 - Public top-level navigation: the dashboard origin and LAN/private hosts stay
   in the WebView. Public `http(s)` top-level links are blocked by default. A
   global "Open public links in the system browser" switch mirrors the desktop
@@ -218,7 +217,7 @@ The exact method names and JSON shape are for the plan.
 - Request `POST_NOTIFICATIONS` on the first connect. If denied, explain that the
   service can still run but the notification may not appear; allow connection.
 - Service is not sticky. If the process is killed, the tunnel stops; on return
-  the UI shows a connection error and Retry starts it again.
+  the profile list offers Reconnect to the last profile and starts it again.
 - The service is separate from the activity so app switches and screen-off do
   not drop the tunnel. It is not a VPNService and does not alter the system VPN
   slot.
@@ -233,8 +232,8 @@ The exact method names and JSON shape are for the plan.
   app-store distribution or a permanent update channel is needed. Changing the
   signing key later requires users to uninstall and reinstall once.
 - Version 1.0 (`versionName`/`versionCode`); signed APK as the release artifact.
-- Only `INTERNET`, `POST_NOTIFICATIONS`, `FOREGROUND_SERVICE` and
-  `FOREGROUND_SERVICE_SPECIAL_USE` permissions.
+- Only `INTERNET`, `POST_NOTIFICATIONS`, `FOREGROUND_SERVICE`,
+  `FOREGROUND_SERVICE_SPECIAL_USE` and `USE_BIOMETRIC` permissions.
 - No telemetry, analytics or crash upload. Logs stay on-device and are removed
   from release builds.
 - The Android build should be reproducible with the project-local toolchain;
@@ -298,7 +297,7 @@ The exact method names and JSON shape are for the plan.
 - **Loopback proxy:** unauthenticated but bound to a random `127.0.0.1` port
   only while connected. Accepted 1.0 risk; not exposed system-wide.
 
-## Milestones (to be expanded into the implementation plan)
+## 1.0 scope
 
 1. Extend `core/mobile` with vault, profile, settings, export/import and
    connection APIs; add Go tests.
@@ -308,6 +307,6 @@ The exact method names and JSON shape are for the plan.
    routing, Basic auth, fullscreen and error/retry.
 4. Add the foreground service, notification, lifecycle, auto-connect,
    lock-on-background handling and optional fingerprint unlock.
-5. Remove spike controls/logging, build a non-debuggable APK signed with the
-   existing local key, and test the signed APK on the Pixel.
-6. Bump to 1.0, update docs/backlog, tag and release.
+5. Build a non-debuggable APK signed with the existing local key, and test the
+   signed APK on the Pixel.
+6. Release 1.0 with updated docs and backlog.

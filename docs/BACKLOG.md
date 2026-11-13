@@ -175,6 +175,5 @@ they land, and keep the Done section for the record.
   full-height dashboards. The live WebView now runs in a native
   `FrameLayout`; the dashboard, Glances, OpenCode, Pi-hole, the portfolio
   lightbox, Jellyfin playback and fullscreen all pass on the Pixel.
-- [ ] Build the real client: vault, profiles, lock, toolbar, error handling,
-  per-profile external settings and lifecycle. Decide lifecycle/background
-  behaviour then.
+- [x] Build the real client: vault, profiles, lock, toolbar, error handling,
+  per-profile external settings and lifecycle. Implemented for 1.0.
