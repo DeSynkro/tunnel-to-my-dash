@@ -43,3 +43,12 @@ type Settings struct {
 	AutoConnect              bool `json:"auto_connect"`
 	OpenPublicLinksInBrowser bool `json:"open_public_links_in_browser"`
 }
+
+// ConnectionInfo is returned by StartProfile for the foreground service and
+// WebView.
+type ConnectionInfo struct {
+	Proxy        string `json:"proxy"`
+	DashboardURL string `json:"dashboard_url"`
+	ProfileID    string `json:"profile_id"`
+	ProfileName  string `json:"profile_name"`
+}
