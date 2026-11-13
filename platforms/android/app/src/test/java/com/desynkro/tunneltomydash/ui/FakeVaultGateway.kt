@@ -21,6 +21,14 @@ internal class FakeVaultGateway(
     var addError: Throwable? = null,
     var updateError: Throwable? = null,
     var deleteError: Throwable? = null,
+    var changePasswordError: Throwable? = null,
+    var exportResult: ByteArray = ByteArray(0),
+    var exportError: Throwable? = null,
+    var importError: Throwable? = null,
+    var lastChangedPassword: Pair<String, String>? = null,
+    var lastExportedPassword: String? = null,
+    var lastImportedData: ByteArray? = null,
+    var lastImportedPassword: String? = null,
 ) : VaultGateway {
     override fun hasVault(): Boolean = hasVaultResult
 
@@ -107,11 +115,22 @@ internal class FakeVaultGateway(
         settingsResult = settings
     }
 
-    override suspend fun changePassword(oldPassword: String, newPassword: String) = Unit
+    override suspend fun changePassword(oldPassword: String, newPassword: String) {
+        changePasswordError?.let { throw it }
+        lastChangedPassword = oldPassword to newPassword
+    }
 
-    override suspend fun exportVault(password: String): ByteArray = ByteArray(0)
+    override suspend fun exportVault(password: String): ByteArray {
+        exportError?.let { throw it }
+        lastExportedPassword = password
+        return exportResult
+    }
 
-    override suspend fun importVault(data: ByteArray, password: String) = Unit
+    override suspend fun importVault(data: ByteArray, password: String) {
+        importError?.let { throw it }
+        lastImportedData = data
+        lastImportedPassword = password
+    }
 
     override fun navigationKind(raw: String): NavigationKind = NavigationKind.Blocked
 }

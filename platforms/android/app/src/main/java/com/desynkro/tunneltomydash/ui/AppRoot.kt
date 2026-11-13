@@ -56,8 +56,12 @@ fun AppRoot(viewModel: AppViewModel, onConnect: (String) -> Unit = {}) {
                 )
             }
         }
-        AppScreen.Settings -> PlaceholderScreen(
-            title = "Settings",
+        AppScreen.Settings -> SettingsScreen(
+            state = state,
+            onSaveSettings = viewModel::saveSettings,
+            onChangePassword = viewModel::changePassword,
+            onExport = viewModel::exportVault,
+            onImport = viewModel::importVault,
             onBack = viewModel::backToProfiles,
         )
     }
@@ -67,25 +71,5 @@ fun AppRoot(viewModel: AppViewModel, onConnect: (String) -> Unit = {}) {
 private fun LoadingScreen() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         CircularProgressIndicator()
-    }
-}
-
-@Composable
-private fun PlaceholderScreen(title: String, onBack: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text(title, style = MaterialTheme.typography.headlineMedium)
-        Text(
-            "This screen is wired up in the next step.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        OutlinedButton(onClick = onBack) {
-            Text("Back")
-        }
     }
 }

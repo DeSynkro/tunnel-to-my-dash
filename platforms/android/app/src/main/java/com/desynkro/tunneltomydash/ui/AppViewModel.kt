@@ -149,6 +149,38 @@ class AppViewModel(private val gateway: VaultGateway) : ViewModel() {
         }
     }
 
+    fun saveSettings(settings: AppSettings) {
+        viewModelScope.launch {
+            val previous = _state.value.settings
+            _state.update { it.copy(settings = settings, error = null) }
+            try {
+                gateway.saveSettings(settings)
+            } catch (caught: Throwable) {
+                _state.update {
+                    it.copy(
+                        settings = previous,
+                        error = caught.message ?: "Could not save the settings",
+                    )
+                }
+            }
+        }
+    }
+
+    suspend fun changePassword(oldPassword: String, newPassword: String) {
+        gateway.changePassword(oldPassword, newPassword)
+    }
+
+    suspend fun exportVault(password: String): ByteArray = gateway.exportVault(password)
+
+    suspend fun importVault(data: ByteArray, password: String) {
+        gateway.importVault(data, password)
+        val profiles = runCatching { gateway.profiles() }.getOrDefault(_state.value.profiles)
+        val settings = runCatching { gateway.settings() }.getOrDefault(_state.value.settings)
+        _state.update {
+            it.copy(profiles = profiles, settings = settings, error = null)
+        }
+    }
+
     fun openEditor(id: String?) {
         if (id == null) {
             _state.update {
