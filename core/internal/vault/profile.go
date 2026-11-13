@@ -44,6 +44,7 @@ type Data struct {
 	ActiveProfile string           `json:"active_profile,omitempty"`
 	Profiles      []Profile        `json:"profiles"`
 	Security      SecuritySettings `json:"security,omitempty"`
+	Android       *AndroidSettings `json:"android,omitempty"`
 }
 
 func (p Profile) Validate() error {

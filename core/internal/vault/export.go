@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 )
 
@@ -16,30 +17,28 @@ type exportFile struct {
 	Ciphertext string  `json:"ciphertext"`
 }
 
-func (s *Store) Export(path, password string) error {
+// ExportBytes encrypts the vault payload into the portable export format.
+func (s *Store) ExportBytes(password string) ([]byte, error) {
 	if !s.unlocked {
-		return ErrLocked
-	}
-	if samePath(path, s.path) || samePath(path, s.keyPath) {
-		return errors.New("export path must differ from the vault paths")
+		return nil, ErrLocked
 	}
 
 	payload, err := json.Marshal(s.data)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	salt, err := randomBytes(saltSize)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	nonce, err := randomBytes(nonceSize)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	ciphertext, err := seal(deriveKey(password, salt, defaultKDF), nonce, payload, exportAAD)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	f := exportFile{
@@ -54,12 +53,26 @@ func (s *Store) Export(path, password string) error {
 		Nonce:      b64(nonce),
 		Ciphertext: b64(ciphertext),
 	}
-	return writeJSONAtomic(path, f, 0o600)
+	return json.Marshal(f)
 }
 
-func ReadExport(path, password string) (Data, error) {
+// Export writes the encrypted portable export format to path.
+func (s *Store) Export(path, password string) error {
+	if samePath(path, s.path) || samePath(path, s.keyPath) {
+		return errors.New("export path must differ from the vault paths")
+	}
+
+	data, err := s.ExportBytes(password)
+	if err != nil {
+		return err
+	}
+	return writeFileAtomic(path, data, 0o600)
+}
+
+// ReadExportBytes decrypts the portable export format from memory.
+func ReadExportBytes(data []byte, password string) (Data, error) {
 	var f exportFile
-	if err := readJSON(path, &f); err != nil {
+	if err := json.Unmarshal(data, &f); err != nil {
 		return Data{}, err
 	}
 	if f.Version != exportVersion || f.KDF.Name != "argon2id" {
@@ -93,14 +106,14 @@ func ReadExport(path, password string) (Data, error) {
 		return Data{}, ErrWrongPassword
 	}
 
-	var data Data
-	if err := json.Unmarshal(plaintext, &data); err != nil {
+	var exported Data
+	if err := json.Unmarshal(plaintext, &exported); err != nil {
 		return Data{}, fmt.Errorf("%w: %v", ErrCorrupt, err)
 	}
-	if data.Version != formatVersion {
+	if exported.Version != formatVersion {
 		return Data{}, ErrUnsupportedVersion
 	}
-	for _, p := range data.Profiles {
+	for _, p := range exported.Profiles {
 		if p.ID == "" {
 			return Data{}, fmt.Errorf("%w: profile ID is required", ErrInvalidProfile)
 		}
@@ -109,27 +122,37 @@ func ReadExport(path, password string) (Data, error) {
 		}
 	}
 
-	return data, nil
+	return exported, nil
 }
 
-func (s *Store) Import(path, password string) error {
+// ReadExport decrypts the portable export format from a file.
+func ReadExport(path, password string) (Data, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return Data{}, err
+	}
+	return ReadExportBytes(data, password)
+}
+
+// ImportBytes merges an encrypted portable export into this vault.
+func (s *Store) ImportBytes(data []byte, password string) error {
 	if !s.unlocked {
 		return ErrLocked
 	}
 
-	data, err := ReadExport(path, password)
+	imported, err := ReadExportBytes(data, password)
 	if err != nil {
 		return err
 	}
 
-	merged := make([]Profile, len(s.data.Profiles), len(s.data.Profiles)+len(data.Profiles))
+	merged := make([]Profile, len(s.data.Profiles), len(s.data.Profiles)+len(imported.Profiles))
 	copy(merged, s.data.Profiles)
 
-	seen := make(map[string]bool, len(merged)+len(data.Profiles))
+	seen := make(map[string]bool, len(merged)+len(imported.Profiles))
 	for _, p := range merged {
 		seen[p.ID] = true
 	}
-	for _, p := range data.Profiles {
+	for _, p := range imported.Profiles {
 		if seen[p.ID] {
 			return ErrProfileExists
 		}
@@ -139,8 +162,8 @@ func (s *Store) Import(path, password string) error {
 
 	active := s.data.ActiveProfile
 	if active == "" {
-		if seen[data.ActiveProfile] {
-			active = data.ActiveProfile
+		if seen[imported.ActiveProfile] {
+			active = imported.ActiveProfile
 		} else if len(merged) > 0 {
 			active = merged[0].ID
 		}
@@ -149,6 +172,15 @@ func (s *Store) Import(path, password string) error {
 	s.data.Profiles = merged
 	s.data.ActiveProfile = active
 	return s.save()
+}
+
+// Import reads and merges an encrypted portable export from a file.
+func (s *Store) Import(path, password string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	return s.ImportBytes(data, password)
 }
 
 func samePath(a, b string) bool {

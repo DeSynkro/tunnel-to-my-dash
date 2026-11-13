@@ -153,3 +153,32 @@ func TestExportPathCollision(t *testing.T) {
 		t.Fatal("export over the key path was allowed")
 	}
 }
+
+func TestExportImportBytes(t *testing.T) {
+	_, src, _, office := exportVault(t, "backup password")
+
+	data, err := src.ExportBytes("backup password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadExportBytes(data, "wrong"); !errors.Is(err, ErrWrongPassword) {
+		t.Fatalf("wrong export password error = %v", err)
+	}
+
+	dst, _ := newKeyFileVault(t)
+	if err := dst.ImportBytes(data, "backup password"); err != nil {
+		t.Fatal(err)
+	}
+	profiles := dst.Profiles()
+	if len(profiles) != 2 || profiles[0].Name != "Home" || profiles[1].Name != "Office" {
+		t.Fatalf("imported profiles = %+v", profiles)
+	}
+	active, ok := dst.ActiveProfile()
+	if !ok || active.ID != office.ID {
+		t.Fatalf("imported active profile = %+v, ok = %v", active, ok)
+	}
+
+	if err := dst.ImportBytes(data, "backup password"); !errors.Is(err, ErrProfileExists) {
+		t.Fatalf("duplicate import error = %v, want ErrProfileExists", err)
+	}
+}
