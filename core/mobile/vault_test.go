@@ -227,6 +227,13 @@ func TestProfileUpdatePreservesCredentials(t *testing.T) {
 		t.Fatal(err)
 	}
 	home := addTestProfile(t, "Home", "off")
+	mu.Lock()
+	stored, ok := store.Profile(home.ID)
+	mu.Unlock()
+	if !ok {
+		t.Fatal("profile missing after add")
+	}
+	homeConfig := stored.TunnelConfig
 
 	mu.Lock()
 	_, err := store.AddCredential(home.ID, vault.Credential{
@@ -260,6 +267,9 @@ func TestProfileUpdatePreservesCredentials(t *testing.T) {
 	}
 	if len(updated.Credentials) != 1 || updated.Credentials[0].ID != "credential1" {
 		t.Fatalf("credentials after update = %+v", updated.Credentials)
+	}
+	if updated.TunnelConfig != homeConfig {
+		t.Fatalf("tunnel config after update changed")
 	}
 }
 
