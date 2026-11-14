@@ -65,14 +65,15 @@ lightbox, Jellyfin playback and fullscreen work on the Pixel test profile.
   WebView a zero-height layout viewport: `innerHeight` was 918 while `100vh`
   and `min-height` media queries resolved to 0. A plain `FrameLayout` WebView
   reports 918.095 px and all sites render correctly.
-- Only `INTERNET`, notification/foreground-service permissions and
-  `USE_BIOMETRIC` are needed. No storage, contacts, location, camera or
-  microphone permissions.
+- `INTERNET`, notification/foreground-service permissions, `USE_BIOMETRIC`
+  and `CAMERA` are needed. Camera access is requested only while scanning a
+  WireGuard QR code. No storage, contacts, location or microphone permissions.
 - App-private data only. The vault and keyfile live under the app's private
   files directory; `allowBackup` stays false.
 - Project-local Android, JDK, Gradle and gomobile caches.
-- Primary test device: Pixel 10 Pro on GrapheneOS, in a disposable test
-  profile. The S21 is not a target; its WebView is old.
+- Tested on a Samsung Galaxy S21 (Android 15, WebView 131) and a Google Pixel
+  10 Pro running GrapheneOS. The client is built to be as broadly compatible as
+  possible, but it has not been tested on other devices; your mileage may vary.
 
 ## Architecture
 
@@ -140,8 +141,11 @@ lightbox, Jellyfin playback and fullscreen work on the Pixel test profile.
 
 - Profile fields: name, WireGuard config, dashboard URL, external mode, external
   origins, active flag. Reuse `vault.Profile` validation.
-- First-run and profile editor import a `.conf` through the system file picker,
-  validate it through the Go core, and save it into the vault.
+- First-run and the profile editor import a WireGuard config from a `.conf`
+  file through the system file picker or by scanning its QR code. Both paths
+  use the same Go validation and encrypted vault storage. The camera is active
+  only while the scanner is open; frames are not stored or uploaded and QR
+  contents are not logged.
 - Default external mode is `off` (LAN only). The profile editor offers an
   "Allow external content" switch. A profile with an exact-origin list keeps
   that list: on Android the switch can turn external content off or back on in
@@ -234,12 +238,13 @@ The exact method names and JSON shape are for the plan.
   signing key later requires users to uninstall and reinstall once.
 - Version 1.0 (`versionName`/`versionCode`); signed APK as the release artifact.
 - Only `INTERNET`, `POST_NOTIFICATIONS`, `FOREGROUND_SERVICE`,
-  `FOREGROUND_SERVICE_SPECIAL_USE` and `USE_BIOMETRIC` permissions.
+  `FOREGROUND_SERVICE_SPECIAL_USE`, `USE_BIOMETRIC` and `CAMERA` permissions.
+  `CAMERA` is used only by the WireGuard QR scanner.
 - No telemetry, analytics or crash upload. Logs stay on-device and are removed
-  from release builds.
-- The Android build should be reproducible with the project-local toolchain;
-  adding an Android CI job is a release task if the hosted runner can install
-  the SDK without loosening the project-local cache rule.
+  from release builds. Camera frames and QR payloads are never logged or saved.
+- The Android build is reproducible with the project-local toolchain. CI runs
+  Android unit tests and builds a debug APK; release signing stays on the
+  maintainer's machine because the key is not committed.
 
 ## Testing
 

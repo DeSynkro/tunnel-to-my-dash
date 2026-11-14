@@ -177,3 +177,5 @@ they land, and keep the Done section for the record.
   lightbox, Jellyfin playback and fullscreen all pass on the Pixel.
 - [x] Build the real client: vault, profiles, lock, toolbar, error handling,
   per-profile external settings and lifecycle. Implemented for 1.0.
+- [x] Import WireGuard configs by QR code in Add/Edit profile, offline and
+  without Google Play services; camera access is only used while scanning.

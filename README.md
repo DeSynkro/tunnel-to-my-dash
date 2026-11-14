@@ -13,7 +13,8 @@ table. Your normal VPN keeps running.
 
 Status: 1.0. The Linux AppImage, portable Windows build and signed Android APK
 provide first-run setup, encrypted vault, profiles, the dashboard window and
-portable data.
+portable data. On Android, a WireGuard config can be imported from a `.conf`
+file or by scanning its QR code.
 
 ## Why
 
