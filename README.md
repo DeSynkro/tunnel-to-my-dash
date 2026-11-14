@@ -2,155 +2,245 @@
   <img src="logo/banner.svg" alt="Tunnel to My Dash — a cream house with a tunnel arch" width="960">
 </p>
 
-# Tunnel to My Dash
+<p align="center">
+  <strong>A private route to your home dashboard, without switching off your VPN.</strong><br>
+  Linux, Windows and Android, sharing one small Go core.
+</p>
 
-Open your home dashboard from anywhere without switching off your VPN.
+<p align="center">
+  <a href="https://github.com/DeSynkro/tunnel-to-my-dash/actions/workflows/ci.yml"><img src="https://github.com/DeSynkro/tunnel-to-my-dash/actions/workflows/ci.yml/badge.svg" alt="Build status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3"></a>
+  <a href="https://github.com/DeSynkro/tunnel-to-my-dash/releases"><img src="https://img.shields.io/badge/version-1.0-orange.svg" alt="Version 1.0"></a>
+  <img src="https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20Android-lightgrey.svg" alt="Linux, Windows and Android">
+</p>
 
-Tunnel to My Dash is a desktop and Android app that runs a WireGuard tunnel
-inside the application and uses that tunnel for one thing: browsing your local
-network. It does not create a system VPN, ask for root, or change your routing
-table. Your normal VPN keeps running.
+<p align="center">
+  Built by <a href="https://desynkro.com">DeSynkro</a> with assistance from <a href="https://opencode.ai">OpenCode</a>.
+</p>
+<p align="center">
+<a href="https://ko-fi.com/desynkro"><img src="https://img.shields.io/badge/Ko--fi-support%20me-ff5e5b?logo=kofi&amp;logoColor=white" alt="Support me on Ko-fi"></a>
+</p>
 
-Status: 1.0. The Linux AppImage, portable Windows build and signed Android APK
-provide first-run setup, encrypted vault, profiles, the dashboard window and
-portable data. On Android, a WireGuard config can be imported from a `.conf`
-file or by scanning its QR code.
+<p align="center">Tunnel to My Dash opens a dashboard on your home network through a WireGuard tunnel owned by the app. It does not take the system VPN slot, ask for root, or route the rest of your phone or computer through your house. Your normal VPN keeps working.</p>
 
-## Why
+## Why this exists
 
-If your dashboard, Jellyfin, or a dev container lives on your home LAN, the
-usual routine is to disconnect the VPN, bring up WireGuard, do the thing, and
-switch back. It is tedious and easy to get wrong.
+I made this app because I found myself constantly switching VPNs for my workflow, It got to the point that I would lose track of which VPN tunnel I was using and ended up using a work tunnel for personal things or just completely forgot to switch out of my personal LAN after I was done doing what I needed.
 
-This app makes the tunnel part of the app. Open it, and it connects to your
-home endpoint and loads the dashboard. Close it and the tunnel is gone. Only
-the app's own traffic uses the tunnel.
+Most home dashboards assume you are already on the LAN. Away from home, the usual routine is to connect or switch to your Network VPN/WireGuard, open the dashboard, do what you need and then switch everything back.
+
+It is tedious and easy to forget which state you are in, Especially when you're doing it multiple times in a day.
+
+This app makes the tunnel part of the app instead. Open the dashboard you want, and the app starts its own tunnel and local proxy. 
+
+Stop the connection and the tunnel is gone. Only the app's browser uses it.
+
+## Requirements
+
+- A WireGuard config for your home endpoint.
+- A dashboard or other self-hosted service reachable on your LAN.
+- **Linux:** a recent glibc distribution and FUSE for the AppImage.
+- **Windows:** Windows 10 or newer for the portable `.exe`.
+- **Android:** Android 10 or newer. The APK is installed directly; no Play Store
+  account or Google Play services are required.
+- Your normal VPN can stay connected. The app does not create a system VPN or
+  change system routing.
+
+## Quick start
+
+Download the latest release from the
+[releases page](https://github.com/DeSynkro/tunnel-to-my-dash/releases).
+
+### Linux AppImage
+
+```bash
+chmod +x Tunnel-to-My-Dash-*.AppImage
+./Tunnel-to-My-Dash-*.AppImage
+```
+
+The app keeps its vault, Chromium profile and core socket in
+`tunnel-to-my-dash-data/` beside the AppImage. Move the AppImage and that folder
+together. If the folder is not writable, it falls back to the normal per-user
+data directory.
+
+### Windows portable
+
+Run `Tunnel-to-My-Dash-<version>-portable-x64.exe`. The app keeps its data
+beside the executable, so the folder is portable and can be moved as one piece.
+
+### Android
+
+Install the APK, create a vault, then add a dashboard. The Add dashboard screen
+accepts a WireGuard `.conf` file or a QR code. The camera is used only while
+scanning, and the QR text goes into the encrypted vault like a file import.
+
+A foreground notification keeps the tunnel alive when you switch apps or turn
+the screen off. Stop it from the notification or the app's menu.
+
+## Build from source
+
+Requirements: Linux, Node.js 24+, Go, and for Android the project-local Android
+toolchain. The Go, JDK, Android SDK/NDK, Gradle and gomobile caches stay inside
+the checkout.
+
+```bash
+make core
+make desktop-deps
+make desktop-check
+make desktop-start
+```
+
+Build the distributables:
+
+```bash
+make appimage        # Linux AppImage + SHA256SUMS
+make android-setup   # install the project-local Android toolchain once
+make android-release # signed Android APK
+```
+
+CI builds and uploads the Linux AppImage and Windows portable artifacts. The
+Android APK is built locally because its signing key is not committed.
+
+## Features
+
+- **App-owned tunnel:** userspace WireGuard and a local proxy, with no root,
+  `/dev/net/tun` or system VPN slot.
+- **One core, three shells:** the same Go tunnel, proxy and vault on Linux,
+  Windows and Android.
+- **LAN-only by default:** public content is opt-in per dashboard, either all
+  public origins or an exact-origin list.
+- **Per-dashboard control:** choose the active dashboard, its WireGuard config,
+  dashboard URL and external-content policy.
+- **Encrypted vault:** WireGuard configs, settings and desktop saved logins live
+  in an app-managed vault. Password mode uses Argon2id and
+  XChaCha20-Poly1305; a keyfile fallback is available.
+- **Android QR import:** scan a WireGuard QR code instead of transferring a
+  `.conf` file. Camera access is requested only for the scan.
+- **Foreground service on Android:** the tunnel survives app switches and
+  screen-off; lock-on-background, auto-connect and encrypted export/import are
+  built in.
+- **Public-link routing:** keep private links in the dashboard. Public links are
+  blocked by default and can be opened outside the dashboard when enabled.
+- **No telemetry:** no analytics, accounts, cloud sync or phone-home update
+  checks.
 
 ## How it works
 
-- A small Go core runs a userspace WireGuard device and a TCP/IP stack, so no
-  root or system VPN slot is needed.
-- A localhost HTTP proxy feeds the app's browser view through that tunnel.
-- The browser view is Chromium (via Electron), with a small floating glass
-  toolbar and in-place navigation. Auto-hide shrinks it to a centered peek
-  pill that overlays the dashboard; hovering expands it with a short
-  animation. Turn auto-hide off and the bar becomes a plain full-width row
-  above the view. By default it can only reach private addresses; public pages
-  are blocked.
-- Secrets live in an encrypted vault. The app lock is optional; the same
-  password unlocks the vault.
-- Saved dashboard logins stay in the vault. After a successful sign-in (when
-  the page navigates), the app offers to save the login; a key button in the
-  toolbar copies it, and a small Fill pill appears when you focus the username
-  or password field to fill the login in one click. Fill never submits for
-  you. The clipboard clears after 30 seconds.
-- LAN-only by default. A per-profile external-content switch can allow all
-  public origins or an exact origin list for fonts and widgets; those use the
-  normal network or VPN, never the tunnel.
-- The active profile is checked once at startup. Click its status dot to
-  re-check; green is reachable, red is not.
-- The last dashboard can open automatically after launch and after every
-  unlock. Behavior settings live in `settings.json`; security policy lives in
-  the vault.
-- The dashboard toolbar has a Main menu button and a labeled Lock button with a
-  blurred snapshot behind the lock card. The window X quits the app; Main menu
-  returns to the main menu. Back to main menu from the lock overlay also lands
-  on the main menu after unlocking.
+A small Go core runs `wireguard-go` with a gVisor netstack and a localhost HTTP
+proxy. WireGuard normally needs a TUN device; the netstack provides the other
+end in userspace, so the app never opens `/dev/net/tun` or asks for privileges.
 
-More detail in [docs/DESIGN.md](docs/DESIGN.md). The Android client design is in
+On Linux and Windows, Electron hosts the dashboard in a dedicated Chromium
+session pointed at the local proxy. On Android, the dashboard lives in the
+system WebView inside a native `FrameLayout`; a foreground service owns the
+tunnel. The app sends only its browser traffic through the tunnel. Your other
+apps and your normal VPN are unaffected.
+
+More detail: [docs/DESIGN.md](docs/DESIGN.md) and
 [docs/ANDROID.md](docs/ANDROID.md).
 
-## Principles
+## Security and limitations
 
-- No telemetry, analytics, accounts or cloud.
-- No system VPN, root or firewall changes.
-- Strict LAN-only by default; fail closed.
-- WireGuard keys never stored in plaintext.
-- Linux, Windows and Android share the same core; each has a platform-specific
-  shell.
+- **This is not a system VPN.** Only the app's browser uses the tunnel. There is
+  no system-wide kill switch, and other apps are not protected.
+- **The Android local proxy is unauthenticated while the tunnel is running.** It
+  binds to `127.0.0.1` on a random port and closes on Stop, but another app on
+  the phone could use it if it discovered the port. It cannot read the vault or
+  other apps' cookies.
+- **HTTP dashboards stay plaintext.** WireGuard protects the path to your home
+  endpoint; it does not encrypt the final LAN hop. Use HTTPS for sensitive
+  dashboards.
+- **Vault strength depends on your password.** A keyfile vault is unlocked by
+  the app's private key file; use a password and lock-on-background on a
+  portable or shared phone.
+- **QR codes are sensitive.** A WireGuard QR contains a private key and endpoint.
+  Only scan configs you trust.
+- **Keep the app and system WebView updated.** The Android client uses the
+  system WebView, and the APK is distributed outside the Play Store.
+- **1.0 is signed with a local project key**, not a production app-store
+  identity. Verify the published SHA-256. A future signing-key change requires
+  an uninstall/reinstall.
+- **No independent security audit.** The scope is deliberately small and the
+  source is open, but treat it as a practical tool rather than a high-assurance
+  VPN.
 
-## Layout
+Tested on a Samsung Galaxy S21 (Android 15, WebView 131) and a Google Pixel 10
+Pro running GrapheneOS. Other devices may vary.
 
-    core/           shared Go tunnel, proxy, vault and CLI
-    desktop/        shared Electron shell and UI
-    platforms/
-      linux/        AppImage build and Linux-only scripts
-      windows/      portable .exe build
-      android/      Kotlin/Compose Android client
-    docs/           design, roadmap, plan and security notes
+## What data is stored
 
-The shared code stays at the top so Linux, Windows and the Android client do not
-drift apart. Only packaging and platform-specific helpers live under
-`platforms/`.
+| Kept locally | Not collected |
+|---|---|
+| WireGuard configs and keys in the encrypted vault | No analytics or telemetry |
+| Dashboard URLs, names and settings | No accounts or cloud sync |
+| Desktop saved dashboard logins in the vault | No crash uploads |
+| Android Basic-auth credentials in memory only | No camera frames or QR images |
+| Local Electron/Android app data | No update checks or phone-home |
 
-## Run it
+The app has no telemetry, accounts or update checks. Its intended network
+traffic is your WireGuard endpoint and the dashboards you open. Public links
+leave the app only when you enable that setting; they open in the system
+browser.
 
-From a checkout:
+## Tech stack
 
-    make core
-    make desktop-deps
-    make desktop-start
-
-The first run asks for a WireGuard `.conf`, a dashboard URL such as
-`http://192.168.1.10:8080`, and an optional app password. During development the
-vault, Electron profile and core data live under `local/dev-data`, which is
-ignored by git.
-
-## Run the AppImage
-
-Build it with `make appimage`, or use the artifact in `desktop/release`:
-
-    chmod +x desktop/release/Tunnel-to-My-Dash-*.AppImage
-    ./desktop/release/Tunnel-to-My-Dash-*.AppImage
-
-The app creates `tunnel-to-my-dash-data/` beside the AppImage and keeps the
-vault, the Chromium profile and the core socket there. Move the AppImage and
-that folder together. If the folder is not writable, it falls back to the
-normal per-user data directory.
-
-`make release` builds the AppImage and writes `SHA256SUMS` next to it. Updates
-are manual and telemetry-free: download a newer AppImage and replace the old
-one. The app does not phone home for updates.
+| Part | Technology |
+|---|---|
+| Core | Go, `wireguard-go`, gVisor netstack |
+| Proxy | Localhost HTTP/HTTPS proxy with LAN and external-origin policy |
+| Vault | XChaCha20-Poly1305, Argon2id, app-private storage |
+| Desktop | Electron, TypeScript, HTML/CSS |
+| Android | Kotlin, Jetpack Compose, system WebView, gomobile |
+| Packaging | AppImage, portable `.exe`, signed APK |
+| CI | GitHub Actions: Linux, Windows and Android |
 
 ## Current limits
 
-- LAN-only by default. External content is opt-in per profile: all public
-  origins, or an exact-origin list; wildcards are not supported.
-- The dashboard opens in its own window with a toolbar. Private links stay in
-  the dashboard; a setting can open new-window links in a separate app window.
-  Public links can open in the system browser when that setting is enabled.
-- Auto-hide can be turned off in Settings if you prefer the floating toolbar
-  always visible.
-- Launch at login, start minimized and close to tray are deferred until the
-  tray icon exists.
-- Windows portable `.exe` is built by the Windows CI job. The signed Android
-  APK is built with `make android-release`.
-- Jellyfin playback, fullscreen and the remote network have been tested by the
-  user. The Linux no-dashboard network audit runs in CI.
-- Release artifacts have SHA-256 checksums; GPG signing is deferred.
+- Android exposes the "allow external content" switch but does not edit an
+  exact-origin allowlist; that remains a desktop feature.
+- Fingerprint unlock is optional and off by default; the vault password is
+  always the fallback.
+- The Android CI job builds and uploads a debug APK; the signed release APK is
+  produced locally with the project signing key.
 
 ## Development
 
-Requirements: Linux, Node.js 24+ and Go. The Go toolchain is downloaded into
-`.tools/` (gitignored) so the build does not depend on a system install.
-Electron and npm dependencies stay in `desktop/node_modules` and `.cache/`.
+The test and build commands use the project-local toolchains:
 
-Build caches and temporary files stay inside the project:
-
-    make help
-    make env
-    make desktop-deps
-    make desktop-check
-    make desktop-start
-    make appimage
-    make release
-    make clean
+```bash
+make help
+make env
+make check
+make desktop-deps
+make desktop-check
+make android-test
+make android-release
+make appimage
+make clean
+```
 
 Never commit a real WireGuard config or vault. Put local test files in
-`local/`, which is ignored.
+`local/`, which is ignored. Deferred work and ideas live in
+[docs/BACKLOG.md](docs/BACKLOG.md).
 
-Ideas and deferred work live in [docs/BACKLOG.md](docs/BACKLOG.md).
+## Support
+
+If my work helped you in any way, please consider supporting me on [Ko-fi](https://ko-fi.com/desynkro). More of my work is at [desynkro.com](https://desynkro.com).
 
 ## License
 
 GPL-3.0. See [LICENSE](LICENSE).
+
+## Credits
+
+- Built by [DeSynkro](https://desynkro.com)
+- Assisted by [OpenCode](https://opencode.ai)
+- Thank you to everyone who tested, listened and helped 😄️
+
+<p align="center">
+  <a href="https://desynkro.com" target="_blank">
+    <img src="logo/desynkro.png" width="240"
+         alt="DeSynkro"
+         style="background:#0d1117;border-radius:8px;padding:8px 14px">
+  </a>
+</p>
