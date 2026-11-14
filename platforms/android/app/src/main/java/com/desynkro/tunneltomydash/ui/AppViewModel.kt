@@ -217,7 +217,7 @@ class AppViewModel(
                 _state.update { it.copy(editingProfile = detail, busy = false) }
             } catch (caught: Throwable) {
                 _state.update {
-                    it.copy(busy = false, error = caught.message ?: "Could not load the profile")
+                    it.copy(busy = false, error = caught.message ?: "Could not load the dashboard")
                 }
             }
         }
@@ -243,7 +243,7 @@ class AppViewModel(
                 loadProfiles()
             } catch (caught: Throwable) {
                 _state.update {
-                    it.copy(busy = false, error = caught.message ?: "Could not save the profile")
+                    it.copy(busy = false, error = caught.message ?: "Could not save the dashboard")
                 }
             }
         }
@@ -255,7 +255,7 @@ class AppViewModel(
                 gateway.deleteProfile(id)
                 loadProfiles()
             } catch (caught: Throwable) {
-                _state.update { it.copy(error = caught.message ?: "Could not delete the profile") }
+                _state.update { it.copy(error = caught.message ?: "Could not delete the dashboard") }
             }
         }
     }
@@ -266,7 +266,7 @@ class AppViewModel(
                 gateway.setActiveProfile(id)
                 loadProfiles()
             } catch (caught: Throwable) {
-                _state.update { it.copy(error = caught.message ?: "Could not set the active profile") }
+                _state.update { it.copy(error = caught.message ?: "Could not set the active dashboard") }
             }
         }
     }

@@ -47,7 +47,7 @@ fun SetupScreen(
     ) {
         Text("Tunnel to My Dash", style = MaterialTheme.typography.headlineMedium)
         Text(
-            "Create the encrypted vault that stores your WireGuard profiles and app settings.",
+            "Create the encrypted vault that stores your dashboards and app settings.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

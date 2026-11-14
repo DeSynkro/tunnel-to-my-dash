@@ -132,7 +132,7 @@ fun ProfilesScreen(
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
-                                "Reconnect to the last profile, or choose another one below.",
+                                "Reconnect to the last dashboard, or choose another one below.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -231,7 +231,7 @@ fun ProfilesScreen(
             enabled = !connectionActive,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Add profile")
+            Text("Add dashboard")
         }
     }
 
@@ -239,7 +239,7 @@ fun ProfilesScreen(
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
             title = { Text("Delete ${profile.name}?") },
-            text = { Text("This removes the profile from the vault.") },
+            text = { Text("This removes the dashboard from the vault.") },
             confirmButton = {
                 TextButton(
                     onClick = {

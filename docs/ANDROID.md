@@ -141,7 +141,9 @@ lightbox, Jellyfin playback and fullscreen work on the Pixel test profile.
 ### Profiles and external content
 
 - Profile fields: name, WireGuard config, dashboard URL, external mode, external
-  origins, active flag. Reuse `vault.Profile` validation.
+  origins, active flag. Reuse `vault.Profile` validation. A dashboard URL may
+  be entered with an explicit `http://` or `https://` scheme; if the scheme is
+  omitted, `http://` is assumed.
 - First-run and the profile editor import a WireGuard config from a `.conf`
   file through the system file picker or by scanning its QR code. Both paths
   use the same Go validation and encrypted vault storage. The camera is active

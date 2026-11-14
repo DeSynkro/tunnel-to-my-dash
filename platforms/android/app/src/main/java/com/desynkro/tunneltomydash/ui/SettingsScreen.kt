@@ -123,7 +123,7 @@ fun SettingsScreen(
             },
         )
         Text(
-            "Overrides per-profile external content.",
+            "Overrides per-dashboard external content.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

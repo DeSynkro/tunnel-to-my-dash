@@ -36,6 +36,7 @@ import androidx.core.content.ContextCompat
 import com.desynkro.tunneltomydash.data.ProfileDetail
 import com.desynkro.tunneltomydash.data.ProfileDraft
 import com.desynkro.tunneltomydash.data.looksLikeWireGuardConfig
+import com.desynkro.tunneltomydash.data.normalizeDashboardUrl
 import com.desynkro.tunneltomydash.data.resolveExternalMode
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
@@ -64,6 +65,7 @@ fun ProfileEditorScreen(
     var tunnelConfig by remember(detail?.id) { mutableStateOf("") }
     var hasConfig by remember(detail?.id) { mutableStateOf(detail?.hasTunnelConfig == true) }
     var localError by remember(detail?.id) { mutableStateOf<String?>(null) }
+    var configMessage by remember(detail?.id) { mutableStateOf<String?>(null) }
     var showQrNotice by remember { mutableStateOf(false) }
     val qrNoticePrefs = remember {
         context.getSharedPreferences("ui", Context.MODE_PRIVATE)
@@ -80,8 +82,10 @@ fun ProfileEditorScreen(
         }.onSuccess { text ->
             tunnelConfig = text
             hasConfig = true
+            configMessage = "WireGuard config imported from file."
             localError = null
         }.onFailure { caught ->
+            configMessage = null
             localError = "Could not read the config: ${caught.message}"
         }
     }
@@ -92,13 +96,16 @@ fun ProfileEditorScreen(
         if (looksLikeWireGuardConfig(contents)) {
             tunnelConfig = contents.trim()
             hasConfig = true
+            configMessage = "WireGuard config loaded from QR code."
             localError = null
         } else {
+            configMessage = null
             localError = "That QR code is not a WireGuard config."
         }
     }
 
     val launchScanner = {
+        configMessage = null
         onExternalActivityStart()
         scanner.launch(
             ScanOptions()
@@ -142,7 +149,7 @@ fun ProfileEditorScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(
-            if (detail == null) "New profile" else "Edit profile",
+            if (detail == null) "New dashboard" else "Edit dashboard",
             style = MaterialTheme.typography.headlineMedium,
         )
         OutlinedTextField(
@@ -151,7 +158,7 @@ fun ProfileEditorScreen(
                 name = it
                 localError = null
             },
-            label = { Text("Profile name") },
+            label = { Text("Dashboard name") },
             singleLine = true,
             enabled = !busy,
             modifier = Modifier.fillMaxWidth(),
@@ -167,6 +174,12 @@ fun ProfileEditorScreen(
             enabled = !busy,
             modifier = Modifier.fillMaxWidth(),
         )
+        Text(
+            "http:// is assumed if you omit the scheme. Example: " +
+                "http://192.168.0.3:3000",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -180,13 +193,13 @@ fun ProfileEditorScreen(
         }
         if (forceLANOnly) {
             Text(
-                "Force LAN-only is on, so external content is disabled for every profile.",
+                "Force LAN-only is on, so external content is disabled for every dashboard.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else if (allowExternal && storedExternalMode == "origins") {
             Text(
-                "This profile allows only the specific public origins saved in the vault. " +
+                "This dashboard allows only the specific public origins saved in the vault. " +
                     "Use the desktop app to change that list.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -194,8 +207,17 @@ fun ProfileEditorScreen(
         }
 
         Text(
-            if (hasConfig) "WireGuard config loaded" else "No WireGuard config selected",
+            configMessage ?: if (hasConfig) {
+                "WireGuard config loaded"
+            } else {
+                "No WireGuard config selected"
+            },
             style = MaterialTheme.typography.bodyMedium,
+            color = if (configMessage != null) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            },
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
@@ -212,6 +234,7 @@ fun ProfileEditorScreen(
             }
             OutlinedButton(
                 onClick = {
+                    configMessage = null
                     onExternalActivityStart()
                     picker.launch(arrayOf("*/*"))
                 },
@@ -241,11 +264,20 @@ fun ProfileEditorScreen(
         Button(
             onClick = {
                 if (name.isBlank()) {
-                    localError = "Enter a profile name"
+                    localError = "Enter a dashboard name"
                     return@Button
                 }
-                if (dashboardURL.isBlank()) {
-                    localError = "Enter a dashboard URL"
+                val normalizedURL = normalizeDashboardUrl(dashboardURL)
+                if (normalizedURL.isBlank()) {
+                    localError = "Enter a dashboard URL, for example " +
+                        "http://192.168.0.3:3000"
+                    return@Button
+                }
+                if (
+                    !normalizedURL.lowercase().startsWith("http://") &&
+                    !normalizedURL.lowercase().startsWith("https://")
+                ) {
+                    localError = "Dashboard URL must use http:// or https://."
                     return@Button
                 }
                 if (detail == null && tunnelConfig.isBlank()) {
@@ -263,7 +295,7 @@ fun ProfileEditorScreen(
                         id = detail?.id,
                         name = name.trim(),
                         tunnelConfig = tunnelConfig.trim(),
-                        dashboardURL = dashboardURL.trim(),
+                        dashboardURL = normalizedURL,
                         externalMode = externalMode,
                         externalOrigins = storedOrigins,
                     ),
@@ -275,7 +307,7 @@ fun ProfileEditorScreen(
             if (busy) {
                 CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
             } else {
-                Text("Save profile")
+                Text("Save dashboard")
             }
         }
         OutlinedButton(

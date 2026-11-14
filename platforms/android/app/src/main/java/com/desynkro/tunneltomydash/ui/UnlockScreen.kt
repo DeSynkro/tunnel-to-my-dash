@@ -42,7 +42,7 @@ fun UnlockScreen(
     ) {
         Text("Unlock Tunnel to My Dash", style = MaterialTheme.typography.headlineMedium)
         Text(
-            "Enter the vault password to load your profiles.",
+            "Enter the vault password to load your dashboards.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

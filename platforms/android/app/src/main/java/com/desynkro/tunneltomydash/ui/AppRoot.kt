@@ -123,9 +123,9 @@ private fun ProfileLoadErrorScreen(message: String?, onBack: () -> Unit) {
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("Could not load the profile", style = MaterialTheme.typography.headlineMedium)
+        Text("Could not load the dashboard", style = MaterialTheme.typography.headlineMedium)
         Text(
-            message ?: "The profile could not be read from the vault.",
+            message ?: "The dashboard could not be read from the vault.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
