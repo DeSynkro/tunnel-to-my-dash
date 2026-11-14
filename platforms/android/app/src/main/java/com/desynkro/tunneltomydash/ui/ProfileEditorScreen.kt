@@ -1,6 +1,8 @@
 package com.desynkro.tunneltomydash.ui
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -30,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.desynkro.tunneltomydash.data.ProfileDetail
 import com.desynkro.tunneltomydash.data.ProfileDraft
 import com.desynkro.tunneltomydash.data.looksLikeWireGuardConfig
@@ -107,6 +110,28 @@ fun ProfileEditorScreen(
         )
     }
 
+    val cameraPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            launchScanner()
+        } else {
+            localError = "Camera access is needed to scan a QR code. " +
+                "You can still choose a .conf file."
+        }
+    }
+
+    val requestScanner = {
+        if (
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            launchScanner()
+        } else {
+            cameraPermission.launch(Manifest.permission.CAMERA)
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -174,7 +199,7 @@ fun ProfileEditorScreen(
             OutlinedButton(
                 onClick = {
                     if (qrNoticePrefs.getBoolean(QR_NOTICE_SEEN, false)) {
-                        launchScanner()
+                        requestScanner()
                     } else {
                         showQrNotice = true
                     }
@@ -275,7 +300,7 @@ fun ProfileEditorScreen(
                     onClick = {
                         qrNoticePrefs.edit().putBoolean(QR_NOTICE_SEEN, true).apply()
                         showQrNotice = false
-                        launchScanner()
+                        requestScanner()
                     },
                 ) {
                     Text("Continue")
