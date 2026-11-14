@@ -76,10 +76,10 @@ checksums: ## Write SHA-256 checksums for the AppImage
 
 release: appimage checksums ## Build the AppImage and its checksums
 
-android-setup: ## Install the project-local Android SDK, NDK, JDK and gomobile
+android-setup: dirs ## Install the project-local Android SDK, NDK, JDK and gomobile
 	@platforms/android/setup.sh
 
-android-bind: ## Build the Go core into an Android AAR
+android-bind: dirs ## Build the Go core into an Android AAR
 	@. platforms/android/env.sh && mkdir -p platforms/android/app/libs && cd core && gomobile bind -target=android/arm64 -androidapi 29 -o ../platforms/android/app/libs/core.aar ./mobile
 
 android-apk: android-bind ## Build the debug Android APK
