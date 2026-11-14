@@ -116,3 +116,71 @@ jobs:
             desktop/release/*.exe
             desktop/release/SHA256SUMS
           if-no-files-found: error
+
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Cache Android toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            .tools
+            .cache
+          key: android-${{ runner.os }}-${{ hashFiles('platforms/android/setup.sh', 'platforms/android/env.sh', '.go-version') }}
+
+      - name: Install Go toolchain
+        run: make toolchain
+
+      - name: Install Android toolchain
+        run: make android-setup
+
+      - name: Android unit tests
+        run: make android-test
+
+      - name: Build debug APK
+        run: make android-apk
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-debug-apk
+          path: platforms/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Cache Android toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            .tools
+            .cache
+          key: android-${{ runner.os }}-${{ hashFiles('platforms/android/setup.sh', 'platforms/android/env.sh', '.go-version') }}
+
+      - name: Install Go toolchain
+        run: make toolchain
+
+      - name: Install Android toolchain
+        run: make android-setup
+
+      - name: Android unit tests
+        run: make android-test
+
+      - name: Build debug APK
+        run: make android-apk
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-debug-apk
+          path: platforms/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

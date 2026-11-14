@@ -76,8 +76,13 @@ if [[ ! -f "$ANDROID_GRADLE_PROJECT/gradlew" ]]; then
     (cd "$ANDROID_GRADLE_PROJECT" && "$GRADLE_HOME/bin/gradle" wrapper --gradle-version "$GRADLE_VERSION" --distribution-type bin)
 fi
 
-# gomobile and its Android cache.
-( cd "$ROOT/core" && "$ROOT/.tools/go/bin/go" install golang.org/x/mobile/cmd/gomobile@latest )
+# gomobile and its Android cache, pinned to the version in core/go.mod.
+GOMOBILE_VERSION="$( cd "$ROOT/core" && "$ROOT/.tools/go/bin/go" list -m -f '{{.Version}}' golang.org/x/mobile )"
+if [[ -z "$GOMOBILE_VERSION" ]]; then
+    echo "error: could not determine the golang.org/x/mobile version" >&2
+    exit 1
+fi
+( cd "$ROOT/core" && "$ROOT/.tools/go/bin/go" install "golang.org/x/mobile/cmd/gomobile@$GOMOBILE_VERSION" )
 "$GOBIN/gomobile" init
 
 # Debug keystore, project-local.
