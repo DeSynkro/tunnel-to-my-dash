@@ -1,5 +1,6 @@
 package com.desynkro.tunneltomydash.ui
 
+import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -18,6 +20,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,7 +32,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.desynkro.tunneltomydash.data.ProfileDetail
 import com.desynkro.tunneltomydash.data.ProfileDraft
+import com.desynkro.tunneltomydash.data.looksLikeWireGuardConfig
 import com.desynkro.tunneltomydash.data.resolveExternalMode
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
+
+private const val QR_NOTICE_SEEN = "qr_camera_notice_seen"
 
 @Composable
 fun ProfileEditorScreen(
@@ -53,6 +61,10 @@ fun ProfileEditorScreen(
     var tunnelConfig by remember(detail?.id) { mutableStateOf("") }
     var hasConfig by remember(detail?.id) { mutableStateOf(detail?.hasTunnelConfig == true) }
     var localError by remember(detail?.id) { mutableStateOf<String?>(null) }
+    var showQrNotice by remember { mutableStateOf(false) }
+    val qrNoticePrefs = remember {
+        context.getSharedPreferences("ui", Context.MODE_PRIVATE)
+    }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         onExternalActivityEnd()
@@ -69,6 +81,30 @@ fun ProfileEditorScreen(
         }.onFailure { caught ->
             localError = "Could not read the config: ${caught.message}"
         }
+    }
+
+    val scanner = rememberLauncherForActivityResult(ScanContract()) { result ->
+        onExternalActivityEnd()
+        val contents = result.contents ?: return@rememberLauncherForActivityResult
+        if (looksLikeWireGuardConfig(contents)) {
+            tunnelConfig = contents.trim()
+            hasConfig = true
+            localError = null
+        } else {
+            localError = "That QR code is not a WireGuard config."
+        }
+    }
+
+    val launchScanner = {
+        onExternalActivityStart()
+        scanner.launch(
+            ScanOptions()
+                .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                .setPrompt("Scan a WireGuard QR code")
+                .setBeepEnabled(false)
+                .setBarcodeImageEnabled(false)
+                .setOrientationLocked(false),
+        )
     }
 
     Column(
@@ -134,15 +170,34 @@ fun ProfileEditorScreen(
             if (hasConfig) "WireGuard config loaded" else "No WireGuard config selected",
             style = MaterialTheme.typography.bodyMedium,
         )
-        OutlinedButton(
-            onClick = {
-                onExternalActivityStart()
-                picker.launch(arrayOf("*/*"))
-            },
-            enabled = !busy,
-        ) {
-            Text(if (hasConfig) "Replace .conf" else "Choose .conf")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = {
+                    if (qrNoticePrefs.getBoolean(QR_NOTICE_SEEN, false)) {
+                        launchScanner()
+                    } else {
+                        showQrNotice = true
+                    }
+                },
+                enabled = !busy,
+            ) {
+                Text("Scan QR")
+            }
+            OutlinedButton(
+                onClick = {
+                    onExternalActivityStart()
+                    picker.launch(arrayOf("*/*"))
+                },
+                enabled = !busy,
+            ) {
+                Text(if (hasConfig) "Replace .conf" else "Choose .conf")
+            }
         }
+        Text(
+            "The camera is used only to scan a WireGuard QR code.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         if (detail != null && hasConfig && tunnelConfig.isBlank()) {
             Text(
                 "Leave this unchanged to keep the stored config.",
@@ -167,7 +222,7 @@ fun ProfileEditorScreen(
                     return@Button
                 }
                 if (detail == null && tunnelConfig.isBlank()) {
-                    localError = "Choose a WireGuard .conf first"
+                    localError = "Choose or scan a WireGuard config first"
                     return@Button
                 }
                 localError = null
@@ -203,5 +258,34 @@ fun ProfileEditorScreen(
         ) {
             Text("Cancel")
         }
+    }
+
+    if (showQrNotice) {
+        AlertDialog(
+            onDismissRequest = { showQrNotice = false },
+            title = { Text("Scan a WireGuard QR code") },
+            text = {
+                Text(
+                    "Camera access is only used to scan a WireGuard QR code. " +
+                        "Nothing is recorded or uploaded.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        qrNoticePrefs.edit().putBoolean(QR_NOTICE_SEEN, true).apply()
+                        showQrNotice = false
+                        launchScanner()
+                    },
+                ) {
+                    Text("Continue")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showQrNotice = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
     }
 }
