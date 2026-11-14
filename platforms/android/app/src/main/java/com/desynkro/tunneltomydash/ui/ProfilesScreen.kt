@@ -53,7 +53,7 @@ fun ProfilesScreen(
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("Profiles", style = MaterialTheme.typography.headlineMedium)
+        Text("Dashboards", style = MaterialTheme.typography.headlineMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = onSettings, enabled = !connectionActive) {
                 Text("Settings")
@@ -150,7 +150,7 @@ fun ProfilesScreen(
         }
         if (state.profiles.isEmpty()) {
             Text(
-                "No profiles yet. Add a WireGuard .conf and a dashboard URL.",
+                "No dashboards yet. Add one to start.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

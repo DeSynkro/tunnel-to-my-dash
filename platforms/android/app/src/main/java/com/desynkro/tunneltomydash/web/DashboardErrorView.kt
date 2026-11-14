@@ -42,7 +42,7 @@ class DashboardErrorView(
         )
         addView(
             Button(context).apply {
-                text = "Profile list"
+                text = "Main menu"
                 setOnClickListener { onProfiles() }
             },
             LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT),

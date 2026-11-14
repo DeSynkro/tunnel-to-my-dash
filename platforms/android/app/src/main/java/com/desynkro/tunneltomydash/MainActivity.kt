@@ -405,7 +405,7 @@ class MainActivity : FragmentActivity() {
                 lastConnectProfile?.let(::connect)
                     ?: retryLostConnection()
             }
-            .setNegativeButton("Profile list") { _, _ ->
+            .setNegativeButton("Main menu") { _, _ ->
                 stopConnection()
             }
             .setOnCancelListener {

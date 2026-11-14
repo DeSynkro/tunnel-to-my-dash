@@ -2,7 +2,6 @@ package com.desynkro.tunneltomydash.web
 
 import android.content.Context
 import android.graphics.Color
-import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
@@ -11,7 +10,6 @@ import android.widget.TextView
 
 class DashboardToolbar(
     context: Context,
-    profileName: String,
     private val onBack: () -> Unit,
     private val onReload: () -> Unit,
     private val onHome: () -> Unit,
@@ -31,29 +29,21 @@ class DashboardToolbar(
         addView(toolbarButton("⌂", onHome))
 
         addView(
-            TextView(context).apply {
-                text = profileName
-                textSize = 14f
-                setTextColor(Color.WHITE)
-                gravity = Gravity.CENTER_VERTICAL
-                ellipsize = TextUtils.TruncateAt.END
-                isSingleLine = true
-                setPadding(dp(8), 0, dp(8), 0)
-            },
+            View(context),
             LayoutParams(0, LayoutParams.MATCH_PARENT, 1f),
         )
 
         val overflow = toolbarButton("⋮") {}
         overflow.setOnClickListener { anchor ->
             val popup = PopupMenu(context, anchor)
-            popup.menu.add("Profiles")
+            popup.menu.add("Main menu")
             if (allowLock) {
                 popup.menu.add("Lock")
             }
             popup.menu.add("Stop")
             popup.setOnMenuItemClickListener { item ->
                 when (item.title.toString()) {
-                    "Profiles" -> onProfiles()
+                    "Main menu" -> onProfiles()
                     "Lock" -> onLock()
                     "Stop" -> onStop()
                 }

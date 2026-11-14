@@ -92,7 +92,6 @@ class WebViewScreen(
 
         toolbar = DashboardToolbar(
             context = context,
-            profileName = info.profileName,
             onBack = {
                 if (webView.canGoBack()) {
                     webView.goBack()
