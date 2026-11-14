@@ -10,7 +10,7 @@ func TestIsLAN(t *testing.T) {
 		addr string
 		want bool
 	}{
-		{"192.168.0.3", true},
+		{"192.168.1.10", true},
 		{"10.1.2.3", true},
 		{"172.16.0.1", true},
 		{"172.31.255.254", true},
@@ -49,7 +49,7 @@ func TestIsLoopback(t *testing.T) {
 		{"127.0.0.1", true},
 		{"127.255.255.254", true},
 		{"::1", true},
-		{"192.168.0.1", false},
+		{"192.168.1.1", false},
 		{"8.8.8.8", false},
 	}
 
@@ -71,7 +71,7 @@ func TestDefaultAllowedIPs(t *testing.T) {
 		t.Fatalf("len(DefaultAllowedIPs()) = %d, want 4", len(ranges))
 	}
 
-	for _, addr := range []string{"192.168.0.3", "10.1.2.3", "172.16.0.1", "fd00::1"} {
+	for _, addr := range []string{"192.168.1.10", "10.1.2.3", "172.16.0.1", "fd00::1"} {
 		ip := net.ParseIP(addr)
 		if !contains(ranges, ip) {
 			t.Errorf("%s is not in the default ranges", addr)

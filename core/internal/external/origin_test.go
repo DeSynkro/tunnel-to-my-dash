@@ -85,7 +85,7 @@ func TestParseRejects(t *testing.T) {
 		"https://example.com:0",
 		"https://example.com:70000",
 		"https://127.0.0.1",
-		"https://192.168.0.3",
+		"https://192.168.1.10",
 		"https://10.0.0.1",
 		"https://100.64.0.1",
 	}
@@ -152,7 +152,7 @@ func TestIsPublicIP(t *testing.T) {
 		{"8.8.8.8", true},
 		{"2606:4700:4700::1111", true},
 		{"127.0.0.1", false},
-		{"192.168.0.3", false},
+		{"192.168.1.10", false},
 		{"10.0.0.1", false},
 		{"100.64.0.1", false},
 		{"169.254.1.1", false},

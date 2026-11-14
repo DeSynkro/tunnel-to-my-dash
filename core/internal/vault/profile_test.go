@@ -43,7 +43,7 @@ func newProfile(t *testing.T, name string) Profile {
 	return Profile{
 		Name:         name,
 		TunnelConfig: validTunnel(t),
-		DashboardURL: "http://192.168.0.3:3000",
+		DashboardURL: "http://192.168.1.10:3000",
 	}
 }
 

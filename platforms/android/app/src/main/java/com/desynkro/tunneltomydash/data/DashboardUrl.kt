@@ -3,7 +3,7 @@ package com.desynkro.tunneltomydash.data
 private val httpScheme = Regex("(?i)^https?://")
 
 /**
- * Accepts a bare LAN address such as 192.168.0.3:3000 and supplies the
+ * Accepts a bare LAN address such as 192.168.1.10:3000 and supplies the
  * default http scheme. Explicit http/https URLs are left alone; other
  * schemes are returned unchanged so the Go validator can reject them.
  */

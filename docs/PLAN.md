@@ -108,7 +108,7 @@ regardless of what the imported WireGuard config says.
 
 **Steps**
 
-- [x] Table test: `192.168.0.3`, `10.1.2.3`, `172.16.0.1`, `172.31.255.254`
+- [x] Table test: `192.168.1.10`, `10.1.2.3`, `172.16.0.1`, `172.31.255.254`
       and `fd00::1` are LAN; `172.32.0.1`, `127.0.0.1`, `169.254.1.1`,
       `8.8.8.8`, `::1`, `fe80::1`, `224.0.0.1` and `nil` are not.
 - [x] Run `make test`; expect failure.
@@ -279,7 +279,7 @@ func (a *App) Close() error
 - [x] Handle SIGINT and SIGTERM; close the proxy and tunnel.
 - [x] Run `make test` and `make core`.
 - [x] Manual check with a real config:
-      `curl -x http://127.0.0.1:<port> http://192.168.0.3:3000` returned
+      `curl -x http://127.0.0.1:<port> http://192.168.1.10:3000` returned
       HTTP 200 through the home endpoint while ProtonVPN was active.
 
 **Commit:** `Run the tunnel and proxy from the core CLI`
@@ -340,7 +340,7 @@ wrapped vault key, payload nonce and ciphertext. The encrypted payload is a
       "id": "...",
       "name": "Home",
       "tunnel_config": "...raw WireGuard config...",
-      "dashboard_url": "http://192.168.0.3:3000",
+      "dashboard_url": "http://192.168.1.10:3000",
       "allow_external": false,
       "external_origins": []
     }
@@ -491,10 +491,10 @@ Artifact: `desktop/release/Tunnel-to-My-Dash-0.1.0-x86_64.AppImage`.
 Goal: prove the everyday case against the real services, with the normal VPN
 still connected.
 
-- [x] Jellyfin on `192.168.0.3:8096`: HTTP 200, redirected to `/web/`,
+- [x] Jellyfin on `192.168.1.10:8096`: HTTP 200, redirected to `/web/`,
       title `Jellyfin`.
-- [x] OpenCode on `192.168.0.3:4096`: HTTP 200.
-- [x] Laptop dashboard on `192.168.0.4:3000`: HTTP 200, 102646 bytes.
+- [x] OpenCode on `192.168.1.10:4096`: HTTP 200.
+- [x] Laptop dashboard on `192.168.1.11:3000`: HTTP 200, 102646 bytes.
 - [x] ProtonVPN active throughout; no TUN device, root or route changes.
 - [ ] Jellyfin playback inside Chromium, including transcoding.
 - [ ] Home Wi-Fi and remote-network behaviour, including NAT loopback.

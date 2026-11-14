@@ -92,7 +92,7 @@ From a checkout:
     make desktop-start
 
 The first run asks for a WireGuard `.conf`, a dashboard URL such as
-`http://192.168.0.3:3000`, and an optional app password. During development the
+`http://192.168.1.10:3000`, and an optional app password. During development the
 vault, Electron profile and core data live under `local/dev-data`, which is
 ignored by git.
 

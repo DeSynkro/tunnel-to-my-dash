@@ -9,7 +9,7 @@ import (
 func newCredential(name string) Credential {
 	return Credential{
 		Name:     name,
-		URL:      "http://192.168.0.4:3000",
+		URL:      "http://192.168.1.11:3000",
 		Username: "alex",
 		Password: "hunter2",
 	}
@@ -113,14 +113,14 @@ func TestCredentialValidation(t *testing.T) {
 	}{
 		{"no name", Credential{ID: "test", Password: "x"}},
 		{"no password", Credential{ID: "test", Name: "Home"}},
-		{"bad scheme", Credential{ID: "test", Name: "Home", URL: "ftp://192.168.0.4", Password: "x"}},
+		{"bad scheme", Credential{ID: "test", Name: "Home", URL: "ftp://192.168.1.11", Password: "x"}},
 		{"no host", Credential{ID: "test", Name: "Home", URL: "https://", Password: "x"}},
 		{
 			"userinfo",
 			Credential{
 				ID:       "test",
 				Name:     "Home",
-				URL:      "https://user:pass@192.168.0.4",
+				URL:      "https://user:pass@192.168.1.11",
 				Password: "x",
 			},
 		},

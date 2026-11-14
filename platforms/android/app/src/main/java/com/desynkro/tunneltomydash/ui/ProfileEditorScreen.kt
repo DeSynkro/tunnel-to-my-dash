@@ -175,8 +175,7 @@ fun ProfileEditorScreen(
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
-            "http:// is assumed if you omit the scheme. Example: " +
-                "http://192.168.0.3:3000",
+            "You can type just 192.168.1.10:3000; we'll add http:// for you.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -269,15 +268,14 @@ fun ProfileEditorScreen(
                 }
                 val normalizedURL = normalizeDashboardUrl(dashboardURL)
                 if (normalizedURL.isBlank()) {
-                    localError = "Enter a dashboard URL, for example " +
-                        "http://192.168.0.3:3000"
+                    localError = "Enter a dashboard URL, like 192.168.1.10:3000."
                     return@Button
                 }
                 if (
                     !normalizedURL.lowercase().startsWith("http://") &&
                     !normalizedURL.lowercase().startsWith("https://")
                 ) {
-                    localError = "Dashboard URL must use http:// or https://."
+                    localError = "That URL needs to start with http:// or https://."
                     return@Button
                 }
                 if (detail == null && tunnelConfig.isBlank()) {

@@ -388,7 +388,7 @@ func TestExternalPolicyRoutes(t *testing.T) {
 		route  Route
 		ok     bool
 	}{
-		{"LAN goes through tunnel", "http", "192.168.0.3", "3000", RouteTunnel, true},
+		{"LAN goes through tunnel", "http", "192.168.1.10", "3000", RouteTunnel, true},
 		{"allowed origin goes direct", "https", "fonts.googleapis.com", "443", RouteDirect, true},
 		{"wrong scheme", "http", "fonts.googleapis.com", "443", RouteDirect, false},
 		{"unlisted origin", "https", "evil.example", "443", RouteDirect, false},
@@ -419,7 +419,7 @@ func TestExternalPolicyRoutes(t *testing.T) {
 
 func TestDirectDialerRejectsLocalAddresses(t *testing.T) {
 	dialer := DirectDialer{}
-	for _, address := range []string{"127.0.0.1:80", "192.168.0.3:80", "10.0.0.1:80"} {
+	for _, address := range []string{"127.0.0.1:80", "192.168.1.10:80", "10.0.0.1:80"} {
 		if _, err := dialer.DialContext(context.Background(), "tcp", address); err == nil {
 			t.Fatalf("DialContext(%q) unexpectedly succeeded", address)
 		}
@@ -431,7 +431,7 @@ func TestLANPolicy(t *testing.T) {
 		host string
 		want bool
 	}{
-		{"192.168.0.3", true},
+		{"192.168.1.10", true},
 		{"10.1.2.3", true},
 		{"8.8.8.8", false},
 		{"127.0.0.1", false},

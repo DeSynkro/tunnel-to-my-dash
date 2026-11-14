@@ -205,7 +205,7 @@ func TestControlFlow(t *testing.T) {
 	profileBody := ProfileInput{
 		Name:            "Home",
 		TunnelConfig:    validTunnel(t),
-		DashboardURL:    "http://192.168.0.3:3000",
+		DashboardURL:    "http://192.168.1.10:3000",
 		AllowExternal:   true,
 		ExternalMode:    "origins",
 		ExternalOrigins: []string{" HTTPS://Fonts.GoogleAPIs.com/ ", "https://fonts.googleapis.com"},
@@ -257,7 +257,7 @@ func TestControlFlow(t *testing.T) {
 	probes := connector.probes
 	probeAddress := connector.probeAddress
 	connector.mu.Unlock()
-	if probes != 1 || probeAddress != "192.168.0.3:3000" {
+	if probes != 1 || probeAddress != "192.168.1.10:3000" {
 		t.Fatalf("probes = %d, address = %q", probes, probeAddress)
 	}
 
@@ -286,7 +286,7 @@ func TestControlFlow(t *testing.T) {
 	if err := json.Unmarshal(data, &connected); err != nil {
 		t.Fatal(err)
 	}
-	if connected["proxy"] != "127.0.0.1:43210" || connected["dashboard_url"] != "http://192.168.0.3:3000" {
+	if connected["proxy"] != "127.0.0.1:43210" || connected["dashboard_url"] != "http://192.168.1.10:3000" {
 		t.Fatalf("connect response = %+v", connected)
 	}
 	connector.mu.Lock()
@@ -339,7 +339,7 @@ func TestControlFlow(t *testing.T) {
 
 	resp, data = call(t, client, http.MethodPut, "/profiles/"+profile.ID, ProfileInput{
 		Name:         "Home 2",
-		DashboardURL: "http://192.168.0.3:3000",
+		DashboardURL: "http://192.168.1.10:3000",
 	})
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("update status = %d: %s", resp.StatusCode, data)
@@ -385,7 +385,7 @@ func TestSecuritySettings(t *testing.T) {
 	resp, data := call(t, client, http.MethodPost, "/profiles", ProfileInput{
 		Name:            "Home",
 		TunnelConfig:    validTunnel(t),
-		DashboardURL:    "http://192.168.0.3:3000",
+		DashboardURL:    "http://192.168.1.10:3000",
 		AllowExternal:   true,
 		ExternalMode:    "origins",
 		ExternalOrigins: []string{"https://example.com"},
@@ -459,7 +459,7 @@ func TestControlErrors(t *testing.T) {
 	resp, _ = call(t, client, http.MethodPost, "/profiles", ProfileInput{
 		Name:         "Home",
 		TunnelConfig: validTunnel(t),
-		DashboardURL: "http://192.168.0.3:3000",
+		DashboardURL: "http://192.168.1.10:3000",
 	})
 	if resp.StatusCode != http.StatusLocked {
 		t.Fatalf("add profile without vault status = %d", resp.StatusCode)
@@ -478,7 +478,7 @@ func TestControlErrors(t *testing.T) {
 	resp, data := call(t, client, http.MethodPost, "/profiles", ProfileInput{
 		Name:         "Home",
 		TunnelConfig: "nope",
-		DashboardURL: "http://192.168.0.3:3000",
+		DashboardURL: "http://192.168.1.10:3000",
 	})
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("invalid profile status = %d: %s", resp.StatusCode, data)
@@ -487,7 +487,7 @@ func TestControlErrors(t *testing.T) {
 	resp, data = call(t, client, http.MethodPost, "/profiles", ProfileInput{
 		Name:            "Home",
 		TunnelConfig:    validTunnel(t),
-		DashboardURL:    "http://192.168.0.3:3000",
+		DashboardURL:    "http://192.168.1.10:3000",
 		AllowExternal:   true,
 		ExternalOrigins: []string{"https://fonts.example/path"},
 	})
@@ -522,7 +522,7 @@ func TestControlErrors(t *testing.T) {
 	resp, _ = call(t, client, http.MethodPost, "/profiles", ProfileInput{
 		Name:         "Home",
 		TunnelConfig: validTunnel(t),
-		DashboardURL: "http://192.168.0.3:3000",
+		DashboardURL: "http://192.168.1.10:3000",
 	})
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("add profile status = %d", resp.StatusCode)

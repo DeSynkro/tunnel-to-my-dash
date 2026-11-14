@@ -34,7 +34,7 @@ Done when a request can go `curl -> localhost proxy -> WireGuard -> LAN test
 server`, public addresses are refused, and the whole test runs as a normal
 user.
 
-Phase 1 complete: HTTP 200 from `192.168.0.3:3000` through the home endpoint
+Phase 1 complete: HTTP 200 from `192.168.1.10:3000` through the home endpoint
 with ProtonVPN active.
 
 ## Phase 2 — Vault, configuration and app lock core
@@ -95,10 +95,10 @@ with portable data beside it and the Chromium sandbox enabled.
 
 ## Phase 5 — Real-world pass
 
-- [x] Dashboard at `192.168.0.3:3000`
+- [x] Dashboard at `192.168.1.10:3000`
 - [x] Jellyfin on the same host, different port
 - [x] OpenCode container
-- [x] Laptop dashboard at `192.168.0.4:3000`
+- [x] Laptop dashboard at `192.168.1.11:3000`
 - [x] Normal VPN active for the whole session
 - [ ] Remote network and home Wi-Fi
 - [ ] Tunnel failure behaviour and reconnect
@@ -107,7 +107,7 @@ Done when the everyday use case works without touching the system VPN.
 
 Phase 5 network pass: with ProtonVPN active, requests through the core
 proxy returned HTTP 200 from Jellyfin (`/web/`, title `Jellyfin`), OpenCode
-and the laptop dashboard (`192.168.0.4:3000`, 102646 bytes). Jellyfin
+and the laptop dashboard (`192.168.1.11:3000`, 102646 bytes). Jellyfin
 playback inside Chromium is untested, and the home Wi-Fi, remote-network and
 reconnect cases are still open.
 

@@ -23,7 +23,7 @@ class ProfilesViewModelTest {
                 id = null,
                 name = "Home",
                 tunnelConfig = "[Interface]",
-                dashboardURL = "http://192.168.0.3:3000",
+                dashboardURL = "http://192.168.1.10:3000",
                 externalMode = "off",
                 externalOrigins = emptyList(),
             ),
@@ -38,7 +38,7 @@ class ProfilesViewModelTest {
     fun updateProfileRefreshesList() {
         val fake = FakeVaultGateway(
             profilesResult = listOf(
-                ProfileSummary("home", "Home", "http://192.168.0.3:3000", "off", true),
+                ProfileSummary("home", "Home", "http://192.168.1.10:3000", "off", true),
             ),
         )
         val viewModel = profileViewModel(fake)
@@ -51,7 +51,7 @@ class ProfilesViewModelTest {
                 id = "home",
                 name = "Home updated",
                 tunnelConfig = "",
-                dashboardURL = "http://192.168.0.3:3000",
+                dashboardURL = "http://192.168.1.10:3000",
                 externalMode = "all",
                 externalOrigins = emptyList(),
             ),
@@ -67,7 +67,7 @@ class ProfilesViewModelTest {
     fun deleteProfileRefreshesList() {
         val fake = FakeVaultGateway(
             profilesResult = listOf(
-                ProfileSummary("home", "Home", "http://192.168.0.3:3000", "off", true),
+                ProfileSummary("home", "Home", "http://192.168.1.10:3000", "off", true),
             ),
         )
         val viewModel = profileViewModel(fake)
@@ -81,8 +81,8 @@ class ProfilesViewModelTest {
     fun setActiveProfileRefreshesList() {
         val fake = FakeVaultGateway(
             profilesResult = listOf(
-                ProfileSummary("home", "Home", "http://192.168.0.3:3000", "off", true),
-                ProfileSummary("office", "Office", "http://192.168.0.4:3000", "off", false),
+                ProfileSummary("home", "Home", "http://192.168.1.10:3000", "off", true),
+                ProfileSummary("office", "Office", "http://192.168.1.11:3000", "off", false),
             ),
         )
         val viewModel = profileViewModel(fake)
@@ -99,7 +99,7 @@ class ProfilesViewModelTest {
         viewModel.openEditor(null)
 
         viewModel.saveProfile(
-            ProfileDraft(null, "Home", "[Interface]", "http://192.168.0.3:3000", "off", emptyList()),
+            ProfileDraft(null, "Home", "[Interface]", "http://192.168.1.10:3000", "off", emptyList()),
         )
 
         assertEquals(AppScreen.EditProfile(null), viewModel.state.value.screen)
@@ -108,7 +108,7 @@ class ProfilesViewModelTest {
 
     @Test
     fun openEditorLoadsDetail() {
-        val detail = ProfileDetail("home", "Home", "http://192.168.0.3:3000", "all", emptyList(), true)
+        val detail = ProfileDetail("home", "Home", "http://192.168.1.10:3000", "all", emptyList(), true)
         val fake = FakeVaultGateway(profileResult = detail)
         val viewModel = profileViewModel(fake)
 

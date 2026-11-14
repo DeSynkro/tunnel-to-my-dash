@@ -56,7 +56,7 @@ class SettingsViewModelTest {
     fun importVaultRefreshesProfilesAndSettings() = runTest {
         val fake = FakeVaultGateway(
             profilesResult = listOf(
-                ProfileSummary("home", "Home", "http://192.168.0.3:3000", "off", true),
+                ProfileSummary("home", "Home", "http://192.168.1.10:3000", "off", true),
             ),
             settingsResult = AppSettings(true, false, true, true),
         )

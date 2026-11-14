@@ -37,7 +37,7 @@ func validTunnel(t *testing.T) (string, wgtypes.Key, wgtypes.Key) {
 	return fmt.Sprintf(`[Interface]
 PrivateKey = %s
 Address = 10.66.0.2/24, fd00::2/64
-DNS = 192.168.0.1
+DNS = 192.168.1.1
 MTU = 1380
 ListenPort = 51820
 
@@ -79,7 +79,7 @@ func TestLoadTunnel(t *testing.T) {
 	if len(got.Addresses) != 2 || got.Addresses[0].String() != "10.66.0.2/24" || got.Addresses[1].String() != "fd00::2/64" {
 		t.Errorf("addresses = %v", got.Addresses)
 	}
-	if len(got.DNS) != 1 || got.DNS[0].String() != "192.168.0.1" {
+	if len(got.DNS) != 1 || got.DNS[0].String() != "192.168.1.1" {
 		t.Errorf("DNS = %v", got.DNS)
 	}
 }
@@ -156,13 +156,13 @@ func TestLoadTunnelMissingFile(t *testing.T) {
 }
 
 func TestLoadApp(t *testing.T) {
-	path := writeFile(t, "config.json", `{"dashboard_url":"http://192.168.0.3:3000","allow_external":true}`)
+	path := writeFile(t, "config.json", `{"dashboard_url":"http://192.168.1.10:3000","allow_external":true}`)
 
 	got, err := LoadApp(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.DashboardURL != "http://192.168.0.3:3000" {
+	if got.DashboardURL != "http://192.168.1.10:3000" {
 		t.Errorf("dashboard URL = %q", got.DashboardURL)
 	}
 	if !got.AllowExternal {
@@ -176,14 +176,14 @@ func TestAppValidate(t *testing.T) {
 		url  string
 		want bool
 	}{
-		{"private http", "http://192.168.0.3:3000", true},
-		{"private https", "https://192.168.0.4:3000/app", true},
+		{"private http", "http://192.168.1.10:3000", true},
+		{"private https", "https://192.168.1.11:3000/app", true},
 		{"private ipv6", "http://[fd00::1]:3000", true},
 		{"public ip", "http://8.8.8.8:3000", false},
 		{"hostname", "http://dashboard.local:3000", false},
-		{"bad scheme", "ftp://192.168.0.3:3000", false},
-		{"userinfo", "http://user:pass@192.168.0.3:3000", false},
-		{"bad port", "http://192.168.0.3:99999", false},
+		{"bad scheme", "ftp://192.168.1.10:3000", false},
+		{"userinfo", "http://user:pass@192.168.1.10:3000", false},
+		{"bad port", "http://192.168.1.10:99999", false},
 		{"empty", "", false},
 	}
 

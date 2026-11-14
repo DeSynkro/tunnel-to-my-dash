@@ -21,8 +21,8 @@ class ModelsTest {
     fun parsesProfiles() {
         val profiles = parseProfiles(
             """[
-                {"id":"home","name":"Home","dashboard_url":"http://192.168.0.3:3000","external_mode":"off","active":true},
-                {"id":"office","name":"Office","dashboard_url":"http://192.168.0.4:3000","external_mode":"all","active":false}
+                {"id":"home","name":"Home","dashboard_url":"http://192.168.1.10:3000","external_mode":"off","active":true},
+                {"id":"office","name":"Office","dashboard_url":"http://192.168.1.11:3000","external_mode":"all","active":false}
             ]""",
         )
         assertEquals(2, profiles.size)
@@ -35,7 +35,7 @@ class ModelsTest {
     @Test
     fun parsesProfileDetail() {
         val profile = parseProfileDetail(
-            """{"id":"home","name":"Home","dashboard_url":"http://192.168.0.3:3000","external_mode":"origins","external_origins":["https://example.com"],"has_tunnel_config":true}""",
+            """{"id":"home","name":"Home","dashboard_url":"http://192.168.1.10:3000","external_mode":"origins","external_origins":["https://example.com"],"has_tunnel_config":true}""",
         )
         assertEquals("home", profile.id)
         assertTrue(profile.hasTunnelConfig)
@@ -72,7 +72,7 @@ class ModelsTest {
     @Test
     fun parsesConnectionInfo() {
         val info = parseConnectionInfo(
-            """{"proxy":"127.0.0.1:41000","dashboard_url":"http://192.168.0.3:3000","profile_id":"home","profile_name":"Home"}""",
+            """{"proxy":"127.0.0.1:41000","dashboard_url":"http://192.168.1.10:3000","profile_id":"home","profile_name":"Home"}""",
         )
         assertEquals("127.0.0.1:41000", info.proxy)
         assertEquals("home", info.profileID)
@@ -93,7 +93,7 @@ class ModelsTest {
             id = null,
             name = "Home",
             tunnelConfig = "[Interface]",
-            dashboardURL = "http://192.168.0.3:3000",
+            dashboardURL = "http://192.168.1.10:3000",
             externalMode = "all",
             externalOrigins = emptyList(),
         )

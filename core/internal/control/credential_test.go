@@ -18,7 +18,7 @@ func TestCredentialAPI(t *testing.T) {
 	resp, data = call(t, client, http.MethodPost, "/profiles", ProfileInput{
 		Name:         "Home",
 		TunnelConfig: validTunnel(t),
-		DashboardURL: "http://192.168.0.4:3000",
+		DashboardURL: "http://192.168.1.11:3000",
 	})
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("profile status = %d: %s", resp.StatusCode, data)
@@ -31,7 +31,7 @@ func TestCredentialAPI(t *testing.T) {
 
 	resp, data = call(t, client, http.MethodPost, base, CredentialInput{
 		Name:     "Jellyfin",
-		URL:      "http://192.168.0.4:8096",
+		URL:      "http://192.168.1.11:8096",
 		Username: "alex",
 		Password: "hunter2",
 	})
@@ -113,7 +113,7 @@ func TestCredentialAPI(t *testing.T) {
 	}
 	resp, _ = call(t, client, http.MethodPost, base, CredentialInput{
 		Name:     "Bad URL",
-		URL:      "ftp://192.168.0.4",
+		URL:      "ftp://192.168.1.11",
 		Password: "x",
 	})
 	if resp.StatusCode != http.StatusBadRequest {

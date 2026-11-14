@@ -2865,7 +2865,7 @@ async function runCredentialsSmoke(window: BrowserWindow): Promise<void> {
           if (node) node.value = value;
         };
         set("credential-name", "Grafana");
-        set("credential-url", "http://192.168.0.4:3001");
+        set("credential-url", "http://192.168.1.11:3001");
         set("credential-username", "monitor");
         set("credential-password", "grafana-secret");
         document.getElementById("credential-form")?.requestSubmit();
@@ -4578,7 +4578,7 @@ async function runSetupSmoke(window: BrowserWindow): Promise<void> {
         };
         set("setup-name", "Home");
         set("setup-config", ${JSON.stringify(config)});
-        set("setup-url", "http://192.168.0.3:3000");
+        set("setup-url", "http://192.168.1.10:3000");
         const lock = document.getElementById("setup-lock");
         if (lock) {
           lock.checked = true;
@@ -5281,7 +5281,7 @@ async function submitSmokeSetup(window: BrowserWindow): Promise<void> {
     };
     set("setup-name", "Home");
     set("setup-config", ${JSON.stringify(config)});
-    set("setup-url", "http://192.168.0.3:3000");
+    set("setup-url", "http://192.168.1.10:3000");
     const lock = document.getElementById("setup-lock");
     if (lock) {
       lock.checked = false;

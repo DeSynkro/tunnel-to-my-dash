@@ -20,8 +20,8 @@ function credential(
 
 test("normalizes a saved URL to its origin", () => {
   assert.equal(
-    normalizedOrigin("http://192.168.0.4:3000/admin?tab=1"),
-    "http://192.168.0.4:3000",
+    normalizedOrigin("http://192.168.1.11:3000/admin?tab=1"),
+    "http://192.168.1.11:3000",
   );
   assert.equal(
     normalizedOrigin("https://dash.example.com"),
@@ -32,22 +32,22 @@ test("normalizes a saved URL to its origin", () => {
 
 test("names a login from the page title and falls back to the host", () => {
   assert.equal(
-    credentialName("Sonarr - Login", "http://192.168.0.3:8989"),
+    credentialName("Sonarr - Login", "http://192.168.1.10:8989"),
     "Sonarr",
   );
   assert.equal(
-    credentialName("Sign in", "http://192.168.0.3:7979"),
-    "192.168.0.3:7979",
+    credentialName("Sign in", "http://192.168.1.10:7979"),
+    "192.168.1.10:7979",
   );
 });
 
 test("matches saved URLs by origin, not by path or trailing slash", () => {
   const credentials = [
-    credential("a", "Sonarr", "http://192.168.0.3:8989/sonarr", "admin"),
-    credential("b", "Radarr", "http://192.168.0.3:7878/", "admin"),
-    credential("c", "Other", "http://192.168.0.4:3000", "admin"),
+    credential("a", "Sonarr", "http://192.168.1.10:8989/sonarr", "admin"),
+    credential("b", "Radarr", "http://192.168.1.10:7878/", "admin"),
+    credential("c", "Other", "http://192.168.1.11:3000", "admin"),
   ];
-  const matches = credentialsForOrigin(credentials, "http://192.168.0.3:8989");
+  const matches = credentialsForOrigin(credentials, "http://192.168.1.10:8989");
   assert.deepEqual(
     matches.map((match) => match.id),
     ["a"],
@@ -56,12 +56,12 @@ test("matches saved URLs by origin, not by path or trailing slash", () => {
 
 test("filters origin and username together", () => {
   const credentials = [
-    credential("a", "Sonarr", "http://192.168.0.3:8989/sonarr", "admin"),
-    credential("b", "Sonarr", "http://192.168.0.3:8989/sonarr", "alex"),
+    credential("a", "Sonarr", "http://192.168.1.10:8989/sonarr", "admin"),
+    credential("b", "Sonarr", "http://192.168.1.10:8989/sonarr", "alex"),
   ];
   const matches = matchingCredentials(
     credentials,
-    "http://192.168.0.3:8989",
+    "http://192.168.1.10:8989",
     "alex",
   );
   assert.deepEqual(
@@ -74,30 +74,30 @@ test("picks a single match, or the title match when several share an origin", ()
   const sonarr = credential(
     "a",
     "Sonarr",
-    "http://192.168.0.3:8989/sonarr",
+    "http://192.168.1.10:8989/sonarr",
     "admin",
   );
   const radarr = credential(
     "b",
     "Radarr",
-    "http://192.168.0.3:8989/radarr",
+    "http://192.168.1.10:8989/radarr",
     "admin",
   );
   assert.equal(
-    pickCredentialMatch([sonarr], "Sonarr", "http://192.168.0.3:8989"),
+    pickCredentialMatch([sonarr], "Sonarr", "http://192.168.1.10:8989"),
     sonarr,
   );
   assert.equal(
-    pickCredentialMatch([sonarr, radarr], "Sonarr", "http://192.168.0.3:8989"),
+    pickCredentialMatch([sonarr, radarr], "Sonarr", "http://192.168.1.10:8989"),
     sonarr,
   );
   assert.equal(
     pickCredentialMatch(
       [sonarr, radarr],
       "Dashboard",
-      "http://192.168.0.3:8989",
+      "http://192.168.1.10:8989",
     ),
     null,
   );
-  assert.equal(pickCredentialMatch([], "Sonarr", "http://192.168.0.3:8989"), null);
+  assert.equal(pickCredentialMatch([], "Sonarr", "http://192.168.1.10:8989"), null);
 });
