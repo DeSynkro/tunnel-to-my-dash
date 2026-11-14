@@ -175,7 +175,8 @@ fun ProfileEditorScreen(
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
-            "You can type just 192.168.1.10:3000; we'll add http:// for you.",
+            "Paste the address you use in your browser. If it doesn't start " +
+                "with http:// or https://, we'll add http://.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -268,14 +269,14 @@ fun ProfileEditorScreen(
                 }
                 val normalizedURL = normalizeDashboardUrl(dashboardURL)
                 if (normalizedURL.isBlank()) {
-                    localError = "Enter a dashboard URL, like 192.168.1.10:3000."
+                    localError = "Enter the dashboard address from your browser."
                     return@Button
                 }
                 if (
                     !normalizedURL.lowercase().startsWith("http://") &&
                     !normalizedURL.lowercase().startsWith("https://")
                 ) {
-                    localError = "That URL needs to start with http:// or https://."
+                    localError = "That address needs to start with http:// or https://."
                     return@Button
                 }
                 if (detail == null && tunnelConfig.isBlank()) {

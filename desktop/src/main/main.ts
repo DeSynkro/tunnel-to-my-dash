@@ -4578,7 +4578,7 @@ async function runSetupSmoke(window: BrowserWindow): Promise<void> {
         };
         set("setup-name", "Home");
         set("setup-config", ${JSON.stringify(config)});
-        set("setup-url", "http://192.168.1.10:3000");
+        set("setup-url", "http://192.168.1.10:8080");
         const lock = document.getElementById("setup-lock");
         if (lock) {
           lock.checked = true;
@@ -5281,7 +5281,7 @@ async function submitSmokeSetup(window: BrowserWindow): Promise<void> {
     };
     set("setup-name", "Home");
     set("setup-config", ${JSON.stringify(config)});
-    set("setup-url", "http://192.168.1.10:3000");
+    set("setup-url", "http://192.168.1.10:8080");
     const lock = document.getElementById("setup-lock");
     if (lock) {
       lock.checked = false;

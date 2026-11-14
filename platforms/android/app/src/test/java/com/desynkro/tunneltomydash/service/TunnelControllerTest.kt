@@ -15,7 +15,7 @@ import org.junit.Test
 class TunnelControllerTest {
     private val info = ConnectionInfo(
         proxy = "127.0.0.1:41000",
-        dashboardURL = "http://192.168.1.10:3000",
+        dashboardURL = "http://192.168.1.10:8080",
         profileID = "profile",
         profileName = "Home",
     )

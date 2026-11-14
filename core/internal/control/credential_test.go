@@ -18,7 +18,7 @@ func TestCredentialAPI(t *testing.T) {
 	resp, data = call(t, client, http.MethodPost, "/profiles", ProfileInput{
 		Name:         "Home",
 		TunnelConfig: validTunnel(t),
-		DashboardURL: "http://192.168.1.11:3000",
+		DashboardURL: "http://192.168.1.11:8080",
 	})
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("profile status = %d: %s", resp.StatusCode, data)

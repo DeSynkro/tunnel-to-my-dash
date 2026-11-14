@@ -3,7 +3,7 @@ import test from "node:test";
 import { isPrivateHttpUrl, isPublicHttpUrl } from "./private-url.ts";
 
 test("recognizes LAN URLs as private", () => {
-  assert.equal(isPrivateHttpUrl("http://192.168.1.10:3000/"), true);
+  assert.equal(isPrivateHttpUrl("http://192.168.1.10:8080/"), true);
   assert.equal(isPrivateHttpUrl("https://10.0.0.5/"), true);
   assert.equal(isPrivateHttpUrl("http://172.20.1.1/"), true);
   assert.equal(isPrivateHttpUrl("http://[fd00::1]/"), true);

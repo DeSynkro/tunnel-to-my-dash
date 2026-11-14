@@ -11,7 +11,7 @@ class ConnectionPolicyTest {
     private val profile = ProfileSummary(
         id = "home",
         name = "Home",
-        dashboardURL = "http://192.168.1.10:3000",
+        dashboardURL = "http://192.168.1.10:8080",
         externalMode = "off",
         active = true,
     )

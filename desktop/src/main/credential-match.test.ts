@@ -20,8 +20,8 @@ function credential(
 
 test("normalizes a saved URL to its origin", () => {
   assert.equal(
-    normalizedOrigin("http://192.168.1.11:3000/admin?tab=1"),
-    "http://192.168.1.11:3000",
+    normalizedOrigin("http://192.168.1.11:8080/admin?tab=1"),
+    "http://192.168.1.11:8080",
   );
   assert.equal(
     normalizedOrigin("https://dash.example.com"),
@@ -45,7 +45,7 @@ test("matches saved URLs by origin, not by path or trailing slash", () => {
   const credentials = [
     credential("a", "Sonarr", "http://192.168.1.10:8989/sonarr", "admin"),
     credential("b", "Radarr", "http://192.168.1.10:7878/", "admin"),
-    credential("c", "Other", "http://192.168.1.11:3000", "admin"),
+    credential("c", "Other", "http://192.168.1.11:8080", "admin"),
   ];
   const matches = credentialsForOrigin(credentials, "http://192.168.1.10:8989");
   assert.deepEqual(

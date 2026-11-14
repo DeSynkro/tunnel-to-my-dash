@@ -9,7 +9,7 @@ import (
 func newCredential(name string) Credential {
 	return Credential{
 		Name:     name,
-		URL:      "http://192.168.1.11:3000",
+		URL:      "http://192.168.1.11:8080",
 		Username: "alex",
 		Password: "hunter2",
 	}

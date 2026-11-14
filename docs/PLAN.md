@@ -279,7 +279,7 @@ func (a *App) Close() error
 - [x] Handle SIGINT and SIGTERM; close the proxy and tunnel.
 - [x] Run `make test` and `make core`.
 - [x] Manual check with a real config:
-      `curl -x http://127.0.0.1:<port> http://192.168.1.10:3000` returned
+      `curl -x http://127.0.0.1:<port> http://192.168.1.10:8080` returned
       HTTP 200 through the home endpoint while ProtonVPN was active.
 
 **Commit:** `Run the tunnel and proxy from the core CLI`
@@ -340,7 +340,7 @@ wrapped vault key, payload nonce and ciphertext. The encrypted payload is a
       "id": "...",
       "name": "Home",
       "tunnel_config": "...raw WireGuard config...",
-      "dashboard_url": "http://192.168.1.10:3000",
+      "dashboard_url": "http://192.168.1.10:8080",
       "allow_external": false,
       "external_origins": []
     }
@@ -494,7 +494,7 @@ still connected.
 - [x] Jellyfin on `192.168.1.10:8096`: HTTP 200, redirected to `/web/`,
       title `Jellyfin`.
 - [x] OpenCode on `192.168.1.10:4096`: HTTP 200.
-- [x] Laptop dashboard on `192.168.1.11:3000`: HTTP 200, 102646 bytes.
+- [x] Laptop dashboard on `192.168.1.11:8080`: HTTP 200, 102646 bytes.
 - [x] ProtonVPN active throughout; no TUN device, root or route changes.
 - [ ] Jellyfin playback inside Chromium, including transcoding.
 - [ ] Home Wi-Fi and remote-network behaviour, including NAT loopback.

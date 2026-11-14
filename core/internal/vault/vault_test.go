@@ -18,7 +18,7 @@ func testData() Data {
 			ID:           "home",
 			Name:         "Home",
 			TunnelConfig: "PrivateKey = test-only",
-			DashboardURL: "http://192.168.1.10:3000",
+			DashboardURL: "http://192.168.1.10:8080",
 		}},
 	}
 }
@@ -187,7 +187,7 @@ func TestVaultDoesNotStorePlaintext(t *testing.T) {
 			ID:           "home",
 			Name:         "Home",
 			TunnelConfig: "PrivateKey = " + secret,
-			DashboardURL: "http://192.168.1.10:3000",
+			DashboardURL: "http://192.168.1.10:8080",
 		}},
 	}
 	if err := s.save(); err != nil {

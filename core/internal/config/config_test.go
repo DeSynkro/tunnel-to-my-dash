@@ -156,13 +156,13 @@ func TestLoadTunnelMissingFile(t *testing.T) {
 }
 
 func TestLoadApp(t *testing.T) {
-	path := writeFile(t, "config.json", `{"dashboard_url":"http://192.168.1.10:3000","allow_external":true}`)
+	path := writeFile(t, "config.json", `{"dashboard_url":"http://192.168.1.10:8080","allow_external":true}`)
 
 	got, err := LoadApp(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.DashboardURL != "http://192.168.1.10:3000" {
+	if got.DashboardURL != "http://192.168.1.10:8080" {
 		t.Errorf("dashboard URL = %q", got.DashboardURL)
 	}
 	if !got.AllowExternal {
@@ -176,13 +176,13 @@ func TestAppValidate(t *testing.T) {
 		url  string
 		want bool
 	}{
-		{"private http", "http://192.168.1.10:3000", true},
-		{"private https", "https://192.168.1.11:3000/app", true},
-		{"private ipv6", "http://[fd00::1]:3000", true},
-		{"public ip", "http://8.8.8.8:3000", false},
-		{"hostname", "http://dashboard.local:3000", false},
-		{"bad scheme", "ftp://192.168.1.10:3000", false},
-		{"userinfo", "http://user:pass@192.168.1.10:3000", false},
+		{"private http", "http://192.168.1.10:8080", true},
+		{"private https", "https://192.168.1.11:8080/app", true},
+		{"private ipv6", "http://[fd00::1]:8080", true},
+		{"public ip", "http://8.8.8.8:8080", false},
+		{"hostname", "http://dashboard.local:8080", false},
+		{"bad scheme", "ftp://192.168.1.10:8080", false},
+		{"userinfo", "http://user:pass@192.168.1.10:8080", false},
 		{"bad port", "http://192.168.1.10:99999", false},
 		{"empty", "", false},
 	}

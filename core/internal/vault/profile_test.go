@@ -43,7 +43,7 @@ func newProfile(t *testing.T, name string) Profile {
 	return Profile{
 		Name:         name,
 		TunnelConfig: validTunnel(t),
-		DashboardURL: "http://192.168.1.10:3000",
+		DashboardURL: "http://192.168.1.10:8080",
 	}
 }
 
@@ -139,8 +139,8 @@ func TestProfileValidation(t *testing.T) {
 	}{
 		{"empty name", func(p Profile) Profile { p.Name = " "; return p }},
 		{"bad tunnel", func(p Profile) Profile { p.TunnelConfig = "nope"; return p }},
-		{"public dashboard", func(p Profile) Profile { p.DashboardURL = "http://8.8.8.8:3000"; return p }},
-		{"hostname dashboard", func(p Profile) Profile { p.DashboardURL = "http://dashboard.local:3000"; return p }},
+		{"public dashboard", func(p Profile) Profile { p.DashboardURL = "http://8.8.8.8:8080"; return p }},
+		{"hostname dashboard", func(p Profile) Profile { p.DashboardURL = "http://dashboard.local:8080"; return p }},
 	}
 
 	for _, tt := range cases {

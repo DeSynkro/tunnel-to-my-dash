@@ -30,7 +30,7 @@ class AppViewModelTest {
 
     @Test
     fun bootstrapKeyfileShowsProfiles() {
-        val profile = ProfileSummary("home", "Home", "http://192.168.1.10:3000", "off", true)
+        val profile = ProfileSummary("home", "Home", "http://192.168.1.10:8080", "off", true)
         val viewModel = AppViewModel(
             FakeVaultGateway(
                 hasVaultResult = true,

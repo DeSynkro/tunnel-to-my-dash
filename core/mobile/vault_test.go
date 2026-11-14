@@ -59,7 +59,7 @@ func addTestProfile(t *testing.T, name, externalMode string) ProfileSummary {
 	input, err := json.Marshal(ProfileInput{
 		Name:         name,
 		TunnelConfig: validTunnelConfig(t),
-		DashboardURL: "http://192.168.1.10:3000",
+		DashboardURL: "http://192.168.1.10:8080",
 		ExternalMode: externalMode,
 	})
 	if err != nil {
@@ -164,7 +164,7 @@ func TestVaultKeyfileLifecycle(t *testing.T) {
 	update, err := json.Marshal(ProfileInput{
 		ID:           home.ID,
 		Name:         "Home updated",
-		DashboardURL: "http://192.168.1.10:3000",
+		DashboardURL: "http://192.168.1.10:8080",
 		ExternalMode: "all",
 	})
 	if err != nil {
@@ -249,7 +249,7 @@ func TestProfileUpdatePreservesCredentials(t *testing.T) {
 	input, err := json.Marshal(ProfileInput{
 		ID:           home.ID,
 		Name:         "Home renamed",
-		DashboardURL: "http://192.168.1.10:3000",
+		DashboardURL: "http://192.168.1.10:8080",
 		ExternalMode: "all",
 	})
 	if err != nil {
@@ -311,7 +311,7 @@ func TestNavigationKindBridge(t *testing.T) {
 		want string
 	}{
 		{url: "https://example.com/", want: "public"},
-		{url: "http://192.168.1.10:3000/", want: "private"},
+		{url: "http://192.168.1.10:8080/", want: "private"},
 		{url: "javascript:alert(1)", want: "blocked"},
 	}
 	for _, tt := range tests {
@@ -421,7 +421,7 @@ func TestProfileOriginsPreserved(t *testing.T) {
 	input, err := json.Marshal(ProfileInput{
 		Name:            "Home",
 		TunnelConfig:    validTunnelConfig(t),
-		DashboardURL:    "http://192.168.1.10:3000",
+		DashboardURL:    "http://192.168.1.10:8080",
 		ExternalMode:    "origins",
 		ExternalOrigins: []string{"https://example.com"},
 	})
@@ -452,7 +452,7 @@ func TestProfileOriginsPreserved(t *testing.T) {
 	update, err := json.Marshal(ProfileInput{
 		ID:              summary.ID,
 		Name:            "Home renamed",
-		DashboardURL:    "http://192.168.1.10:3000",
+		DashboardURL:    "http://192.168.1.10:8080",
 		ExternalMode:    "origins",
 		ExternalOrigins: []string{"https://example.com"},
 	})
@@ -477,7 +477,7 @@ func TestProfileOriginsPreserved(t *testing.T) {
 	offUpdate, err := json.Marshal(ProfileInput{
 		ID:           summary.ID,
 		Name:         "Home renamed",
-		DashboardURL: "http://192.168.1.10:3000",
+		DashboardURL: "http://192.168.1.10:8080",
 		ExternalMode: "off",
 	})
 	if err != nil {
@@ -500,7 +500,7 @@ func TestProfileOriginsPreserved(t *testing.T) {
 	onUpdate, err := json.Marshal(ProfileInput{
 		ID:           summary.ID,
 		Name:         "Home renamed",
-		DashboardURL: "http://192.168.1.10:3000",
+		DashboardURL: "http://192.168.1.10:8080",
 		ExternalMode: "origins",
 	})
 	if err != nil {

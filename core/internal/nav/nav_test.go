@@ -8,7 +8,7 @@ func TestClassify(t *testing.T) {
 		raw  string
 		want Kind
 	}{
-		{name: "private lan ipv4", raw: "http://192.168.1.10:3000/", want: Private},
+		{name: "private lan ipv4", raw: "http://192.168.1.10:8080/", want: Private},
 		{name: "private ten range", raw: "https://10.0.0.5/", want: Private},
 		{name: "private 172 range", raw: "http://172.20.1.1/", want: Private},
 		{name: "private ula", raw: "http://[fd00::1]/", want: Private},
