@@ -113,6 +113,7 @@ fun ProfileEditorScreen(
     val cameraPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
+        onExternalActivityEnd()
         if (granted) {
             launchScanner()
         } else {
@@ -128,6 +129,7 @@ fun ProfileEditorScreen(
         ) {
             launchScanner()
         } else {
+            onExternalActivityStart()
             cameraPermission.launch(Manifest.permission.CAMERA)
         }
     }

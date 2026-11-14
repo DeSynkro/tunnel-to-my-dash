@@ -65,9 +65,10 @@ lightbox, Jellyfin playback and fullscreen work on the Pixel test profile.
   WebView a zero-height layout viewport: `innerHeight` was 918 while `100vh`
   and `min-height` media queries resolved to 0. A plain `FrameLayout` WebView
   reports 918.095 px and all sites render correctly.
-- `INTERNET`, notification/foreground-service permissions, `USE_BIOMETRIC`
-  and `CAMERA` are needed. Camera access is requested only while scanning a
-  WireGuard QR code. No storage, contacts, location or microphone permissions.
+- The app uses `INTERNET`, notification/foreground-service permissions,
+  `USE_BIOMETRIC` and `CAMERA`; camera access is requested only while scanning
+  a WireGuard QR code. No storage, contacts, location or microphone
+  permissions.
 - App-private data only. The vault and keyfile live under the app's private
   files directory; `allowBackup` stays false.
 - Project-local Android, JDK, Gradle and gomobile caches.
@@ -241,7 +242,8 @@ The exact method names and JSON shape are for the plan.
   `FOREGROUND_SERVICE_SPECIAL_USE`, `USE_BIOMETRIC` and `CAMERA` permissions.
   `CAMERA` is used only by the WireGuard QR scanner.
 - No telemetry, analytics or crash upload. Logs stay on-device and are removed
-  from release builds. Camera frames and QR payloads are never logged or saved.
+  from release builds. Camera frames are never stored or uploaded; scanned QR
+  text is kept only as the profile's encrypted tunnel config.
 - The Android build is reproducible with the project-local toolchain. CI runs
   Android unit tests and builds a debug APK; release signing stays on the
   maintainer's machine because the key is not committed.
