@@ -10,7 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  linux:
+    name: Linux
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 
@@ -77,6 +78,7 @@ jobs:
           if-no-files-found: error
 
   windows:
+    name: Windows
     runs-on: windows-latest
     timeout-minutes: 30
 
@@ -118,6 +120,7 @@ jobs:
           if-no-files-found: error
 
   android:
+    name: Android
     runs-on: ubuntu-24.04
     timeout-minutes: 60
 
