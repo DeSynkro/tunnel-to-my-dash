@@ -111,6 +111,13 @@ kept in GitHub Actions secrets and is never committed.
   Windows and Android.
 - **LAN-only by default:** public content is opt-in per dashboard, either all
   public origins or an exact-origin list.
+- **HTTPS for external content:** public external content requires HTTPS by
+  default, with a global opt-out; LAN HTTP dashboards keep working.
+- **Cleared dashboard state:** cookies, site storage and caches are cleared on
+  lock, close and quit, so a stale session is not left behind.
+- **Authenticated local proxy:** desktop dashboard sessions use a per-run proxy
+  token. Android keeps the loopback-only fallback until WebView proxy
+  authentication is device-verified.
 - **Per-dashboard control:** choose the active dashboard, its WireGuard config,
   dashboard URL and external-content policy.
 - **Encrypted vault:** WireGuard configs, settings and desktop saved logins live
@@ -209,6 +216,13 @@ browser.
 - The Android CI job builds a debug APK on normal changes. Version tags and
   manual release runs build and verify a signed release APK; the release key is
   stored in GitHub Actions secrets.
+- Android DNS/WebView leakage has not been packet-tested. Desktop disables
+  Chromium's resolver; Android relies on the installed WebView's proxy/DNS
+  stack, so this build does not claim zero DNS leakage there.
+- Android WebView proxy authentication is prepared but not enabled in 1.1. The
+  proxy remains loopback-only until that path is verified on a device.
+- Dashboard logins may be required again after lock/quit because browser state
+  is cleared. Saved app passwords remain in the vault.
 
 ## Development
 

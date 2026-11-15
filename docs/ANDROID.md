@@ -1,4 +1,4 @@
-# Android client — Tunnel to My Dash 1.0
+# Android client — Tunnel to My Dash 1.1
 
 ## Intent
 
@@ -35,9 +35,10 @@ lightbox, Jellyfin playback and fullscreen work on the Pixel test profile.
   launch.
 - Encrypted vault export/import through the system file picker, so profiles and
   keys can be backed up or moved between devices.
-- A signed, non-debuggable 1.0 APK. No Play Store requirement.
+- A signed, non-debuggable 1.1 APK with a dedicated release key. No Play Store
+  requirement.
 
-## Non-goals for 1.0
+## Non-goals for 1.1
 
 - In-app saved-password capture or fill. Android system autofill (Bitwarden,
   etc.) handles logins. Basic-auth credentials are held in memory only.
@@ -94,8 +95,10 @@ lightbox, Jellyfin playback and fullscreen work on the Pixel test profile.
   connection and settings. It keeps secrets in Go memory and returns only what
   the native UI needs.
 - **WebView screen** is a native `WebView` with `ProxyController` set to the
-  service's proxy address. It owns the toolbar actions, fullscreen custom view,
-  Basic-auth dialog, error/retry overlay and page lifecycle.
+  service's proxy address, `removeImplicitRules()` enabled and a fail-closed
+  loopback/link-local URL guard. It owns the toolbar actions, fullscreen custom
+  view, Basic-auth dialog, error/retry overlay and page lifecycle. Destroying
+  it clears cookies, WebView storage, cache and Basic-auth state.
 
 ### Connection flow
 
@@ -104,15 +107,31 @@ lightbox, Jellyfin playback and fullscreen work on the Pixel test profile.
    service marks itself foreground and starts the Go tunnel/proxy with the
    profile's tunnel config and external mode.
 3. The service returns the proxy address (for example `127.0.0.1:38447`).
-4. The activity sets the WebView proxy override, creates a fresh WebView,
-   attaches it to the root `FrameLayout`, and loads the dashboard URL only
-   after the view is attached and sized.
+4. The activity sets the WebView proxy override with implicit loopback rules
+   removed, creates a fresh WebView, attaches it to the root `FrameLayout`, and
+   loads the dashboard URL only after the view is attached and sized.
 5. The service keeps running if the activity is backgrounded or the screen is
    off. The WebView may be paused by Android; on return the activity reloads if
    needed.
 6. Stop (toolbar, notification action, or task removal) stops the core, clears
    the proxy and removes the notification. The activity returns to the profile
    screen.
+
+### 1.1 security changes
+
+- WebView proxy override now removes Chromium's implicit loopback/link-local
+  bypass, and a WebView URL guard blocks local HTTP(S) destinations as a second
+  line of defence.
+- Dashboard browser state is cleared on lock/quit and at cold start.
+- External public content requires HTTPS by default, with a global opt-out.
+- The release APK uses a dedicated signing key and the CI release job verifies
+  the certificate and debuggable flag.
+- Proxy authentication is prepared in `WebViewScreen` but not enabled yet:
+  Android keeps the loopback-only fallback until the WebView 407 path is
+  verified on a device.
+- DNS/WebView leakage has not been packet-tested on Android. Desktop disables
+  Chromium's resolver; Android uses the installed WebView's proxy/DNS stack.
+  Do not claim zero DNS leakage on Android from this build.
 
 ### Vault and lock
 
@@ -123,18 +142,21 @@ lightbox, Jellyfin playback and fullscreen work on the Pixel test profile.
   controls are hidden for keyfile vaults. Set a password to enable locking.
 - Lock on background: a switch (default on for password-protected vaults) that
   locks when the app is backgrounded, the user switches apps, or the screen
-  turns off. Locking hides/destroys the WebView and clears in-memory Basic-auth
-  credentials. The foreground service keeps the tunnel until Stop; the
-  notification remains visible. On unlock, a new WebView loads the dashboard.
+  turns off. Locking hides/destroys the WebView and clears cookies, WebView
+  storage, cache and Basic-auth state. The foreground service keeps the tunnel
+  until Stop; the notification remains visible. On unlock, a new WebView loads
+  the dashboard and the user may need to sign in again.
 - If the switch is off, the UI stays unlocked while the app is backgrounded. The
   foreground service still keeps the tunnel until Stop.
 - Optional biometric unlock (included, off by default): if enabled,
   BiometricPrompt can unlock a password-protected vault after setup. The vault
   remains app-managed and password-encrypted; Android Keystore may guard a local
   biometric token, with the password as the fallback. No biometric-only vault.
-- Global security settings: `ForceLANOnly`, `LockOnBackground`, `AutoConnect`
-  and `OpenPublicLinksInBrowser`. The shared vault's `LockAfterIdle` and
-  `IdleMinutes` remain for desktop compatibility but are not used by Android.
+- Global security settings: `ForceLANOnly`, `RequireHTTPSExternal`,
+  `LockOnBackground`, `AutoConnect` and `OpenPublicLinksInBrowser`. External
+  content requires HTTPS by default; LAN HTTP dashboards keep working. The
+  shared vault's `LockAfterIdle` and `IdleMinutes` remain for desktop
+  compatibility but are not used by Android.
 - Secrets (WireGuard private keys, vault password, Basic-auth credentials) never
   reach the WebView or JavaScript. They may appear in the native profile editor;
   that is native UI, not a renderer.
@@ -154,7 +176,8 @@ lightbox, Jellyfin playback and fullscreen work on the Pixel test profile.
   "Allow external content" switch. A profile with an exact-origin list keeps
   that list: on Android the switch can turn external content off or back on in
   origins mode, but cannot widen it to `all`. The global `ForceLANOnly` setting
-  overrides per-profile external access.
+  overrides per-profile external access. Public external content requires HTTPS
+  by default; the global setting can opt out for legacy HTTP widgets.
 - Public top-level navigation: the dashboard origin and LAN/private hosts stay
   in the WebView. Public `http(s)` top-level links are blocked by default. A
   global "Open public links in the system browser" switch mirrors the desktop
@@ -304,7 +327,7 @@ The exact method names and JSON shape are for the plan.
 
 - **Lifecycle:** foreground service while connected; the tunnel survives app
   switches and screen-off. Stop is explicit (toolbar or notification).
-- **Scope:** core 1.0; no in-app saved-password capture/fill (system autofill
+- **Scope:** core 1.1; no in-app saved-password capture/fill (system autofill
   instead).
 - **Public links:** global switch, default off; LAN links stay in the WebView;
   public top-level links are blocked when off and open in the system browser
@@ -322,7 +345,7 @@ The exact method names and JSON shape are for the plan.
   the random `127.0.0.1` listener unauthenticated until WebView proxy
   authentication is verified on a device; it remains unreachable off-device.
 
-## 1.0 scope
+## Original 1.0 scope (completed)
 
 1. Extend `core/mobile` with vault, profile, settings, export/import and
    connection APIs; add Go tests.
@@ -335,3 +358,16 @@ The exact method names and JSON shape are for the plan.
 5. Build a non-debuggable APK signed with the existing local key, and test the
    signed APK on the Pixel.
 6. Release 1.0 with updated docs and backlog.
+
+## 1.1 scope
+
+1. Remove the WebView loopback/link-local proxy bypass and add a fail-closed
+   local-destination guard.
+2. Clear dashboard browser state on lock/quit and at cold start.
+3. Require HTTPS for public external content by default, with a global opt-out;
+   keep LAN HTTP working.
+4. Prepare WebView proxy authentication without enabling it until device
+   verification; desktop uses per-run proxy authentication.
+5. Use a dedicated release signing key, verify it in CI, and document the 1.0
+   migration.
+6. Update the security/DNS/key-at-rest claims and release 1.1.

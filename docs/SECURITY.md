@@ -1,11 +1,12 @@
 # Security
 
-This is pre-release software. There is no supported release yet.
+This document describes the security model for the 1.1 release. It is not an
+independent audit and does not claim to be one.
 
 ## Reporting
 
-Once the repository is hosted, use a private security advisory for
-vulnerabilities. Please do not open a public issue for something exploitable.
+Use the repository's private security advisory for vulnerabilities. Please do
+not open a public issue for something exploitable.
 
 ## What we are protecting
 
@@ -40,10 +41,12 @@ Out of scope:
   services.
 - No crash uploads unless a future opt-in flow is added.
 - No background update pings. Updates are checked manually.
-- The app does not listen on a network interface.
+- The app does not listen on a non-loopback network interface. The core proxy
+  and control channel are loopback/app-local only.
 - Logs do not contain URLs, keys or dashboard content by default.
 - The dashboard browser is LAN-only unless the user turns on external
-  content.
+  content. External content requires HTTPS by default; LAN HTTP dashboards
+  keep working.
 
 ## Secrets at rest
 
@@ -119,9 +122,11 @@ Out of scope:
 - `settings.json` is plaintext and holds behavior only, such as whether to
   open the last dashboard after launch or auto-hide the toolbar. It is written
   `0600` and is safe to copy between machines.
-- Security policy lives in the vault: Force LAN-only, idle lock and the idle
-  minutes value. It is tamper-evident and travels with the vault.
-- Force LAN-only is enforced by the core at connect time, not only by the UI.
+- Security policy lives in the vault: Force LAN-only, idle lock, the idle
+  minutes value and the external-content HTTPS requirement. It is
+  tamper-evident and travels with the vault.
+- Force LAN-only and the HTTPS requirement are enforced by the core at connect
+  time, not only by the UI.
 - A missing or edited `settings.json` cannot widen network access; the
   security policy and profile external origins remain in the vault.
 
@@ -137,30 +142,50 @@ Out of scope:
 - Remote debugging is disabled in release builds.
 - New windows and popups are denied except private dashboard links when the
   user enables the new-window setting. That window uses the same sandboxed
-  session, has no Node access or preload, is limited to private top-level
-  URLs, and closes when the dashboard locks or closes.
+  dashboard session and preload, has no Node access, is limited to private
+  top-level URLs, and closes when the dashboard locks or closes.
 - Top-level navigation is limited to private addresses. Public http(s) links
   can leave the app only through the system browser, and only when the user
   enables that setting. URLs with credentials and non-http(s) schemes are
   never passed to the browser.
+- The navigation guard runs on both `will-frame-navigate` and `will-redirect`,
+  so server redirects and meta refresh cannot move a private dashboard to a
+  public or loopback page.
 - Permissions are denied except HTML fullscreen, which dashboard media needs.
-- HTTP and HTTPS requests are forced through the localhost proxy.
-- Loopback destinations are blocked so a page cannot reach the app's own
-  control channel or proxy.
+- HTTP and HTTPS requests are forced through the localhost proxy with
+  Chromium's implicit loopback/link-local bypass disabled. The regression test
+  covers IPv4 loopback, IPv6 loopback, link-local IPv4 and link-local IPv6.
+- Android uses `ProxyConfig.Builder.removeImplicitRules()` plus a fail-closed
+  URL guard that blocks loopback/link-local HTTP(S) requests from the WebView.
 - External content is opt-in, subresource-only and either exact-origin or an
   explicit allow-all mode. Top-level navigation inside the dashboard is always
   private.
+- Public external content requires HTTPS by default. The global setting can
+  opt out for legacy HTTP widgets; LAN HTTP is unaffected.
 - External names are resolved by the proxy and dialed only when the result is
   a public address. Loopback, private, link-local and CGNAT results are
   refused.
 - External traffic uses a direct dialer, never the WireGuard tunnel.
+- Desktop dashboard sessions use a per-run authenticated loopback proxy.
+  Android keeps the loopback-only fallback until WebView proxy authentication
+  is verified on a device; that limitation is documented below.
+- Dashboard cookies, storage, cache and HTTP auth state are cleared on lock,
+  close and quit. Desktop uses a non-persistent hashed partition and removes
+  legacy `persist:profile-*` data at startup. Android clears WebView cookies
+  and site storage when the dashboard is destroyed and once at cold start.
 
 ## Fail-closed behaviour
 
 If the tunnel is down, LAN requests fail. There is no fallback to a direct
 connection, the system VPN, or the host's LAN interface. If the proxy cannot
 classify a destination, it refuses it. The only direct destinations are the
-exact external origins a profile has opted into.
+exact external origins a profile has opted into, and only over HTTPS unless
+the user explicitly allows external HTTP.
+
+Vault KDF parameters are bounded before any key derivation: Argon2id time is
+capped at 10, memory at 128 MiB and threads at 16. A malicious vault or export
+is rejected as corrupt instead of forcing an excessive CPU or memory request.
+Existing vaults use much lower defaults.
 
 The reachability probe runs for the active profile at startup and on demand.
 It dials only that profile's dashboard host and port, and only through the
@@ -179,12 +204,18 @@ focuses the existing window and exits.
 The dashboard padlock shows an opaque local lock view over a blurred snapshot
 of the page, hides the live dashboard view, mutes its audio and disconnects the
 tunnel. The snapshot is held in memory only and is never written to disk.
-Unlocking reconnects and reloads the configured dashboard. If the reconnect
-fails after the password is accepted, the vault is locked again before the
-error is shown, so the lock screen cannot leave it unlocked. The idle lock uses
-the same path and pauses while the dashboard is audible, so media playback is
-not cut off. Closing the dashboard window quits the app instead of leaving a
-hidden tunnel behind.
+Unlocking reconnects and reloads the configured dashboard, so the user may need
+to sign in to the dashboard again. If the reconnect fails after the password is
+accepted, the vault is locked again before the error is shown, so the lock
+screen cannot leave it unlocked. The idle lock uses the same path and pauses
+while the dashboard is audible, so media playback is not cut off. Closing the
+dashboard window quits the app instead of leaving a hidden tunnel behind.
+
+Dashboard cookies, localStorage, session data, cache and HTTP auth credentials
+are cleared on lock, close and quit. Desktop uses an in-memory hashed
+partition and deletes legacy persisted dashboard partitions at startup. Android
+clears its WebView state when the dashboard is destroyed and once at cold
+start, covering a process kill that skipped normal teardown.
 
 ## Build and supply chain
 
@@ -199,6 +230,37 @@ hidden tunnel behind.
   enables embedded ASAR integrity validation.
 - The packaged Linux AppImage was launched after applying the fuses; the app
   reached its setup screen and exited through the idle smoke path.
+
+## DNS and WebView behaviour
+
+- Desktop disables Chromium's resolver with `host-resolver-rules`, disables
+  DoH/preconnect/DNS-prefetch, and sends HTTP and HTTPS through the local
+  proxy, where the core resolves and validates external names. This prevents
+  the dashboard browser from resolving names outside the tunnel path.
+- The WireGuard endpoint hostname is resolved once before the userspace tunnel
+  can exist. That is unavoidable for the first connection and is documented,
+  not hidden.
+- Android uses the system WebView proxy override. Dashboard URLs are LAN IP
+  literals and external origins are exact, but WebView DNS and proxy
+  authentication are controlled by the installed WebView provider. 1.1 has
+  not run a packet-level Android DNS test, so it does not claim zero DNS
+  leakage on Android. A DNS test matrix and WebView proxy-auth verification
+  remain device-test work.
+
+## Known limitations
+
+- The Android proxy is loopback-only and unauthenticated in 1.1. Desktop uses a
+  per-run token. Android proxy authentication is prepared but disabled until
+  the WebView 407 path is verified on a device.
+- Android DNS/WebView leakage has not been packet-tested. See the section
+  above for the exact claim.
+- No OS keyring owns the vault key in 1.1; optional device-bound storage is a
+  1.2 design item.
+- No independent security audit has been performed.
+- Dashboard browser state is cleared on lock/quit, so dashboard logins may be
+  required again. Saved app passwords remain in the vault.
+- Android 1.1 uses a new release key; 1.0 users must export, uninstall, install
+  1.1 and import.
 
 ## Audit checklist
 
@@ -226,17 +288,36 @@ hidden tunnel behind.
   network traffic only; the packaged AppImage still runs sandboxed.
 - [x] Verify keys are absent from logs, the config file and crash output.
 - [x] Verify the vault and key file permissions.
+- [x] Verify loopback and link-local requests use the proxy in guarded dashboard
+      sessions, including an IPv6 loopback listener.
+- [x] Verify a private-to-public 302, a private-to-loopback 302 and a meta
+      refresh are blocked, while private redirects still load.
+- [x] Verify oversized Argon2 time, memory and thread values are rejected
+      before derivation.
+- [x] Verify dashboard cookies, storage and caches are gone after clearing.
+- [x] Verify HTTPS is required for external content by default and that LAN
+      HTTP still works.
+- [x] Verify the desktop proxy rejects missing credentials and accepts its
+      per-run token for both HTTP and CONNECT.
+- [x] Verify an unknown Electron webContents is rejected by privileged IPC.
+- [x] Verify the signed 1.1 APK is not debuggable, uses the release certificate
+      and fails closed when signing variables are absent.
+- [x] Verify Electron fuses on the packaged Linux and Windows builds and launch
+      the packaged AppImage.
 - [ ] Verify a failed handshake leaves the browser with no network access.
+- [ ] Run the Android WebView loopback/DNS matrix on a physical device.
+- [ ] Verify Android WebView proxy authentication before enabling it.
 
-An early audit found Google endpoints opened by Electron's background
+An early desktop audit found Google endpoints opened by Electron's background
 services. Blocking Chromium's own DNS removed them, and the real dashboard
 still loaded through the proxy with the normal VPN active. Chromium's resolver
 is now disabled with `host-resolver-rules`; anything that tries to look up a
 name fails closed.
 
-A later audit caught Chromium downloading its en-GB spellcheck dictionary from
-`redirector.gvt1.com`, which also triggered a DoH/preconnect attempt to Google
-DNS. The spellchecker is now disabled when a session is created, the default
-session is pinned to a dead loopback proxy, and preconnect and DNS prefetch are
-off. Only the dashboard partition receives the tunnel proxy. The real dashboard
-still loads through it.
+A later desktop audit caught Chromium downloading its en-GB spellcheck
+dictionary from `redirector.gvt1.com`, which also triggered a DoH/preconnect
+attempt to Google DNS. The spellchecker is now disabled when a session is
+created, the default session is pinned to a dead loopback proxy, and preconnect
+and DNS prefetch are off. Only the dashboard partition receives the tunnel
+proxy. The real dashboard still loads through it. These are desktop findings;
+the Android WebView DNS path is listed separately above.
