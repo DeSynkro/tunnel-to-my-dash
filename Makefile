@@ -14,7 +14,7 @@ export ELECTRON_CACHE := $(CACHE)/electron
 export ELECTRON_BUILDER_CACHE := $(CACHE)/electron-builder
 export PATH := $(ROOT)/.tools/go/bin:$(PATH)
 
-.PHONY: help dirs env toolchain fmt test core check desktop-deps desktop-check audit-proxy audit-proxy-auth audit-navigation audit-browser-state audit-network desktop desktop-start appimage checksums release clean android-setup android-bind android-apk android-test android-release android-install
+.PHONY: help dirs env toolchain fmt test core check desktop-deps desktop-check audit-proxy audit-proxy-auth audit-navigation audit-browser-state audit-ipc audit-network desktop desktop-start appimage checksums release clean android-setup android-bind android-apk android-test android-release android-install
 
 help: ## List available targets
 	@awk 'BEGIN {FS = ":.*## "; printf "Targets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-10s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -70,7 +70,10 @@ audit-navigation: dirs ## Verify redirects and meta refresh follow the navigatio
 audit-browser-state: dirs ## Verify dashboard cookies, storage and cache are cleared
 	@platforms/linux/scripts/test-browser-state.sh
 
-audit-network: core desktop-check audit-proxy audit-proxy-auth audit-navigation audit-browser-state ## Run the no-dashboard network audit
+audit-ipc: dirs ## Verify privileged IPC rejects unknown webContents
+	@platforms/linux/scripts/test-ipc-trust.sh
+
+audit-network: core desktop-check audit-proxy audit-proxy-auth audit-navigation audit-browser-state audit-ipc ## Run the no-dashboard network audit
 	@platforms/linux/scripts/audit-network.sh
 
 desktop: desktop-check ## Build the desktop shell

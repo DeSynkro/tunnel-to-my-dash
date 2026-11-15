@@ -3,6 +3,7 @@ import {
   dialog,
   ipcMain,
   type BrowserWindow,
+  type IpcMainInvokeEvent,
   type OpenDialogOptions,
 } from "electron";
 import { readFile, stat } from "node:fs/promises";
@@ -37,6 +38,7 @@ export interface IpcOptions {
   lockVault: () => Promise<Status>;
   unlockDashboard: (password: string) => Promise<void>;
   openDashboard: (profileID: string, result: ConnectResult) => Promise<void>;
+  isTrustedSender: (event: IpcMainInvokeEvent) => boolean;
 }
 
 export function registerIpc(options: IpcOptions): void {
@@ -50,29 +52,41 @@ export function registerIpc(options: IpcOptions): void {
     return options.control;
   };
 
-  ipcMain.handle(IPC.status, () => control().status());
-  ipcMain.handle(IPC.createVault, (_event, password: unknown) => control().createVault(stringArg(password)));
-  ipcMain.handle(IPC.unlock, (_event, password: unknown) => control().unlock(stringArg(password)));
-  ipcMain.handle(IPC.lock, () => options.lockVault());
-  ipcMain.handle(IPC.changePassword, (_event, oldPassword: unknown, newPassword: unknown) =>
+  const handle = <Args extends unknown[]>(
+    channel: string,
+    listener: (event: IpcMainInvokeEvent, ...args: Args) => unknown,
+  ): void => {
+    ipcMain.handle(channel, (event, ...args) => {
+      if (!options.isTrustedSender(event)) {
+        throw new Error("Invalid request.");
+      }
+      return listener(event, ...(args as Args));
+    });
+  };
+
+  handle(IPC.status, () => control().status());
+  handle(IPC.createVault, (_event, password: unknown) => control().createVault(stringArg(password)));
+  handle(IPC.unlock, (_event, password: unknown) => control().unlock(stringArg(password)));
+  handle(IPC.lock, () => options.lockVault());
+  handle(IPC.changePassword, (_event, oldPassword: unknown, newPassword: unknown) =>
     control().changePassword(stringArg(oldPassword), stringArg(newPassword)),
   );
-  ipcMain.handle(IPC.addProfile, (_event, input: ProfileInput) => control().addProfile(input));
-  ipcMain.handle(IPC.updateProfile, (_event, id: unknown, input: ProfileInput) =>
+  handle(IPC.addProfile, (_event, input: ProfileInput) => control().addProfile(input));
+  handle(IPC.updateProfile, (_event, id: unknown, input: ProfileInput) =>
     control().updateProfile(stringArg(id), input),
   );
-  ipcMain.handle(IPC.deleteProfile, (_event, id: unknown) => control().deleteProfile(stringArg(id)));
-  ipcMain.handle(IPC.activateProfile, (_event, id: unknown) => control().activateProfile(stringArg(id)));
-  ipcMain.handle(IPC.checkProfile, (_event, id: unknown) => control().checkProfile(stringArg(id)));
-  ipcMain.handle(IPC.listCredentials, (_event, profileID: unknown) =>
+  handle(IPC.deleteProfile, (_event, id: unknown) => control().deleteProfile(stringArg(id)));
+  handle(IPC.activateProfile, (_event, id: unknown) => control().activateProfile(stringArg(id)));
+  handle(IPC.checkProfile, (_event, id: unknown) => control().checkProfile(stringArg(id)));
+  handle(IPC.listCredentials, (_event, profileID: unknown) =>
     control().listCredentials(stringArg(profileID)),
   );
-  ipcMain.handle(
+  handle(
     IPC.addCredential,
     (_event, profileID: unknown, input: CredentialInput) =>
       control().addCredential(stringArg(profileID), credentialArg(input)),
   );
-  ipcMain.handle(
+  handle(
     IPC.updateCredential,
     (_event, profileID: unknown, credentialID: unknown, input: CredentialInput) =>
       control().updateCredential(
@@ -81,12 +95,12 @@ export function registerIpc(options: IpcOptions): void {
         credentialArg(input),
       ),
   );
-  ipcMain.handle(
+  handle(
     IPC.deleteCredential,
     (_event, profileID: unknown, credentialID: unknown) =>
       control().deleteCredential(stringArg(profileID), stringArg(credentialID)),
   );
-  ipcMain.handle(IPC.connect, async (_event, id: unknown) => {
+  handle(IPC.connect, async (_event, id: unknown) => {
     const profileID = stringArg(id);
     const connectWithRetry = async (): Promise<ConnectResult> => {
       for (;;) {
@@ -128,17 +142,17 @@ export function registerIpc(options: IpcOptions): void {
     }
     return result;
   });
-  ipcMain.handle(IPC.disconnect, () => control().disconnect());
+  handle(IPC.disconnect, () => control().disconnect());
 
-  ipcMain.handle(IPC.getSettings, () => options.settings.get());
-  ipcMain.handle(IPC.updateSettings, (_event, patch: unknown) =>
+  handle(IPC.getSettings, () => options.settings.get());
+  handle(IPC.updateSettings, (_event, patch: unknown) =>
     options.settings.update(settingsPatch(patch)),
   );
-  ipcMain.handle(IPC.updateSecurity, (_event, settings: unknown) =>
+  handle(IPC.updateSecurity, (_event, settings: unknown) =>
     control().updateSecurity(securityArg(settings)),
   );
 
-  ipcMain.handle(IPC.chooseConfig, async () => {
+  handle(IPC.chooseConfig, async () => {
     const window = options.getWindow();
     const dialogOptions: OpenDialogOptions = {
       title: "Choose a WireGuard config",
@@ -168,21 +182,21 @@ export function registerIpc(options: IpcOptions): void {
     };
   });
 
-  ipcMain.handle(IPC.navBack, () => options.navigation.back());
-  ipcMain.handle(IPC.navForward, () => options.navigation.forward());
-  ipcMain.handle(IPC.navReload, () => options.navigation.reload());
-  ipcMain.handle(IPC.navHome, () => options.navigation.home());
-  ipcMain.handle(IPC.navBackToApp, () => options.navigation.backToApp());
-  ipcMain.handle(IPC.navLock, () => options.navigation.lock());
-  ipcMain.handle(IPC.dashboardUnlock, (_event, password: unknown) =>
+  handle(IPC.navBack, () => options.navigation.back());
+  handle(IPC.navForward, () => options.navigation.forward());
+  handle(IPC.navReload, () => options.navigation.reload());
+  handle(IPC.navHome, () => options.navigation.home());
+  handle(IPC.navBackToApp, () => options.navigation.backToApp());
+  handle(IPC.navLock, () => options.navigation.lock());
+  handle(IPC.dashboardUnlock, (_event, password: unknown) =>
     options.unlockDashboard(stringArg(password)),
   );
 
-  ipcMain.handle(IPC.quit, () => {
+  handle(IPC.quit, () => {
     app.quit();
   });
 
-  ipcMain.handle(IPC.version, () => app.getVersion());
+  handle(IPC.version, () => app.getVersion());
 }
 
 function stringArg(value: unknown): string {

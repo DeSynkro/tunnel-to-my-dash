@@ -43,6 +43,7 @@ import { CoreProcess } from "./core-process";
 import { dashboardProxyConfig } from "./dashboard-proxy";
 import { resolveDataRoot } from "./data-dir";
 import { registerIpc, type NavigationActions } from "./ipc";
+import { isTrustedIpcSender as isTrustedIpcSenderEvent } from "./ipc-trust";
 import { guardDashboardNavigation } from "./navigation-policy";
 import { isPrivateHttpUrl, isPublicHttpUrl } from "./private-url";
 import {
@@ -196,6 +197,18 @@ const loginSuccessWindowMs = 15_000;
 let pendingLogin: { candidate: LoginCandidate; path: string } | null = null;
 let pendingLoginTimer: ReturnType<typeof setTimeout> | null = null;
 const pendingFills = new Map<string, (result: AutofillResult) => void>();
+
+const trustedIpcSenders = new Set<number>();
+
+function trustIpcSender(contents: Electron.WebContents): void {
+  const id = contents.id;
+  trustedIpcSenders.add(id);
+  contents.once("destroyed", () => trustedIpcSenders.delete(id));
+}
+
+function isTrustedIpcSender(event: Electron.IpcMainInvokeEvent): boolean {
+  return isTrustedIpcSenderEvent(event, trustedIpcSenders);
+}
 
 type ToolbarRect = { x: number; y: number; width: number; height: number };
 
@@ -1754,6 +1767,8 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   dashboardToolbar = toolbar;
   dashboardLock = lock;
   dashboardError = error;
+  trustIpcSender(toolbar.webContents);
+  trustIpcSender(lock.webContents);
   dashboardErrorVisible = false;
   currentError = null;
   dashboardHomeURL = result.dashboard_url;
@@ -2036,6 +2051,7 @@ function createWindow(): void {
     },
   });
 
+  trustIpcSender(mainWindow.webContents);
   mainWindow.once("ready-to-show", () => mainWindow?.show());
   mainWindow.on("closed", () => {
     mainWindow = null;
@@ -5456,6 +5472,7 @@ async function startApp(): Promise<void> {
     lockVault,
     unlockDashboard,
     openDashboard,
+    isTrustedSender: isTrustedIpcSender,
   });
   createWindow();
   startIdleMonitor();
