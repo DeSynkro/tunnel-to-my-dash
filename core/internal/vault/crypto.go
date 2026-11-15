@@ -13,6 +13,13 @@ const (
 	keySize   = 32
 	nonceSize = 24
 	saltSize  = 16
+
+	// These caps keep a malicious vault or export from turning an unlock into
+	// an excessive CPU or memory request. Existing vaults use the defaults and
+	// remain well below them.
+	maxKDFTime    = 10
+	maxKDFMemory  = 128 * 1024
+	maxKDFThreads = 16
 )
 
 var (
@@ -46,10 +53,13 @@ func deriveKey(password string, salt []byte, p kdfParams) []byte {
 }
 
 func validKDF(p kdfParams) bool {
-	if p.Time == 0 || p.Threads == 0 || p.Memory < 8 {
+	if p.Time == 0 || p.Time > maxKDFTime {
 		return false
 	}
-	return p.Memory >= 8*uint32(p.Threads)
+	if p.Threads == 0 || p.Threads > maxKDFThreads {
+		return false
+	}
+	return p.Memory >= 8*uint32(p.Threads) && p.Memory <= maxKDFMemory
 }
 
 func seal(key, nonce, plaintext, aad []byte) ([]byte, error) {

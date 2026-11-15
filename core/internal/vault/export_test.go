@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -140,6 +141,40 @@ func TestExportDoesNotStorePlaintext(t *testing.T) {
 	}
 	if strings.Contains(string(raw), "LEAKME") {
 		t.Fatal("export file contains plaintext tunnel text")
+	}
+}
+
+func TestReadExportRejectsOutOfRangeKDF(t *testing.T) {
+	_, src, _, _ := exportVault(t, "backup password")
+	data, err := src.ExportBytes("backup password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var base exportFile
+	if err := json.Unmarshal(data, &base); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name   string
+		mutate func(*kdfMeta)
+	}{
+		{name: "time", mutate: func(k *kdfMeta) { k.Time = maxKDFTime + 1 }},
+		{name: "memory", mutate: func(k *kdfMeta) { k.Memory = maxKDFMemory + 1 }},
+		{name: "threads", mutate: func(k *kdfMeta) { k.Threads = maxKDFThreads + 1 }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			file := base
+			tt.mutate(&file.KDF)
+			malicious, err := json.Marshal(file)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := ReadExportBytes(malicious, "backup password"); !errors.Is(err, ErrCorrupt) {
+				t.Fatalf("error = %v, want ErrCorrupt", err)
+			}
+		})
 	}
 }
 

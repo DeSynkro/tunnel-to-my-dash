@@ -224,6 +224,47 @@ func TestTamperedKDFParams(t *testing.T) {
 	}
 }
 
+func TestUnlockRejectsOutOfRangeKDF(t *testing.T) {
+	_, path := createLocked(t, "correct horse battery staple")
+
+	var base metadata
+	if err := readJSON(path, &base); err != nil {
+		t.Fatal(err)
+	}
+	if base.KDF == nil {
+		t.Fatal("password vault is missing KDF parameters")
+	}
+
+	tests := []struct {
+		name   string
+		mutate func(*kdfMeta)
+	}{
+		{name: "time", mutate: func(k *kdfMeta) { k.Time = maxKDFTime + 1 }},
+		{name: "memory", mutate: func(k *kdfMeta) { k.Memory = maxKDFMemory + 1 }},
+		{name: "threads", mutate: func(k *kdfMeta) { k.Threads = maxKDFThreads + 1 }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			meta := base
+			kdf := *base.KDF
+			tt.mutate(&kdf)
+			meta.KDF = &kdf
+
+			path := filepath.Join(t.TempDir(), "vault.json")
+			if err := writeJSONAtomic(path, meta, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			opened, err := Open(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := opened.Unlock("correct horse battery staple"); !errors.Is(err, ErrCorrupt) {
+				t.Fatalf("error = %v, want ErrCorrupt", err)
+			}
+		})
+	}
+}
+
 func TestCreateRefusesExisting(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "vault.json")
 	if _, err := Create(path, "first"); err != nil {
