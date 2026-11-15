@@ -11,8 +11,10 @@ TOOLS="$ROOT/.tools"
 DOWNLOADS="$ROOT/.cache/android-downloads"
 CLI_VERSION="15859902"
 CLI_URL="https://dl.google.com/android/repository/commandlinetools-linux-${CLI_VERSION}_latest.zip"
+CLI_SHA256="4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583"
 GRADLE_VERSION="8.9"
 GRADLE_URL="https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip"
+GRADLE_SHA256="d725d707bfabd4dfdc958c624003b3c80accc03f7037b5122c4b1d0ef15cecab"
 
 mkdir -p "$TOOLS" "$DOWNLOADS" "$ANDROID_HOME" "$ANDROID_USER_HOME" "$GRADLE_USER_HOME" "$GOBIN"
 
@@ -49,6 +51,7 @@ SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
 if [[ ! -x "$SDKMANAGER" ]]; then
     CLI_ZIP="$DOWNLOADS/commandlinetools-linux-${CLI_VERSION}_latest.zip"
     fetch "$CLI_URL" "$CLI_ZIP"
+    printf '%s  %s\n' "$CLI_SHA256" "$CLI_ZIP" | sha256sum --check --status -
     rm -rf "$ANDROID_HOME/cmdline-tools/latest"
     mkdir -p "$ANDROID_HOME/cmdline-tools"
     unzip -q "$CLI_ZIP" -d "$ANDROID_HOME/cmdline-tools"
@@ -66,8 +69,7 @@ GRADLE_HOME="$TOOLS/gradle-$GRADLE_VERSION"
 if [[ ! -x "$GRADLE_HOME/bin/gradle" ]]; then
     GRADLE_ZIP="$DOWNLOADS/gradle-${GRADLE_VERSION}-bin.zip"
     fetch "$GRADLE_URL" "$GRADLE_ZIP"
-    GRADLE_SHA="$(curl --fail --location --silent "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip.sha256")"
-    printf '%s  %s\n' "$GRADLE_SHA" "$GRADLE_ZIP" | sha256sum --check --status -
+    printf '%s  %s\n' "$GRADLE_SHA256" "$GRADLE_ZIP" | sha256sum --check --status -
     unzip -q -o "$GRADLE_ZIP" -d "$TOOLS"
 fi
 

@@ -51,8 +51,8 @@ check: test ## Format check, vet, tests and no-TUN guard
 		echo "error: CreateTUN is not allowed"; exit 1; \
 	fi
 
-desktop-deps: dirs ## Install desktop dependencies
-	@cd desktop && npm install
+desktop-deps: dirs ## Install desktop dependencies from the lockfile
+	@cd desktop && npm ci
 	@cd desktop && node node_modules/electron/install.js
 
 desktop-check: dirs ## Type-check and build the desktop shell

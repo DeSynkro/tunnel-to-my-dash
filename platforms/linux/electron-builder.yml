@@ -1,6 +1,11 @@
 appId: com.desynkro.tunnel-to-my-dash
 productName: Tunnel to My Dash
 artifactName: "Tunnel-to-My-Dash-${version}-${arch}.${ext}"
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  onlyLoadAppFromAsar: true
 directories:
   output: release
 files:

@@ -178,6 +178,20 @@ the same path and pauses while the dashboard is audible, so media playback is
 not cut off. Closing the dashboard window quits the app instead of leaving a
 hidden tunnel behind.
 
+## Build and supply chain
+
+- CI actions are pinned to full commit SHAs, not moving major-version tags.
+- Desktop dependencies install with `npm ci` from the committed lockfile.
+- The Gradle 8.9 wrapper verifies the official distribution SHA-256, and the
+  Android setup script pins the command-line tools ZIP as well.
+- The JDK download is checked against Adoptium's published checksum, and
+  `gomobile` is installed at the version recorded in `go.mod`.
+- Packaged Electron builds disable `ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS` and
+  Node inspector arguments, and load the app only from `app.asar`. Windows also
+  enables embedded ASAR integrity validation.
+- The packaged Linux AppImage was launched after applying the fuses; the app
+  reached its setup screen and exited through the idle smoke path.
+
 ## Audit checklist
 
 - [x] Launch the app with no dashboard configured and capture outbound traffic.
