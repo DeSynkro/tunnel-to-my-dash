@@ -38,6 +38,7 @@ import { CoreProcess } from "./core-process";
 import { dashboardProxyConfig } from "./dashboard-proxy";
 import { resolveDataRoot } from "./data-dir";
 import { registerIpc, type NavigationActions } from "./ipc";
+import { guardDashboardNavigation } from "./navigation-policy";
 import { isPrivateHttpUrl, isPublicHttpUrl } from "./private-url";
 import { SettingsStore } from "./settings";
 
@@ -1744,15 +1745,11 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   view.webContents.on("did-create-window", (window) => {
     dashboardLinkWindows.add(window);
     window.on("closed", () => dashboardLinkWindows.delete(window));
-    window.webContents.on("will-navigate", (event, url) => {
-      if (isPrivateHttpUrl(url)) {
-        return;
-      }
-      event.preventDefault();
-      if (isPublicHttpUrl(url) && settingsStore.get().open_external_links) {
-        openExternalLink(url);
-      }
-    });
+    guardDashboardNavigation(
+      window.webContents,
+      () => settingsStore.get().open_external_links,
+      openExternalLink,
+    );
     window.webContents.setWindowOpenHandler(({ url }) => {
       if (isPrivateHttpUrl(url)) {
         void window.webContents.loadURL(url);
@@ -1771,15 +1768,11 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
     });
     window.focus();
   });
-  view.webContents.on("will-navigate", (event, url) => {
-    if (isPrivateHttpUrl(url)) {
-      return;
-    }
-    event.preventDefault();
-    if (isPublicHttpUrl(url) && settingsStore.get().open_external_links) {
-      openExternalLink(url);
-    }
-  });
+  guardDashboardNavigation(
+    view.webContents,
+    () => settingsStore.get().open_external_links,
+    openExternalLink,
+  );
   view.webContents.on("focus", () => closeToolbarPanel());
   view.webContents.on("enter-html-full-screen", () => {
     dashboardFullscreen = true;
