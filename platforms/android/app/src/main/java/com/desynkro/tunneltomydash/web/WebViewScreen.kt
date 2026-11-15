@@ -30,6 +30,7 @@ import androidx.webkit.WebViewFeature
 import com.desynkro.tunneltomydash.BuildConfig
 import com.desynkro.tunneltomydash.data.ConnectionInfo
 import com.desynkro.tunneltomydash.data.NavigationKind
+import java.io.ByteArrayInputStream
 
 class WebViewScreen(
     context: Context,
@@ -150,6 +151,31 @@ class WebViewScreen(
                     }
                 }
                 return false
+            }
+
+            override fun shouldInterceptRequest(
+                view: WebView?,
+                request: WebResourceRequest?,
+            ): WebResourceResponse? {
+                val url = request?.url ?: return null
+                val scheme = url.scheme?.lowercase()
+                if (scheme != "http" && scheme != "https") {
+                    return null
+                }
+                if (!isLocalDestination(url.host)) {
+                    return null
+                }
+                if (BuildConfig.DEBUG) {
+                    Log.w(TAG, "blocked local request to ${url.host}")
+                }
+                return WebResourceResponse(
+                    "text/plain",
+                    "utf-8",
+                    403,
+                    "Forbidden",
+                    mapOf("Cache-Control" to "no-store"),
+                    ByteArrayInputStream(ByteArray(0)),
+                )
             }
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
@@ -274,7 +300,12 @@ class WebViewScreen(
             return
         }
         ProxyController.getInstance().setProxyOverride(
-            ProxyConfig.Builder().addProxyRule(proxy).build(),
+            ProxyConfig.Builder()
+                .addProxyRule(proxy)
+                // By default WebView sends localhost and link-local requests
+                // directly, bypassing the app proxy. Force them through it.
+                .removeImplicitRules()
+                .build(),
             ContextCompat.getMainExecutor(context),
         ) {
             loadHome()
