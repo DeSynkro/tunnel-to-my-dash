@@ -69,8 +69,14 @@ jobs:
       - name: Verify packaged AppImage
         run: |
           rm -rf "$RUNNER_TEMP/ttmd-appimage-smoke"
-          timeout 60s env TTMD_DATA_DIR="$RUNNER_TEMP/ttmd-appimage-smoke" TTMD_SMOKE=idle \
-            xvfb-run -a desktop/release/Tunnel-to-My-Dash-*.AppImage --appimage-extract-and-run
+          log="$RUNNER_TEMP/appimage-smoke.log"
+          if ! timeout 60s env TTMD_DATA_DIR="$RUNNER_TEMP/ttmd-appimage-smoke" TTMD_SMOKE=idle \
+            xvfb-run -a desktop/release/Tunnel-to-My-Dash-*.AppImage --appimage-extract-and-run >"$log" 2>&1; then
+            cat "$log"
+            exit 1
+          fi
+          grep -q '\[smoke\] idle screen=setup' "$log"
+          tail -n 5 "$log"
 
       - name: Checksums
         run: make checksums
@@ -207,12 +213,14 @@ jobs:
           source platforms/android/env.sh
           APK=platforms/android/app/build/outputs/apk/release/app-release.apk
           test -f "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | tee release-certs.txt
-          if grep -q 'CN=Android Debug' release-certs.txt; then
+          mkdir -p release-assets
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" \
+            | tee release-assets/release-certs.txt
+          if grep -q 'CN=Android Debug' release-assets/release-certs.txt; then
             echo "error: release APK is signed with the debug key" >&2
             exit 1
           fi
-          fingerprint="$(awk -F': ' '/Signer #1 certificate SHA-256 digest/ {print $2}' release-certs.txt)"
+          fingerprint="$(awk -F': ' '/Signer #1 certificate SHA-256 digest/ {print $2}' release-assets/release-certs.txt)"
           if [ "$fingerprint" != "43d345d897734c1c1a3b0dc77c06ae4c66ffb27bb89144f1c69730f65f00c013" ]; then
             echo "error: unexpected release certificate: $fingerprint" >&2
             exit 1
@@ -221,14 +229,15 @@ jobs:
             echo "error: release APK is debuggable" >&2
             exit 1
           fi
-          sha256sum "$APK" | tee release-apk.sha256
+          version="$(sed -n 's/^[[:space:]]*versionName = "\(.*\)"/\1/p' platforms/android/app/build.gradle.kts | head -n 1)"
+          test -n "$version"
+          cp "$APK" "release-assets/tunnel-to-my-dash-${version}.apk"
+          (cd release-assets && sha256sum "tunnel-to-my-dash-${version}.apk" | tee SHA256SUMS)
+          cat release-assets/SHA256SUMS
 
       - name: Upload signed APK
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-release-apk
-          path: |
-            platforms/android/app/build/outputs/apk/release/app-release.apk
-            release-certs.txt
-            release-apk.sha256
+          path: release-assets/
           if-no-files-found: error

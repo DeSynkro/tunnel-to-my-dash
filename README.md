@@ -10,7 +10,7 @@
 <p align="center">
   <a href="https://github.com/DeSynkro/tunnel-to-my-dash/actions/workflows/ci.yml"><img src="https://github.com/DeSynkro/tunnel-to-my-dash/actions/workflows/ci.yml/badge.svg" alt="Build status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3"></a>
-  <a href="https://github.com/DeSynkro/tunnel-to-my-dash/releases"><img src="https://img.shields.io/badge/version-1.0-orange.svg" alt="Version 1.0"></a>
+  <a href="https://github.com/DeSynkro/tunnel-to-my-dash/releases"><img src="https://img.shields.io/badge/version-1.1.0-orange.svg" alt="Version 1.1.0"></a>
   <img src="https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20Android-lightgrey.svg" alt="Linux, Windows and Android">
 </p>
 
