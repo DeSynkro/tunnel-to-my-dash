@@ -53,6 +53,14 @@ Out of scope:
   the device account and is not suitable for a USB stick. On Windows the file
   inherits the data folder's ACL instead of POSIX `0600`; use an app password
   on shared or removable media.
+- No OS keyring owns the vault key in 1.1. Password mode is the strongest
+  portable option; keyfile mode is only as strong as the device account and
+  app sandbox. Android fingerprint unlock protects a local Keystore-backed
+  convenience token, not the vault key itself.
+- An optional device-bound mode (Android Keystore, Windows DPAPI or Linux
+  libsecret) is designed for 1.2. It is not shipped in 1.1 because it changes
+  recovery semantics and must be tested against key invalidation and
+  reinstall before it can be offered safely.
 - Keys are never written to logs or crash reports.
 - Real configs and vaults belong in `local/`, which is gitignored. A secret
   found in git history is treated as leaked and must be replaced.

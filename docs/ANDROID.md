@@ -46,9 +46,10 @@ lightbox, Jellyfin playback and fullscreen work on the Pixel test profile.
   the WebView; public top-level links are blocked or handed to the system
   browser according to the switch.
 - Android VPNService, always-on VPN, or system proxy configuration.
-- No OS keyring as the vault's encryption key. Biometric unlock uses Android
-  Keystore only for a local convenience token; the vault stays app-managed and
-  password-encrypted, with the password as the fallback.
+- No OS keyring as the vault's encryption key in 1.1. Biometric unlock uses
+  Android Keystore only for a local convenience token; the vault stays
+  app-managed and password-encrypted, with the password as the fallback. An
+  optional device-bound vault mode is designed for 1.2, not shipped here.
 - Play Store distribution, managed configurations, analytics or telemetry.
 - Bundling GeckoView or another browser engine. The system WebView is the
   engine; the host is a native Android view.

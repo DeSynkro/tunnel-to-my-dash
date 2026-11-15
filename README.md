@@ -203,6 +203,9 @@ browser.
   exact-origin allowlist; that remains a desktop feature.
 - Fingerprint unlock is optional and off by default; the vault password is
   always the fallback.
+- The vault is app-managed and is not bound to an OS keyring in 1.1. Use a
+  password for the strongest portable storage. Optional device-bound storage
+  is designed for 1.2 and must preserve export/recovery before it ships.
 - The Android CI job builds a debug APK on normal changes. Version tags and
   manual release runs build and verify a signed release APK; the release key is
   stored in GitHub Actions secrets.
