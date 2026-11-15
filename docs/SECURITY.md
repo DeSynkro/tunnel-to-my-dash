@@ -179,8 +179,8 @@ Out of scope:
 If the tunnel is down, LAN requests fail. There is no fallback to a direct
 connection, the system VPN, or the host's LAN interface. If the proxy cannot
 classify a destination, it refuses it. The only direct destinations are the
-exact external origins a profile has opted into, and only over HTTPS unless
-the user explicitly allows external HTTP.
+public origins a profile has opted into (all, or an exact list), and only over
+HTTPS unless the user explicitly allows external HTTP.
 
 Vault KDF parameters are bounded before any key derivation: Argon2id time is
 capped at 10, memory at 128 MiB and threads at 16. A malicious vault or export
