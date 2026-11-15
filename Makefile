@@ -14,7 +14,7 @@ export ELECTRON_CACHE := $(CACHE)/electron
 export ELECTRON_BUILDER_CACHE := $(CACHE)/electron-builder
 export PATH := $(ROOT)/.tools/go/bin:$(PATH)
 
-.PHONY: help dirs env toolchain fmt test core check desktop-deps desktop-check audit-network desktop desktop-start appimage checksums release clean android-setup android-bind android-apk android-test android-release android-install
+.PHONY: help dirs env toolchain fmt test core check desktop-deps desktop-check audit-proxy audit-network desktop desktop-start appimage checksums release clean android-setup android-bind android-apk android-test android-release android-install
 
 help: ## List available targets
 	@awk 'BEGIN {FS = ":.*## "; printf "Targets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-10s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -58,7 +58,10 @@ desktop-deps: dirs ## Install desktop dependencies
 desktop-check: dirs ## Type-check and build the desktop shell
 	@cd desktop && npm run check
 
-audit-network: core desktop-check ## Run the no-dashboard network audit
+audit-proxy: dirs ## Verify dashboard sessions cannot bypass the local proxy
+	@platforms/linux/scripts/test-proxy-bypass.sh
+
+audit-network: core desktop-check audit-proxy ## Run the no-dashboard network audit
 	@platforms/linux/scripts/audit-network.sh
 
 desktop: desktop-check ## Build the desktop shell

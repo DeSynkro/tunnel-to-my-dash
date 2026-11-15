@@ -35,6 +35,7 @@ import {
 } from "./credential-match";
 import { ControlClient } from "./control-client";
 import { CoreProcess } from "./core-process";
+import { dashboardProxyConfig } from "./dashboard-proxy";
 import { resolveDataRoot } from "./data-dir";
 import { registerIpc, type NavigationActions } from "./ipc";
 import { isPrivateHttpUrl, isPublicHttpUrl } from "./private-url";
@@ -427,9 +428,7 @@ async function retryDashboard(): Promise<void> {
   try {
     const result = await client.connect(profileID);
     const dashboardSession = session.fromPartition(dashboardPartition);
-    await dashboardSession.setProxy({
-      proxyRules: `http=${result.proxy};https=${result.proxy}`,
-    });
+    await dashboardSession.setProxy(dashboardProxyConfig(result.proxy));
     dashboardHomeURL = result.dashboard_url;
     view.setVisible(true);
     startDashboardLoadWatch();
@@ -1505,9 +1504,7 @@ async function connectPasswordProtectedDashboard(
 
     const result = await client.connect(profileID);
     const dashboardSession = session.fromPartition(dashboardPartition);
-    await dashboardSession.setProxy({
-      proxyRules: `http=${result.proxy};https=${result.proxy}`,
-    });
+    await dashboardSession.setProxy(dashboardProxyConfig(result.proxy));
     return { profileID, result };
   } catch (error) {
     if (unlocked) {
@@ -1604,9 +1601,7 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   }
 
   const dashboardSession = session.fromPartition(partition);
-  await dashboardSession.setProxy({
-    proxyRules: `http=${result.proxy};https=${result.proxy}`,
-  });
+  await dashboardSession.setProxy(dashboardProxyConfig(result.proxy));
   dashboardSession.setPermissionRequestHandler((_webContents, permission, callback) => {
     callback(permission === "fullscreen");
   });
@@ -4169,9 +4164,9 @@ async function runNavHangSmoke(window: BrowserWindow): Promise<void> {
       if (!address || typeof address === "string") {
         throw new Error("the test proxy did not get a port");
       }
-      await dashboardSession.setProxy({
-        proxyRules: `http=127.0.0.1:${address.port};https=127.0.0.1:${address.port}`,
-      });
+      await dashboardSession.setProxy(
+        dashboardProxyConfig(`127.0.0.1:${address.port}`),
+      );
       await dashboardSession.closeAllConnections();
     };
     const clickHome = async (): Promise<void> => {
