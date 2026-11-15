@@ -61,8 +61,9 @@ func connectionOptions(profile vault.Profile, security vault.SecuritySettings) (
 		mode = external.ModeOff
 	}
 	return app.Options{
-		AllowExternal:   mode != external.ModeOff,
-		ExternalMode:    mode,
-		ExternalOrigins: append([]string(nil), profile.ExternalOrigins...),
+		AllowExternal:     mode != external.ModeOff,
+		ExternalMode:      mode,
+		ExternalOrigins:   append([]string(nil), profile.ExternalOrigins...),
+		AllowHTTPExternal: security.AllowHTTPExternal,
 	}, nil
 }

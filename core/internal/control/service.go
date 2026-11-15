@@ -49,17 +49,33 @@ type CredentialSecret struct {
 	Password string `json:"password"`
 }
 
+type SecurityStatus struct {
+	ForceLANOnly         bool `json:"force_lan_only"`
+	LockAfterIdle        bool `json:"lock_after_idle"`
+	IdleMinutes          int  `json:"idle_minutes"`
+	RequireHTTPSExternal bool `json:"require_https_external"`
+}
+
 type Status struct {
-	HasVault          bool                   `json:"has_vault"`
-	Locked            bool                   `json:"locked"`
-	PasswordProtected bool                   `json:"password_protected"`
-	Error             string                 `json:"error,omitempty"`
-	Profiles          []ProfileSummary       `json:"profiles"`
-	ActiveProfile     string                 `json:"active_profile,omitempty"`
-	Connected         bool                   `json:"connected"`
-	Proxy             string                 `json:"proxy,omitempty"`
-	DashboardURL      string                 `json:"dashboard_url,omitempty"`
-	Security          vault.SecuritySettings `json:"security"`
+	HasVault          bool             `json:"has_vault"`
+	Locked            bool             `json:"locked"`
+	PasswordProtected bool             `json:"password_protected"`
+	Error             string           `json:"error,omitempty"`
+	Profiles          []ProfileSummary `json:"profiles"`
+	ActiveProfile     string           `json:"active_profile,omitempty"`
+	Connected         bool             `json:"connected"`
+	Proxy             string           `json:"proxy,omitempty"`
+	DashboardURL      string           `json:"dashboard_url,omitempty"`
+	Security          SecurityStatus   `json:"security"`
+}
+
+func securityStatus(settings vault.SecuritySettings) SecurityStatus {
+	return SecurityStatus{
+		ForceLANOnly:         settings.ForceLANOnly,
+		LockAfterIdle:        settings.LockAfterIdle,
+		IdleMinutes:          settings.IdleMinutes,
+		RequireHTTPSExternal: !settings.AllowHTTPExternal,
+	}
 }
 
 type Service struct {
@@ -108,13 +124,13 @@ func (s *Service) statusLocked() Status {
 		Connected:    s.connected,
 		Proxy:        s.proxy,
 		DashboardURL: s.dashboardURL,
-		Security:     vault.DefaultSecuritySettings(),
+		Security:     securityStatus(vault.DefaultSecuritySettings()),
 	}
 
 	if s.store != nil {
 		st.Locked = !s.store.Unlocked()
 		st.PasswordProtected = s.store.PasswordProtected()
-		st.Security = s.store.SecuritySettings()
+		st.Security = securityStatus(s.store.SecuritySettings())
 		if !st.Locked {
 			for _, p := range s.store.Profiles() {
 				st.Profiles = append(st.Profiles, summarize(p))
@@ -359,10 +375,11 @@ func (s *Service) connect(id string) (string, string, error) {
 
 	_ = s.disconnectLocked()
 	proxy, err := s.connector.Connect(ConnectOptions{
-		Tunnel:          tunnelCfg,
-		AllowExternal:   allowExternal,
-		ExternalMode:    externalMode,
-		ExternalOrigins: profile.ExternalOrigins,
+		Tunnel:            tunnelCfg,
+		AllowExternal:     allowExternal,
+		ExternalMode:      externalMode,
+		ExternalOrigins:   profile.ExternalOrigins,
+		AllowHTTPExternal: security.AllowHTTPExternal,
 	})
 	if err != nil {
 		return "", "", err
@@ -399,11 +416,13 @@ func (s *Service) probeTarget(id string) (ConnectOptions, string, error) {
 		return ConnectOptions{}, "", fmt.Errorf("dashboard URL: %w", err)
 	}
 
+	security := s.store.SecuritySettings()
 	return ConnectOptions{
-		Tunnel:          tunnelCfg,
-		AllowExternal:   profile.AllowExternal,
-		ExternalMode:    profile.EffectiveExternalMode(),
-		ExternalOrigins: profile.ExternalOrigins,
+		Tunnel:            tunnelCfg,
+		AllowExternal:     profile.AllowExternal,
+		ExternalMode:      profile.EffectiveExternalMode(),
+		ExternalOrigins:   profile.ExternalOrigins,
+		AllowHTTPExternal: security.AllowHTTPExternal,
 	}, address, nil
 }
 

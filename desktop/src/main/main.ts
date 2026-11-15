@@ -4836,6 +4836,21 @@ async function runSettingsSmoke(window: BrowserWindow): Promise<void> {
       throw new Error("force LAN-only was not saved");
     }
     await window.webContents.executeJavaScript(
+      'document.getElementById("settings-require-https")?.click()',
+      true,
+    );
+    if (!(await waitForSecurity({ https: false }, 3000))) {
+      throw new Error("external HTTP opt-out was not saved");
+    }
+    await window.webContents.executeJavaScript(
+      'document.getElementById("settings-require-https")?.click()',
+      true,
+    );
+    if (!(await waitForSecurity({ https: true }, 3000))) {
+      throw new Error("require HTTPS was not restored");
+    }
+    console.log("[smoke] settings external HTTPS saved");
+    await window.webContents.executeJavaScript(
       'document.getElementById("settings-idle-lock")?.click()',
       true,
     );
@@ -5144,7 +5159,7 @@ async function waitForProfileSaveIdle(
 }
 
 async function waitForSecurity(
-  expected: { force?: boolean; idle?: boolean; minutes?: number },
+  expected: { force?: boolean; idle?: boolean; minutes?: number; https?: boolean },
   timeoutMs: number,
 ): Promise<boolean> {
   return waitForCondition(async () => {
@@ -5160,6 +5175,12 @@ async function waitForSecurity(
       return false;
     }
     if (expected.minutes !== undefined && security.idle_minutes !== expected.minutes) {
+      return false;
+    }
+    if (
+      expected.https !== undefined &&
+      security.require_https_external !== expected.https
+    ) {
       return false;
     }
     return true;

@@ -221,7 +221,8 @@ function securityArg(value: unknown): SecuritySettings {
   if (
     typeof raw.force_lan_only !== "boolean" ||
     typeof raw.lock_after_idle !== "boolean" ||
-    typeof raw.idle_minutes !== "number"
+    typeof raw.idle_minutes !== "number" ||
+    typeof raw.require_https_external !== "boolean"
   ) {
     throw new Error("Invalid security settings");
   }
@@ -229,6 +230,7 @@ function securityArg(value: unknown): SecuritySettings {
     force_lan_only: raw.force_lan_only,
     lock_after_idle: raw.lock_after_idle,
     idle_minutes: raw.idle_minutes,
+    require_https_external: raw.require_https_external,
   };
 }
 

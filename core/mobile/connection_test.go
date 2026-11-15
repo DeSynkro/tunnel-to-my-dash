@@ -28,6 +28,17 @@ func TestConnectionOptions(t *testing.T) {
 	if len(opts.ExternalOrigins) != 1 || opts.ExternalOrigins[0] != "https://example.com" {
 		t.Fatalf("external origins = %+v", opts.ExternalOrigins)
 	}
+	if opts.AllowHTTPExternal {
+		t.Fatal("external HTTP should be off by default")
+	}
+
+	opts, err = connectionOptions(profile, vault.SecuritySettings{AllowHTTPExternal: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !opts.AllowHTTPExternal {
+		t.Fatal("external HTTP opt-out was not applied")
+	}
 
 	opts, err = connectionOptions(profile, vault.SecuritySettings{ForceLANOnly: true})
 	if err != nil {

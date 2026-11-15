@@ -413,7 +413,34 @@ func TestExternalPolicyRoutes(t *testing.T) {
 
 	all := ExternalPolicy{Mode: external.ModeAll}
 	if route, err := all.Route("https", "anything.example", "443"); err != nil || route != RouteDirect {
-		t.Fatalf("allow-all route = %v, %v", route, err)
+		t.Fatalf("allow-all https route = %v, %v", route, err)
+	}
+	if route, err := all.Route("http", "anything.example", "80"); err == nil || route != RouteDirect {
+		t.Fatalf("allow-all http route = %v, %v, want HTTPS error", route, err)
+	}
+
+	allowHTTP := ExternalPolicy{Mode: external.ModeAll, AllowHTTPExternal: true}
+	if route, err := allowHTTP.Route("http", "anything.example", "80"); err != nil || route != RouteDirect {
+		t.Fatalf("HTTP opt-out route = %v, %v", route, err)
+	}
+	if route, err := allowHTTP.Route("http", "192.168.1.10", "3000"); err != nil || route != RouteTunnel {
+		t.Fatalf("LAN HTTP route = %v, %v", route, err)
+	}
+
+	httpOrigin, err := external.Parse("http://legacy.example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := ExternalPolicy{
+		Mode:    external.ModeOrigins,
+		Origins: []external.Origin{httpOrigin},
+	}
+	if _, err := legacy.Route("http", "legacy.example", "80"); err == nil {
+		t.Fatal("HTTP origin should be refused without an opt-out")
+	}
+	legacy.AllowHTTPExternal = true
+	if route, err := legacy.Route("http", "legacy.example", "80"); err != nil || route != RouteDirect {
+		t.Fatalf("HTTP origin opt-out route = %v, %v", route, err)
 	}
 }
 

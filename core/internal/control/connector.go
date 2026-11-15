@@ -10,10 +10,11 @@ import (
 )
 
 type ConnectOptions struct {
-	Tunnel          config.Tunnel
-	AllowExternal   bool
-	ExternalMode    string
-	ExternalOrigins []string
+	Tunnel            config.Tunnel
+	AllowExternal     bool
+	ExternalMode      string
+	ExternalOrigins   []string
+	AllowHTTPExternal bool
 }
 
 type Connector interface {
@@ -41,9 +42,10 @@ func (c *AppConnector) Connect(opts ConnectOptions) (string, error) {
 	}
 
 	instance, err := app.Start(opts.Tunnel, app.Options{
-		AllowExternal:   opts.AllowExternal,
-		ExternalMode:    opts.ExternalMode,
-		ExternalOrigins: opts.ExternalOrigins,
+		AllowExternal:     opts.AllowExternal,
+		ExternalMode:      opts.ExternalMode,
+		ExternalOrigins:   opts.ExternalOrigins,
+		AllowHTTPExternal: opts.AllowHTTPExternal,
 	})
 	if err != nil {
 		return "", err
@@ -87,9 +89,10 @@ func (c *AppConnector) Probe(
 	}
 
 	instance, err := app.Start(opts.Tunnel, app.Options{
-		AllowExternal:   opts.AllowExternal,
-		ExternalMode:    opts.ExternalMode,
-		ExternalOrigins: opts.ExternalOrigins,
+		AllowExternal:     opts.AllowExternal,
+		ExternalMode:      opts.ExternalMode,
+		ExternalOrigins:   opts.ExternalOrigins,
+		AllowHTTPExternal: opts.AllowHTTPExternal,
 	})
 	if err != nil {
 		return err

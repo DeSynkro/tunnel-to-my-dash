@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"strings"
 	"sync"
 	"time"
 
@@ -216,9 +217,13 @@ func (LANPolicy) Route(_ string, host, port string) (Route, error) {
 
 // ExternalPolicy routes private addresses through the tunnel and exact,
 // configured public origins directly. Everything else is refused.
+//
+// External HTTP is refused unless AllowHTTPExternal is set. LAN HTTP is not
+// affected because private addresses are routed before this check.
 type ExternalPolicy struct {
-	Mode    string
-	Origins []external.Origin
+	Mode              string
+	Origins           []external.Origin
+	AllowHTTPExternal bool
 }
 
 func (p ExternalPolicy) Route(scheme, host, port string) (Route, error) {
@@ -228,10 +233,16 @@ func (p ExternalPolicy) Route(scheme, host, port string) (Route, error) {
 
 	switch p.Mode {
 	case external.ModeAll:
+		if !p.AllowHTTPExternal && strings.EqualFold(scheme, "http") {
+			return RouteDirect, errors.New("external content must use HTTPS")
+		}
 		return RouteDirect, nil
 	case external.ModeOrigins:
 		for _, origin := range p.Origins {
 			if origin.Match(scheme, host, port) {
+				if !p.AllowHTTPExternal && strings.EqualFold(scheme, "http") {
+					return RouteDirect, errors.New("external content must use HTTPS")
+				}
 				return RouteDirect, nil
 			}
 		}

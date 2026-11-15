@@ -40,6 +40,7 @@ data class AppSettings(
     val lockOnBackground: Boolean,
     val autoConnect: Boolean,
     val openPublicLinksInBrowser: Boolean,
+    val requireHTTPSExternal: Boolean = true,
 )
 
 data class ConnectionInfo(
@@ -104,6 +105,7 @@ internal fun parseSettings(raw: String): AppSettings {
         lockOnBackground = json.optBoolean("lock_on_background", true),
         autoConnect = json.optBoolean("auto_connect", false),
         openPublicLinksInBrowser = json.optBoolean("open_public_links_in_browser", false),
+        requireHTTPSExternal = json.optBoolean("require_https_external", true),
     )
 }
 
@@ -156,4 +158,5 @@ internal fun AppSettings.toJson(): String = JSONObject().apply {
     put("lock_on_background", lockOnBackground)
     put("auto_connect", autoConnect)
     put("open_public_links_in_browser", openPublicLinksInBrowser)
+    put("require_https_external", requireHTTPSExternal)
 }.toString()

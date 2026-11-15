@@ -20,9 +20,10 @@ type changePasswordRequest struct {
 }
 
 type securityRequest struct {
-	ForceLANOnly  bool `json:"force_lan_only"`
-	LockAfterIdle bool `json:"lock_after_idle"`
-	IdleMinutes   int  `json:"idle_minutes"`
+	ForceLANOnly         bool  `json:"force_lan_only"`
+	LockAfterIdle        bool  `json:"lock_after_idle"`
+	IdleMinutes          int   `json:"idle_minutes"`
+	RequireHTTPSExternal *bool `json:"require_https_external"`
 }
 
 type connectRequest struct {
@@ -161,12 +162,18 @@ func (s *Service) handleUpdateSecurity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	requireHTTPS := true
+	if req.RequireHTTPSExternal != nil {
+		requireHTTPS = *req.RequireHTTPSExternal
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.updateSecurity(vault.SecuritySettings{
-		ForceLANOnly:  req.ForceLANOnly,
-		LockAfterIdle: req.LockAfterIdle,
-		IdleMinutes:   req.IdleMinutes,
+		ForceLANOnly:      req.ForceLANOnly,
+		LockAfterIdle:     req.LockAfterIdle,
+		IdleMinutes:       req.IdleMinutes,
+		AllowHTTPExternal: !requireHTTPS,
 	}); err != nil {
 		writeError(w, err)
 		return

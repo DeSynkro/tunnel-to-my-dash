@@ -13,9 +13,10 @@ import (
 
 // Options controls which non-LAN origins, if any, may bypass the tunnel.
 type Options struct {
-	AllowExternal   bool
-	ExternalMode    string
-	ExternalOrigins []string
+	AllowExternal     bool
+	ExternalMode      string
+	ExternalOrigins   []string
+	AllowHTTPExternal bool
 }
 
 type App struct {
@@ -49,8 +50,9 @@ func Start(cfg config.Tunnel, opts Options) (*App, error) {
 	}
 
 	policy := proxy.ExternalPolicy{
-		Mode:    mode,
-		Origins: origins,
+		Mode:              mode,
+		Origins:           origins,
+		AllowHTTPExternal: opts.AllowHTTPExternal,
 	}
 	server := proxy.New(device, proxy.DirectDialer{}, policy)
 	addr, err := server.Start()

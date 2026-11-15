@@ -13,6 +13,10 @@ type SecuritySettings struct {
 	ForceLANOnly  bool `json:"force_lan_only"`
 	LockAfterIdle bool `json:"lock_after_idle"`
 	IdleMinutes   int  `json:"idle_minutes"`
+
+	// AllowHTTPExternal is stored inverted so the zero value (older vaults
+	// and new vaults) requires HTTPS for public external content.
+	AllowHTTPExternal bool `json:"allow_http_external"`
 }
 
 func DefaultSecuritySettings() SecuritySettings {

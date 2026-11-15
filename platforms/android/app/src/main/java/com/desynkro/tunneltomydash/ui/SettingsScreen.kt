@@ -128,6 +128,20 @@ fun SettingsScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
+        SettingSwitch(
+            label = "Require HTTPS for external content",
+            checked = state.settings.requireHTTPSExternal,
+            enabled = !busy && !connectionActive,
+            onCheckedChange = {
+                onSaveSettings(state.settings.copy(requireHTTPSExternal = it))
+            },
+        )
+        Text(
+            "LAN dashboards can still use HTTP. Turning this off allows plain HTTP for public external content.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
         if (state.vaultStatus.passwordProtected) {
             SettingSwitch(
                 label = "Lock when the app is backgrounded",

@@ -39,6 +39,7 @@ data class AppUiState(
         lockOnBackground = true,
         autoConnect = false,
         openPublicLinksInBrowser = false,
+        requireHTTPSExternal = true,
     ),
     val busy: Boolean = true,
     val error: String? = null,

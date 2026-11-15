@@ -41,6 +41,7 @@ type ProfileInput struct {
 // Settings combines the shared LAN policy with the Android-only preferences.
 type Settings struct {
 	ForceLANOnly             bool `json:"force_lan_only"`
+	RequireHTTPSExternal     bool `json:"require_https_external"`
 	LockOnBackground         bool `json:"lock_on_background"`
 	AutoConnect              bool `json:"auto_connect"`
 	OpenPublicLinksInBrowser bool `json:"open_public_links_in_browser"`

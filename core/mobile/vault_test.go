@@ -135,8 +135,8 @@ func TestVaultKeyfileLifecycle(t *testing.T) {
 	}
 
 	settings := decodeSettings(t)
-	if !settings.LockOnBackground {
-		t.Fatalf("default settings = %+v, want LockOnBackground", settings)
+	if !settings.LockOnBackground || !settings.RequireHTTPSExternal {
+		t.Fatalf("default settings = %+v, want lock and HTTPS", settings)
 	}
 
 	home := addTestProfile(t, "Home", "off")
@@ -340,6 +340,7 @@ func TestSettingsRoundTrip(t *testing.T) {
 
 	input, err := json.Marshal(Settings{
 		ForceLANOnly:             true,
+		RequireHTTPSExternal:     false,
 		LockOnBackground:         false,
 		AutoConnect:              true,
 		OpenPublicLinksInBrowser: true,
@@ -351,8 +352,9 @@ func TestSettingsRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	settings := decodeSettings(t)
-	if !settings.ForceLANOnly || settings.LockOnBackground ||
-		!settings.AutoConnect || !settings.OpenPublicLinksInBrowser {
+	if !settings.ForceLANOnly || settings.RequireHTTPSExternal ||
+		settings.LockOnBackground || !settings.AutoConnect ||
+		!settings.OpenPublicLinksInBrowser {
 		t.Fatalf("settings = %+v", settings)
 	}
 
@@ -361,6 +363,9 @@ func TestSettingsRoundTrip(t *testing.T) {
 	mu.Unlock()
 	if !security.LockAfterIdle || security.IdleMinutes != 30 {
 		t.Fatalf("desktop settings changed: %+v", security)
+	}
+	if !security.AllowHTTPExternal {
+		t.Fatal("external HTTP opt-out was not stored")
 	}
 }
 

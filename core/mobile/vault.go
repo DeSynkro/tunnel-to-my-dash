@@ -280,6 +280,7 @@ func SettingsJSON() (string, error) {
 	android := s.AndroidSettings()
 	return marshal(Settings{
 		ForceLANOnly:             security.ForceLANOnly,
+		RequireHTTPSExternal:     !security.AllowHTTPExternal,
 		LockOnBackground:         android.LockOnBackground,
 		AutoConnect:              android.AutoConnect,
 		OpenPublicLinksInBrowser: android.OpenPublicLinksInBrowser,
@@ -303,6 +304,7 @@ func SetSettingsJSON(input string) error {
 	}
 	security := s.SecuritySettings()
 	security.ForceLANOnly = settings.ForceLANOnly
+	security.AllowHTTPExternal = !settings.RequireHTTPSExternal
 	if err := s.SetSecuritySettings(security); err != nil {
 		return err
 	}

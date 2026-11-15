@@ -118,6 +118,7 @@ const settingsOpenExternal = element<HTMLInputElement>("settings-open-external")
 const settingsNewWindow = element<HTMLInputElement>("settings-new-window");
 const settingsBehaviorError = element<HTMLElement>("settings-behavior-error");
 const settingsForceLan = element<HTMLInputElement>("settings-force-lan");
+const settingsRequireHTTPS = element<HTMLInputElement>("settings-require-https");
 const settingsIdleLock = element<HTMLInputElement>("settings-idle-lock");
 const settingsIdleMinutes = element<HTMLSelectElement>("settings-idle-minutes");
 const settingsIdleMinutesField = element<HTMLElement>("settings-idle-minutes-field");
@@ -522,10 +523,12 @@ function renderSecuritySettings(): void {
     force_lan_only: false,
     lock_after_idle: false,
     idle_minutes: 15,
+    require_https_external: true,
   };
   const passwordProtected = status?.password_protected ?? false;
 
   settingsForceLan.checked = security.force_lan_only;
+  settingsRequireHTTPS.checked = security.require_https_external;
   settingsIdleLock.checked = security.lock_after_idle;
   settingsIdleMinutes.value = String(security.idle_minutes || 15);
   settingsIdleMinutesField.hidden = !security.lock_after_idle;
@@ -546,6 +549,7 @@ async function applySecurity(patch: Partial<SecuritySettings>): Promise<void> {
     force_lan_only: false,
     lock_after_idle: false,
     idle_minutes: 15,
+    require_https_external: true,
   };
   const next: SecuritySettings = { ...current, ...patch };
   try {
@@ -1132,6 +1136,12 @@ settingsToggle.addEventListener("click", () => {
 
 settingsForceLan.addEventListener("change", () => {
   void applySecurity({ force_lan_only: settingsForceLan.checked });
+});
+
+settingsRequireHTTPS.addEventListener("change", () => {
+  void applySecurity({
+    require_https_external: settingsRequireHTTPS.checked,
+  });
 });
 
 settingsIdleLock.addEventListener("change", () => {

@@ -400,21 +400,23 @@ func TestSecuritySettings(t *testing.T) {
 
 	_, data = call(t, client, http.MethodGet, "/status", nil)
 	status := decodeStatus(t, data)
-	if status.Security.ForceLANOnly || status.Security.LockAfterIdle || status.Security.IdleMinutes != 15 {
+	if status.Security.ForceLANOnly || status.Security.LockAfterIdle ||
+		status.Security.IdleMinutes != 15 || !status.Security.RequireHTTPSExternal {
 		t.Fatalf("default security = %+v", status.Security)
 	}
 
 	resp, data = call(t, client, http.MethodPut, "/security", securityRequest{
-		ForceLANOnly:  true,
-		LockAfterIdle: true,
-		IdleMinutes:   30,
+		ForceLANOnly:         true,
+		LockAfterIdle:        true,
+		IdleMinutes:          30,
+		RequireHTTPSExternal: boolPtr(false),
 	})
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("security status = %d: %s", resp.StatusCode, data)
 	}
 	status = decodeStatus(t, data)
 	if !status.Security.ForceLANOnly || !status.Security.LockAfterIdle ||
-		status.Security.IdleMinutes != 30 {
+		status.Security.IdleMinutes != 30 || status.Security.RequireHTTPSExternal {
 		t.Fatalf("security = %+v", status.Security)
 	}
 
@@ -425,7 +427,7 @@ func TestSecuritySettings(t *testing.T) {
 	connector.mu.Lock()
 	last := connector.last
 	connector.mu.Unlock()
-	if last.ExternalMode != "off" || last.AllowExternal {
+	if last.ExternalMode != "off" || last.AllowExternal || !last.AllowHTTPExternal {
 		t.Fatalf("forced LAN-only options = %+v", last)
 	}
 
@@ -442,7 +444,7 @@ func TestSecuritySettings(t *testing.T) {
 	connector.mu.Lock()
 	last = connector.last
 	connector.mu.Unlock()
-	if last.ExternalMode != "origins" || !last.AllowExternal {
+	if last.ExternalMode != "origins" || !last.AllowExternal || last.AllowHTTPExternal {
 		t.Fatalf("profile options after reset = %+v", last)
 	}
 }
@@ -527,6 +529,10 @@ func TestControlErrors(t *testing.T) {
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("add profile status = %d", resp.StatusCode)
 	}
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }
 
 func TestControlOpenError(t *testing.T) {

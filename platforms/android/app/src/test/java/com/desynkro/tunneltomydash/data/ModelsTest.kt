@@ -61,12 +61,17 @@ class ModelsTest {
         assertTrue(settings.lockOnBackground)
         assertTrue(settings.openPublicLinksInBrowser)
         assertFalse(settings.forceLANOnly)
+        assertTrue(settings.requireHTTPSExternal)
 
         val json = JSONObject(settings.toJson())
         assertFalse(json.getBoolean("force_lan_only"))
         assertTrue(json.getBoolean("lock_on_background"))
         assertFalse(json.getBoolean("auto_connect"))
         assertTrue(json.getBoolean("open_public_links_in_browser"))
+        assertTrue(json.getBoolean("require_https_external"))
+
+        val optOut = parseSettings("""{"require_https_external":false}""")
+        assertFalse(optOut.requireHTTPSExternal)
     }
 
     @Test

@@ -12,15 +12,19 @@ func TestSecuritySettingsDefaults(t *testing.T) {
 	if got.ForceLANOnly || got.LockAfterIdle || got.IdleMinutes != DefaultIdleMinutes {
 		t.Fatalf("defaults = %+v", got)
 	}
+	if got.AllowHTTPExternal {
+		t.Fatal("external HTTP must be off by default")
+	}
 }
 
 func TestSecuritySettingsRoundTrip(t *testing.T) {
 	s, path := newKeyFileVault(t)
 
 	want := SecuritySettings{
-		ForceLANOnly:  true,
-		LockAfterIdle: true,
-		IdleMinutes:   30,
+		ForceLANOnly:      true,
+		LockAfterIdle:     true,
+		IdleMinutes:       30,
+		AllowHTTPExternal: true,
 	}
 	if err := s.SetSecuritySettings(want); err != nil {
 		t.Fatal(err)

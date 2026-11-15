@@ -16,6 +16,7 @@ export interface SecuritySettings {
   force_lan_only: boolean;
   lock_after_idle: boolean;
   idle_minutes: number;
+  require_https_external: boolean;
 }
 
 export interface ProfileSummary {
