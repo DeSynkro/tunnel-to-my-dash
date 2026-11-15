@@ -33,6 +33,11 @@ import {
   normalizedOrigin,
   pickCredentialMatch,
 } from "./credential-match";
+import {
+  clearDashboardBrowserState,
+  dashboardPartitionName,
+  removeLegacyDashboardPartitions,
+} from "./browser-state";
 import { ControlClient } from "./control-client";
 import { CoreProcess } from "./core-process";
 import { dashboardProxyConfig } from "./dashboard-proxy";
@@ -120,6 +125,7 @@ let smokeUnlockFailures = 0;
 let smokeExternalOpens: string[] = [];
 let dashboardHomeURL = "";
 let dashboardPartition = "";
+let dashboardStateClear: Promise<void> = Promise.resolve();
 let dashboardPasswordProtected = false;
 let dashboardLocked = false;
 let dashboardClosingToMain = false;
@@ -551,6 +557,24 @@ async function lockVault(): Promise<Status> {
   vaultLockEpoch += 1;
   await clearClipboardIfOurs();
   return client.lock();
+}
+
+async function clearDashboardState(partition: string): Promise<void> {
+  if (!partition) {
+    return;
+  }
+  let target: Electron.Session;
+  try {
+    target = session.fromPartition(partition);
+  } catch (error) {
+    console.error(`[dashboard] open session for clearing: ${errorMessage(error)}`);
+    return;
+  }
+  const task = clearDashboardBrowserState(target).catch((error) => {
+    console.error(`[dashboard] clear browser state: ${errorMessage(error)}`);
+  });
+  dashboardStateClear = task;
+  await task;
 }
 
 function toolbarPanelArg(value: unknown): { open: boolean; height: number } {
@@ -1471,6 +1495,15 @@ async function lockDashboard(): Promise<void> {
     console.error(`[lock] snapshot: ${errorMessage(error)}`);
   }
 
+  const partition = dashboardPartition;
+  dashboardView.webContents.stop();
+  try {
+    await dashboardView.webContents.loadURL("about:blank");
+  } catch (error) {
+    console.error(`[lock] unload dashboard: ${errorMessage(error)}`);
+  }
+  await clearDashboardState(partition);
+
   try {
     await lockVault();
   } catch (error) {
@@ -1592,7 +1625,8 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   clearPendingLogin();
   console.log(`[dashboard] proxy=${result.proxy}`);
 
-  const partition = `persist:profile-${profileID}`;
+  await dashboardStateClear;
+  const partition = dashboardPartitionName(profileID);
   dashboardPartition = partition;
   try {
     const vaultStatus = await control?.status();
@@ -1773,6 +1807,11 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
     () => settingsStore.get().open_external_links,
     openExternalLink,
   );
+  // Locking or closing must always be able to unload the dashboard, even if
+  // the page registers a beforeunload handler.
+  view.webContents.on("will-prevent-unload", (event) => {
+    event.preventDefault();
+  });
   view.webContents.on("focus", () => closeToolbarPanel());
   view.webContents.on("enter-html-full-screen", () => {
     dashboardFullscreen = true;
@@ -1855,6 +1894,7 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   window.on("closed", () => {
     closeDashboardLinkWindows();
     stopToolbarPoll();
+    const closedPartition = dashboardPartition;
     const toMain = dashboardClosingToMain;
     dashboardClosingToMain = false;
     dashboardWindow = null;
@@ -1880,6 +1920,8 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
       resolve({ ok: false, username: false, password: false });
     }
     pendingFills.clear();
+
+    void clearDashboardState(closedPartition);
 
     if (control) {
       void control.disconnect().catch(() => undefined);
@@ -5305,6 +5347,19 @@ function delay(ms: number): Promise<void> {
 async function startApp(): Promise<void> {
   Menu.setApplicationMenu(null);
 
+  try {
+    const removed = await removeLegacyDashboardPartitions(
+      path.join(app.getPath("userData"), "Partitions"),
+    );
+    if (removed.length > 0) {
+      console.log(
+        `[session] removed ${removed.length} legacy dashboard partition(s)`,
+      );
+    }
+  } catch (error) {
+    console.error(`[session] clean legacy partitions: ${errorMessage(error)}`);
+  }
+
   // The app UI loads local files and has no remote content. Point the default
   // session at a dead loopback proxy so Chromium's background services cannot
   // dial out; the dashboard uses its own partition and the tunnel proxy.
@@ -5366,24 +5421,35 @@ if (!hasSingleInstanceLock) {
 }
 
 app.on("before-quit", (event) => {
-  if (!quitting && (clipboardValue || clipboardPending > 0)) {
-    quitting = true;
-    event.preventDefault();
-    void Promise.race([clearClipboardIfOurs(), delay(1000)]).finally(async () => {
-      if (process.env.TTMD_SMOKE === "quitclip") {
-        try {
-          const cleared = (await clipboard.readText()) === "";
-          console.log(`[smoke] quitclip cleared=${cleared}`);
-          if (!cleared) {
-            process.exitCode = 1;
+  if (!quitting) {
+    const hasClipboard = clipboardValue !== "" || clipboardPending > 0;
+    const partition = dashboardPartition;
+    if (hasClipboard || partition) {
+      quitting = true;
+      event.preventDefault();
+      void (async () => {
+        if (hasClipboard) {
+          await Promise.race([clearClipboardIfOurs(), delay(1000)]);
+          if (process.env.TTMD_SMOKE === "quitclip") {
+            try {
+              const cleared = (await clipboard.readText()) === "";
+              console.log(`[smoke] quitclip cleared=${cleared}`);
+              if (!cleared) {
+                process.exitCode = 1;
+              }
+            } catch {
+              process.exitCode = 1;
+            }
           }
-        } catch {
-          process.exitCode = 1;
         }
-      }
-      app.quit();
-    });
-    return;
+        if (partition) {
+          await clearDashboardState(partition);
+        }
+        await dashboardStateClear;
+        app.quit();
+      })();
+      return;
+    }
   }
   stopIdleMonitor();
   core?.stop();
