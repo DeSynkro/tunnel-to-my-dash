@@ -56,6 +56,8 @@ export interface ConnectResult {
   dashboard_url: string;
 }
 
+export type RendererConnectResult = Omit<ConnectResult, "proxy_auth">;
+
 export interface CheckResult {
   reachable: boolean;
 }
@@ -190,7 +192,7 @@ export interface TtmdBridge {
     input: CredentialInput,
   ): Promise<CredentialSummary>;
   deleteCredential(profileID: string, credentialID: string): Promise<void>;
-  connect(id: string): Promise<ConnectResult>;
+  connect(id: string): Promise<RendererConnectResult>;
   disconnect(): Promise<Status>;
   getSettings(): Promise<AppSettings>;
   updateSettings(patch: Partial<AppSettings>): Promise<AppSettings>;

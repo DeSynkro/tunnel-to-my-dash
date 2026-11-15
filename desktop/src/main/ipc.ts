@@ -16,6 +16,7 @@ import type {
   ConnectResult,
   CredentialInput,
   ProfileInput,
+  RendererConnectResult,
   SecuritySettings,
   Status,
 } from "../shared/types";
@@ -140,7 +141,10 @@ export function registerIpc(options: IpcOptions): void {
       }
       throw error;
     }
-    return result;
+    return {
+      proxy: result.proxy,
+      dashboard_url: result.dashboard_url,
+    } satisfies RendererConnectResult;
   });
   handle(IPC.disconnect, () => control().disconnect());
 
