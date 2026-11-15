@@ -4,6 +4,15 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val releaseKeystore = System.getenv("TTMD_ANDROID_KEYSTORE")
+val releaseStorePassword = System.getenv("TTMD_ANDROID_KEYSTORE_PASSWORD")
+val releaseKeyAlias = System.getenv("TTMD_ANDROID_KEY_ALIAS")
+val releaseKeyPassword = System.getenv("TTMD_ANDROID_KEY_PASSWORD")
+val hasReleaseSigning = !releaseKeystore.isNullOrBlank() &&
+    !releaseStorePassword.isNullOrBlank() &&
+    !releaseKeyAlias.isNullOrBlank() &&
+    !releaseKeyPassword.isNullOrBlank()
+
 android {
     namespace = "com.desynkro.tunneltomydash"
     compileSdk = 35
@@ -23,11 +32,13 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
-        create("github") {
-            storeFile = rootProject.projectDir.resolve("../../local/android-signing/github.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+        create("release") {
+            if (hasReleaseSigning) {
+                storeFile = file(releaseKeystore!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
         }
     }
 
@@ -37,7 +48,7 @@ android {
         }
         getByName("release") {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("github")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -52,6 +63,31 @@ android {
         compose = true
         buildConfig = true
     }
+}
+
+val validateReleaseSigning = tasks.register("validateReleaseSigning") {
+    doLast {
+        val missing = listOf(
+            "TTMD_ANDROID_KEYSTORE",
+            "TTMD_ANDROID_KEYSTORE_PASSWORD",
+            "TTMD_ANDROID_KEY_ALIAS",
+            "TTMD_ANDROID_KEY_PASSWORD",
+        ).filter { System.getenv(it).isNullOrBlank() }
+        if (missing.isNotEmpty()) {
+            throw GradleException(
+                "Release signing is not configured. Missing: ${missing.joinToString()}. " +
+                    "Source local/android-signing/release-keystore.env or set the CI secrets.",
+            )
+        }
+        val store = file(releaseKeystore!!)
+        if (!store.isFile) {
+            throw GradleException("Release keystore not found: ${store.path}")
+        }
+    }
+}
+
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    dependsOn(validateReleaseSigning)
 }
 
 dependencies {

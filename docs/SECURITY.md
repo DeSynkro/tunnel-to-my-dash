@@ -57,6 +57,20 @@ Out of scope:
 - Real configs and vaults belong in `local/`, which is gitignored. A secret
   found in git history is treated as leaked and must be replaced.
 
+## Release signing
+
+- Android debug builds use the generated debug keystore. Release builds use a
+  dedicated RSA 4096 key and fail if the signing environment is missing.
+- The 1.1 release certificate is `CN=Tunnel to My Dash Release, OU=Android,
+  O=DeSynkro, C=US`, SHA-256
+  `43:D3:45:D8:97:73:4C:1C:1A:3B:0D:C7:7C:06:AE:4C:66:FF:B2:7B:B8:91:44:F1:C6:97:30:F6:5F:00:C0:13`.
+- The key and its passwords are stored outside the repository. CI receives the
+  keystore as a repository secret, verifies the certificate and rejects a
+  debug-signed or debuggable APK.
+- 1.0 was signed with a debug-profile key. Android cannot update across signing
+  identities, so 1.0 users must export the vault, uninstall, install 1.1 and
+  import the export. The old key is retired.
+
 ## Saved passwords and the clipboard
 
 - Saved logins are part of the vault payload and use the same

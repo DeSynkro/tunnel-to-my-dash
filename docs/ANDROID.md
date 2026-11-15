@@ -233,13 +233,25 @@ The exact method names and JSON shape are for the plan.
 ### Release and security
 
 - Release build: `debuggable=false`, WebView debugging disabled, verbose request
-  logging and debug toolbar buttons removed, signing key project-local and
-  gitignored, `allowBackup=false`.
-- Initial GitHub release: sign the non-debuggable release APK with the existing
-  project-local signing key. A production release keystore is deferred until
-  app-store distribution or a permanent update channel is needed. Changing the
-  signing key later requires users to uninstall and reinstall once.
-- Version 1.0 (`versionName`/`versionCode`); signed APK as the release artifact.
+  logging and debug toolbar buttons removed, `allowBackup=false`.
+- Debug builds keep the generated debug keystore. Release builds use a separate
+  RSA 4096 key and fail closed when the signing environment is absent. The key,
+  password and certificate are kept outside the repository; only the public
+  certificate fingerprint is published.
+- Release certificate: `CN=Tunnel to My Dash Release, OU=Android,
+  O=DeSynkro, C=US`; SHA-256
+  `43:D3:45:D8:97:73:4C:1C:1A:3B:0D:C7:7C:06:AE:4C:66:FF:B2:7B:B8:91:44:F1:C6:97:30:F6:5F:00:C0:13`.
+- CI release job: tag pushes (`v*`) and manual runs read
+  `TTMD_ANDROID_KEYSTORE_BASE64`, `TTMD_ANDROID_KEYSTORE_PASSWORD`,
+  `TTMD_ANDROID_KEY_ALIAS` and `TTMD_ANDROID_KEY_PASSWORD` from GitHub Actions
+  secrets. It verifies the certificate and rejects debug-signed or debuggable
+  APKs.
+- Locally, `make android-release` reads
+  `local/android-signing/release-keystore.env`; that directory is gitignored.
+- Migration from 1.0: 1.0 was signed with the debug-profile key, so Android
+  cannot update it in place. Export the vault, uninstall 1.0, install 1.1 and
+  import the export. The old key is retired and must not be used for 1.1.
+- Version 1.1 (`versionName`/`versionCode`); signed APK as the release artifact.
 - Only `INTERNET`, `POST_NOTIFICATIONS`, `FOREGROUND_SERVICE`,
   `FOREGROUND_SERVICE_SPECIAL_USE`, `USE_BIOMETRIC` and `CAMERA` permissions.
   `CAMERA` is used only by the WireGuard QR scanner.
@@ -247,8 +259,9 @@ The exact method names and JSON shape are for the plan.
   from release builds. Camera frames are never stored or uploaded; scanned QR
   text is kept only as the profile's encrypted tunnel config.
 - The Android build is reproducible with the project-local toolchain. CI runs
-  Android unit tests and builds a debug APK; release signing stays on the
-  maintainer's machine because the key is not committed.
+  Android unit tests and builds a debug APK on normal changes. Tag and manual
+  release runs build the signed release APK from repository secrets and verify
+  its certificate before upload.
 
 ## Testing
 
@@ -301,11 +314,12 @@ The exact method names and JSON shape are for the plan.
   Android Keystore-backed token and the password as the fallback.
 - **Auto-connect:** settings switch, default off.
 - **Backup/migration:** encrypted vault export/import via SAF.
-- **Release signing:** for the initial GitHub release, sign a non-debuggable
-  APK with the existing local signing key; defer a production keystore until
-  app-store distribution or a permanent update channel is needed.
-- **Loopback proxy:** unauthenticated but bound to a random `127.0.0.1` port
-  only while connected. Accepted 1.0 risk; not exposed system-wide.
+- **Release signing:** 1.1 is signed with a dedicated release key and built by
+  the gated CI release job. The 1.0 key was a debug-profile key; upgrading
+  requires export, uninstall, install and import.
+- **Loopback proxy:** desktop uses a per-run authenticated proxy. Android keeps
+  the random `127.0.0.1` listener unauthenticated until WebView proxy
+  authentication is verified on a device; it remains unreachable off-device.
 
 ## 1.0 scope
 

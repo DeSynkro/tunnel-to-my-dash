@@ -98,8 +98,10 @@ make android-setup   # install the project-local Android toolchain once
 make android-release # signed Android APK
 ```
 
-CI builds and uploads the Linux AppImage and Windows portable artifacts. The
-Android APK is built locally because its signing key is not committed.
+CI builds and uploads the Linux AppImage and Windows portable artifacts. It
+also builds a debug Android APK for every change, and a signed release APK for
+version tags or a manually dispatched release run. The Android signing key is
+kept in GitHub Actions secrets and is never committed.
 
 ## Features
 
@@ -157,9 +159,10 @@ More detail: [docs/DESIGN.md](docs/DESIGN.md) and
   Only scan configs you trust.
 - **Keep the app and system WebView updated.** The Android client uses the
   system WebView, and the APK is distributed outside the Play Store.
-- **1.0 is signed with a local project key**, not a production app-store
-  identity. Verify the published SHA-256. A future signing-key change requires
-  an uninstall/reinstall.
+- **Android 1.1 uses a new dedicated release key**, not the debug-profile key
+  used for 1.0. Users upgrading from 1.0 must export the vault, uninstall 1.0,
+  install 1.1 and import the vault. Verify the published SHA-256 and certificate
+  fingerprint. This is not a Play Store identity.
 - **No independent security audit.** The scope is deliberately small and the
   source is open, but treat it as a practical tool rather than a high-assurance
   VPN.
@@ -200,8 +203,9 @@ browser.
   exact-origin allowlist; that remains a desktop feature.
 - Fingerprint unlock is optional and off by default; the vault password is
   always the fallback.
-- The Android CI job builds and uploads a debug APK; the signed release APK is
-  produced locally with the project signing key.
+- The Android CI job builds a debug APK on normal changes. Version tags and
+  manual release runs build and verify a signed release APK; the release key is
+  stored in GitHub Actions secrets.
 
 ## Development
 

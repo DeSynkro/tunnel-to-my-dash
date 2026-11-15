@@ -5,6 +5,7 @@ on:
     branches: [main]
     tags: ["v*"]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -154,3 +155,74 @@ jobs:
           path: platforms/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
+
+  android-release:
+    name: Android release
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      TTMD_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.TTMD_ANDROID_KEYSTORE_PASSWORD }}
+      TTMD_ANDROID_KEY_ALIAS: ${{ secrets.TTMD_ANDROID_KEY_ALIAS }}
+      TTMD_ANDROID_KEY_PASSWORD: ${{ secrets.TTMD_ANDROID_KEY_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Cache Android toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            .tools
+            .cache
+          key: android-${{ runner.os }}-${{ hashFiles('platforms/android/setup.sh', 'platforms/android/env.sh', '.go-version') }}
+
+      - name: Install Go toolchain
+        run: make toolchain
+
+      - name: Install Android toolchain
+        run: make android-setup
+
+      - name: Prepare signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.TTMD_ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$KEYSTORE_BASE64"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+          chmod 600 "$RUNNER_TEMP/release.keystore"
+          test -s "$RUNNER_TEMP/release.keystore"
+          echo "TTMD_ANDROID_KEYSTORE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+
+      - name: Build signed release APK
+        run: make android-release
+
+      - name: Verify release certificate
+        run: |
+          source platforms/android/env.sh
+          APK=platforms/android/app/build/outputs/apk/release/app-release.apk
+          test -f "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | tee release-certs.txt
+          if grep -q 'CN=Android Debug' release-certs.txt; then
+            echo "error: release APK is signed with the debug key" >&2
+            exit 1
+          fi
+          fingerprint="$(awk -F': ' '/Signer #1 certificate SHA-256 digest/ {print $2}' release-certs.txt)"
+          if [ "$fingerprint" != "43d345d897734c1c1a3b0dc77c06ae4c66ffb27bb89144f1c69730f65f00c013" ]; then
+            echo "error: unexpected release certificate: $fingerprint" >&2
+            exit 1
+          fi
+          if "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q 'application-debuggable'; then
+            echo "error: release APK is debuggable" >&2
+            exit 1
+          fi
+          sha256sum "$APK" | tee release-apk.sha256
+
+      - name: Upload signed APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-release-apk
+          path: |
+            platforms/android/app/build/outputs/apk/release/app-release.apk
+            release-certs.txt
+            release-apk.sha256
+          if-no-files-found: error

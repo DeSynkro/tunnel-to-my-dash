@@ -101,7 +101,8 @@ android-test: android-bind ## Run Android unit tests
 	@. platforms/android/env.sh && cd platforms/android && ./gradlew testDebugUnitTest
 
 android-release: android-bind ## Build the signed release APK
-	@. platforms/android/env.sh && cd platforms/android && ./gradlew assembleRelease
+	@if [ -f local/android-signing/release-keystore.env ]; then . local/android-signing/release-keystore.env; fi; \
+	. platforms/android/env.sh && cd platforms/android && ./gradlew assembleRelease
 
 android-install: android-apk ## Install the debug APK on the connected device
 	@platforms/android/adb install -r platforms/android/app/build/outputs/apk/debug/app-debug.apk
