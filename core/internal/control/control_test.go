@@ -25,6 +25,7 @@ type fakeConnector struct {
 	disconnects  int
 	probes       int
 	proxy        string
+	proxyAuth    string
 	err          error
 	probeErr     error
 	probeAddress string
@@ -40,6 +41,12 @@ func (f *fakeConnector) Connect(opts ConnectOptions) (string, error) {
 		return "", f.err
 	}
 	return f.proxy, nil
+}
+
+func (f *fakeConnector) ProxyAuth() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.proxyAuth
 }
 
 func (f *fakeConnector) Disconnect() error {
@@ -181,7 +188,10 @@ func decodeStatus(t *testing.T, data []byte) Status {
 }
 
 func TestControlFlow(t *testing.T) {
-	connector := &fakeConnector{proxy: "127.0.0.1:43210"}
+	connector := &fakeConnector{
+		proxy:     "127.0.0.1:43210",
+		proxyAuth: "test-proxy-token",
+	}
 	client := startControl(t, connector)
 
 	resp, data := call(t, client, http.MethodGet, "/status", nil)
@@ -286,7 +296,9 @@ func TestControlFlow(t *testing.T) {
 	if err := json.Unmarshal(data, &connected); err != nil {
 		t.Fatal(err)
 	}
-	if connected["proxy"] != "127.0.0.1:43210" || connected["dashboard_url"] != "http://192.168.1.10:8080" {
+	if connected["proxy"] != "127.0.0.1:43210" ||
+		connected["proxy_auth"] != "test-proxy-token" ||
+		connected["dashboard_url"] != "http://192.168.1.10:8080" {
 		t.Fatalf("connect response = %+v", connected)
 	}
 	connector.mu.Lock()
@@ -298,7 +310,8 @@ func TestControlFlow(t *testing.T) {
 	}
 	if !last.AllowExternal || last.ExternalMode != "origins" ||
 		len(last.ExternalOrigins) != 1 ||
-		last.ExternalOrigins[0] != "https://fonts.googleapis.com" {
+		last.ExternalOrigins[0] != "https://fonts.googleapis.com" ||
+		!last.RequireProxyAuth {
 		t.Fatalf("connector options = %+v", last)
 	}
 

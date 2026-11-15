@@ -2,6 +2,8 @@ package proxy
 
 import (
 	"context"
+	"crypto/subtle"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -32,10 +34,17 @@ type Policy interface {
 	Route(scheme, host, port string) (Route, error)
 }
 
+type Options struct {
+	// AuthToken requires HTTP Basic proxy authentication with username
+	// "ttmd". An empty token leaves the proxy unauthenticated.
+	AuthToken string
+}
+
 type Server struct {
 	tunnelDialer Dialer
 	directDialer Dialer
 	policy       Policy
+	authToken    string
 
 	tunnelProxy *httputil.ReverseProxy
 	directProxy *httputil.ReverseProxy
@@ -43,15 +52,48 @@ type Server struct {
 	once        sync.Once
 }
 
-func New(tunnelDialer, directDialer Dialer, policy Policy) *Server {
+func New(tunnelDialer, directDialer Dialer, policy Policy, options ...Options) *Server {
+	var opts Options
+	if len(options) > 0 {
+		opts = options[0]
+	}
 	s := &Server{
 		tunnelDialer: tunnelDialer,
 		directDialer: directDialer,
 		policy:       policy,
+		authToken:    opts.AuthToken,
 	}
 	s.tunnelProxy = s.reverseProxy(tunnelDialer)
 	s.directProxy = s.reverseProxy(directDialer)
 	return s
+}
+
+func (s *Server) authorized(r *http.Request) bool {
+	if s.authToken == "" {
+		return true
+	}
+	fields := strings.Fields(r.Header.Get("Proxy-Authorization"))
+	if len(fields) != 2 || !strings.EqualFold(fields[0], "Basic") {
+		return false
+	}
+	decoded, err := base64.StdEncoding.DecodeString(fields[1])
+	if err != nil {
+		return false
+	}
+	username, password, ok := strings.Cut(string(decoded), ":")
+	if !ok || username != "ttmd" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(password), []byte(s.authToken)) == 1
+}
+
+func (s *Server) requireProxyAuth(w http.ResponseWriter, r *http.Request) bool {
+	if s.authorized(r) {
+		return true
+	}
+	w.Header().Set("Proxy-Authenticate", `Basic realm="Tunnel to My Dash"`)
+	http.Error(w, "proxy authentication required", http.StatusProxyAuthRequired)
+	return false
 }
 
 func (s *Server) reverseProxy(dialer Dialer) *httputil.ReverseProxy {
@@ -102,6 +144,9 @@ func (s *Server) Close() error {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !s.requireProxyAuth(w, r) {
+		return
+	}
 	if r.Method == http.MethodConnect {
 		s.handleConnect(w, r)
 		return

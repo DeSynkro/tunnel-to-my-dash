@@ -77,9 +77,10 @@ class ModelsTest {
     @Test
     fun parsesConnectionInfo() {
         val info = parseConnectionInfo(
-            """{"proxy":"127.0.0.1:41000","dashboard_url":"http://192.168.1.10:8080","profile_id":"home","profile_name":"Home"}""",
+            """{"proxy":"127.0.0.1:41000","proxy_auth":"secret","dashboard_url":"http://192.168.1.10:8080","profile_id":"home","profile_name":"Home"}""",
         )
         assertEquals("127.0.0.1:41000", info.proxy)
+        assertEquals("secret", info.proxyAuth)
         assertEquals("home", info.profileID)
         assertEquals("Home", info.profileName)
     }

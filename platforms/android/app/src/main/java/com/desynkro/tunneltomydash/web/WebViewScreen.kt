@@ -242,6 +242,15 @@ class WebViewScreen(
                     handler.cancel()
                     return
                 }
+                proxyCredentialsFor(
+                    info.proxy,
+                    info.proxyAuth,
+                    host,
+                    realm,
+                )?.let { (username, password) ->
+                    handler.proceed(username, password)
+                    return
+                }
                 val port = runCatching { Uri.parse(view?.url ?: "").port }.getOrDefault(-1)
                 val key = if (port > 0) "$host:$port" else host
                 auth.handle(handler, key, host, realm)
@@ -417,5 +426,9 @@ class WebViewScreen(
     companion object {
         private const val TAG = "TTMD"
         private const val WATCHDOG_MS = 20_000L
+
+        // TODO(security): enable proxy authentication for Android after
+        // WebView 407 handling is verified on a device. Until then the proxy
+        // token is empty and the core keeps the Android proxy loopback-only.
     }
 }

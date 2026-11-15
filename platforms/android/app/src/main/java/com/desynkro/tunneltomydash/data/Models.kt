@@ -48,6 +48,7 @@ data class ConnectionInfo(
     val dashboardURL: String,
     val profileID: String,
     val profileName: String,
+    val proxyAuth: String = "",
 )
 
 enum class NavigationKind {
@@ -116,6 +117,7 @@ internal fun parseConnectionInfo(raw: String): ConnectionInfo {
         dashboardURL = json.optString("dashboard_url"),
         profileID = json.optString("profile_id"),
         profileName = json.optString("profile_name"),
+        proxyAuth = json.optString("proxy_auth"),
     )
 }
 

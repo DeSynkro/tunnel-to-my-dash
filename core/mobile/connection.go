@@ -49,6 +49,7 @@ func StartProfile(profileID string) (string, error) {
 
 	return marshal(ConnectionInfo{
 		Proxy:        instance.ProxyAddr().String(),
+		ProxyAuth:    instance.ProxyAuth(),
 		DashboardURL: profile.DashboardURL,
 		ProfileID:    profile.ID,
 		ProfileName:  profile.Name,
@@ -65,5 +66,9 @@ func connectionOptions(profile vault.Profile, security vault.SecuritySettings) (
 		ExternalMode:      mode,
 		ExternalOrigins:   append([]string(nil), profile.ExternalOrigins...),
 		AllowHTTPExternal: security.AllowHTTPExternal,
+		// TODO(security): enable after WebView proxy authentication is
+		// verified on a device; until then Android keeps the loopback-only
+		// fallback instead of breaking dashboards with 407 responses.
+		RequireProxyAuth: false,
 	}, nil
 }

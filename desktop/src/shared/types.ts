@@ -52,6 +52,7 @@ export interface Status {
 
 export interface ConnectResult {
   proxy: string;
+  proxy_auth: string;
   dashboard_url: string;
 }
 

@@ -15,10 +15,12 @@ type ConnectOptions struct {
 	ExternalMode      string
 	ExternalOrigins   []string
 	AllowHTTPExternal bool
+	RequireProxyAuth  bool
 }
 
 type Connector interface {
 	Connect(opts ConnectOptions) (proxyAddr string, err error)
+	ProxyAuth() string
 	Disconnect() error
 	Probe(opts ConnectOptions, network, address string, timeout time.Duration) error
 }
@@ -46,12 +48,23 @@ func (c *AppConnector) Connect(opts ConnectOptions) (string, error) {
 		ExternalMode:      opts.ExternalMode,
 		ExternalOrigins:   opts.ExternalOrigins,
 		AllowHTTPExternal: opts.AllowHTTPExternal,
+		RequireProxyAuth:  opts.RequireProxyAuth,
 	})
 	if err != nil {
 		return "", err
 	}
 	c.current = instance
 	return instance.ProxyAddr().String(), nil
+}
+
+func (c *AppConnector) ProxyAuth() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.current == nil {
+		return ""
+	}
+	return c.current.ProxyAuth()
 }
 
 func (c *AppConnector) Disconnect() error {
@@ -93,6 +106,7 @@ func (c *AppConnector) Probe(
 		ExternalMode:      opts.ExternalMode,
 		ExternalOrigins:   opts.ExternalOrigins,
 		AllowHTTPExternal: opts.AllowHTTPExternal,
+		RequireProxyAuth:  opts.RequireProxyAuth,
 	})
 	if err != nil {
 		return err

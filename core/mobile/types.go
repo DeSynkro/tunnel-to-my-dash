@@ -51,6 +51,7 @@ type Settings struct {
 // WebView.
 type ConnectionInfo struct {
 	Proxy        string `json:"proxy"`
+	ProxyAuth    string `json:"proxy_auth,omitempty"`
 	DashboardURL string `json:"dashboard_url"`
 	ProfileID    string `json:"profile_id"`
 	ProfileName  string `json:"profile_name"`

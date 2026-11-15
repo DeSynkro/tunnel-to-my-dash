@@ -351,18 +351,18 @@ func (s *Service) activateProfile(id string) error {
 	return s.store.SetActiveProfile(id)
 }
 
-func (s *Service) connect(id string) (string, string, error) {
+func (s *Service) connect(id string) (string, string, string, error) {
 	if err := s.requireUnlocked(); err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	profile, ok := s.store.Profile(id)
 	if !ok {
-		return "", "", vault.ErrProfileNotFound
+		return "", "", "", vault.ErrProfileNotFound
 	}
 	tunnelCfg, err := config.ParseTunnel(profile.TunnelConfig)
 	if err != nil {
-		return "", "", fmt.Errorf("tunnel config: %w", err)
+		return "", "", "", fmt.Errorf("tunnel config: %w", err)
 	}
 
 	security := s.store.SecuritySettings()
@@ -380,19 +380,20 @@ func (s *Service) connect(id string) (string, string, error) {
 		ExternalMode:      externalMode,
 		ExternalOrigins:   profile.ExternalOrigins,
 		AllowHTTPExternal: security.AllowHTTPExternal,
+		RequireProxyAuth:  true,
 	})
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 	if err := s.store.SetActiveProfile(id); err != nil {
 		_ = s.connector.Disconnect()
-		return "", "", err
+		return "", "", "", err
 	}
 
 	s.connected = true
 	s.proxy = proxy
 	s.dashboardURL = profile.DashboardURL
-	return proxy, profile.DashboardURL, nil
+	return proxy, s.connector.ProxyAuth(), profile.DashboardURL, nil
 }
 
 // probeTarget prepares a reachability check while the service lock is held.

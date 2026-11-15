@@ -3,6 +3,7 @@ package proxy
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -42,13 +44,27 @@ func (f routeFunc) Route(scheme, host, port string) (Route, error) {
 
 func startProxy(t *testing.T, tunnel, direct Dialer, policy Policy) *url.URL {
 	t.Helper()
-	s := New(tunnel, direct, policy)
+	return startProxyWithOptions(t, tunnel, direct, policy, Options{})
+}
+
+func startProxyWithOptions(
+	t *testing.T,
+	tunnel, direct Dialer,
+	policy Policy,
+	options Options,
+) *url.URL {
+	t.Helper()
+	s := New(tunnel, direct, policy, options)
 	addr, err := s.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { s.Close() })
 	return &url.URL{Scheme: "http", Host: addr.String()}
+}
+
+func basicProxyAuth(token string) string {
+	return "Basic " + base64.StdEncoding.EncodeToString([]byte("ttmd:"+token))
 }
 
 func proxyClient(proxyURL *url.URL) *http.Client {
@@ -84,6 +100,128 @@ func TestHTTP(t *testing.T) {
 	}
 	if string(body) != "through" {
 		t.Fatalf("body = %q, want %q", body, "through")
+	}
+}
+
+func TestProxyAuthentication(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "through")
+	}))
+	defer upstream.Close()
+
+	dialer := dialFunc(func(ctx context.Context, network, address string) (net.Conn, error) {
+		var d net.Dialer
+		return d.DialContext(ctx, network, upstream.Listener.Addr().String())
+	})
+	proxyURL := startProxyWithOptions(t, dialer, dialer, allowAll{}, Options{
+		AuthToken: "secret",
+	})
+	client := proxyClient(proxyURL)
+
+	resp, err := client.Get("http://upstream.test/path")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusProxyAuthRequired {
+		t.Fatalf("unauthenticated status = %d, want 407", resp.StatusCode)
+	}
+	if !strings.Contains(resp.Header.Get("Proxy-Authenticate"), "Basic") {
+		t.Fatalf("Proxy-Authenticate = %q", resp.Header.Get("Proxy-Authenticate"))
+	}
+
+	request, err := http.NewRequest(http.MethodGet, "http://upstream.test/path", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Proxy-Authorization", basicProxyAuth("secret"))
+	resp, err = client.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK || string(body) != "through" {
+		t.Fatalf("authenticated status = %d, body = %q", resp.StatusCode, body)
+	}
+
+	request, err = http.NewRequest(http.MethodGet, "http://upstream.test/path", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Proxy-Authorization", basicProxyAuth("wrong"))
+	resp, err = client.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusProxyAuthRequired {
+		t.Fatalf("wrong-token status = %d, want 407", resp.StatusCode)
+	}
+}
+
+func TestProxyAuthenticationConnect(t *testing.T) {
+	upstream, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer upstream.Close()
+
+	go func() {
+		for {
+			conn, err := upstream.Accept()
+			if err != nil {
+				return
+			}
+			conn.Close()
+		}
+	}()
+
+	dialer := dialFunc(func(ctx context.Context, network, address string) (net.Conn, error) {
+		var d net.Dialer
+		return d.DialContext(ctx, network, upstream.Addr().String())
+	})
+	proxyURL := startProxyWithOptions(t, dialer, dialer, allowAll{}, Options{
+		AuthToken: "secret",
+	})
+
+	connect := func(auth string) *http.Response {
+		t.Helper()
+		conn, err := net.Dial("tcp", proxyURL.Host)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { conn.Close() })
+		request := "CONNECT upstream.test:80 HTTP/1.1\r\nHost: upstream.test:80\r\n"
+		if auth != "" {
+			request += "Proxy-Authorization: " + auth + "\r\n"
+		}
+		request += "\r\n"
+		if _, err := io.WriteString(conn, request); err != nil {
+			t.Fatal(err)
+		}
+		response, err := http.ReadResponse(bufio.NewReader(conn), &http.Request{
+			Method: http.MethodConnect,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return response
+	}
+
+	response := connect("")
+	response.Body.Close()
+	if response.StatusCode != http.StatusProxyAuthRequired {
+		t.Fatalf("unauthenticated CONNECT status = %d, want 407", response.StatusCode)
+	}
+
+	response = connect(basicProxyAuth("secret"))
+	response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("authenticated CONNECT status = %d, want 200", response.StatusCode)
 	}
 }
 

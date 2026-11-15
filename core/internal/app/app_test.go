@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
@@ -68,11 +69,16 @@ func TestEndToEnd(t *testing.T) {
 		Addresses:     []net.IPNet{mustIPNet(t, "10.66.0.2/24")},
 		MTU:           1420,
 		ListenPort:    portB,
-	}, Options{})
+	}, Options{RequireProxyAuth: true})
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer instance.Close()
+
+	proxyAuth := instance.ProxyAuth()
+	if proxyAuth == "" {
+		t.Fatal("proxy auth token is empty")
+	}
 
 	proxyURL := &url.URL{Scheme: "http", Host: instance.ProxyAddr().String()}
 	client := &http.Client{
@@ -81,6 +87,23 @@ func TestEndToEnd(t *testing.T) {
 	}
 
 	resp, err := client.Get("http://10.66.0.1:8081/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusProxyAuthRequired {
+		t.Fatalf("unauthenticated status = %d, want 407", resp.StatusCode)
+	}
+
+	request, err := http.NewRequest(http.MethodGet, "http://10.66.0.1:8081/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set(
+		"Proxy-Authorization",
+		"Basic "+base64.StdEncoding.EncodeToString([]byte("ttmd:"+proxyAuth)),
+	)
+	resp, err = client.Do(request)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -45,6 +45,11 @@ import { resolveDataRoot } from "./data-dir";
 import { registerIpc, type NavigationActions } from "./ipc";
 import { guardDashboardNavigation } from "./navigation-policy";
 import { isPrivateHttpUrl, isPublicHttpUrl } from "./private-url";
+import {
+  proxyAuthFromAddress,
+  proxyCredentialsFor,
+  type ProxyAuth,
+} from "./proxy-auth";
 import { SettingsStore } from "./settings";
 
 app.setName("Tunnel to My Dash");
@@ -103,6 +108,15 @@ app.on("session-created", (createdSession) => {
   createdSession.setSpellCheckerLanguages([]);
 });
 
+app.on("login", (event, _webContents, _details, authInfo, callback) => {
+  const credentials = proxyCredentialsFor(authInfo, dashboardProxyAuth);
+  if (!credentials) {
+    return;
+  }
+  event.preventDefault();
+  callback(credentials.username, credentials.password);
+});
+
 if (process.env.TTMD_NETLOG) {
   app.commandLine.appendSwitch("log-net-log", process.env.TTMD_NETLOG);
   app.commandLine.appendSwitch("net-log-capture-mode", "IncludeSensitive");
@@ -126,6 +140,7 @@ let smokeExternalOpens: string[] = [];
 let dashboardHomeURL = "";
 let dashboardPartition = "";
 let dashboardStateClear: Promise<void> = Promise.resolve();
+let dashboardProxyAuth: ProxyAuth | null = null;
 let dashboardPasswordProtected = false;
 let dashboardLocked = false;
 let dashboardClosingToMain = false;
@@ -435,7 +450,11 @@ async function retryDashboard(): Promise<void> {
   try {
     const result = await client.connect(profileID);
     const dashboardSession = session.fromPartition(dashboardPartition);
-    await dashboardSession.setProxy(dashboardProxyConfig(result.proxy));
+    await configureDashboardProxy(
+      dashboardSession,
+      result.proxy,
+      result.proxy_auth,
+    );
     dashboardHomeURL = result.dashboard_url;
     view.setVisible(true);
     startDashboardLoadWatch();
@@ -575,6 +594,26 @@ async function clearDashboardState(partition: string): Promise<void> {
   });
   dashboardStateClear = task;
   await task;
+}
+
+async function configureDashboardProxy(
+  target: Electron.Session,
+  proxy: string,
+  auth: string,
+): Promise<void> {
+  dashboardProxyAuth = proxyAuthFromAddress(proxy, auth);
+  await target.setProxy(dashboardProxyConfig(proxy));
+
+  // A fresh in-memory session can resolve its first request before the proxy
+  // rules are active. Keep the dashboard from loading directly in that window.
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const resolved = await target.resolveProxy("http://127.0.0.1/");
+    if (resolved.startsWith("PROXY ")) {
+      return;
+    }
+    await delay(20);
+  }
+  throw new Error("The dashboard proxy did not become active.");
 }
 
 function toolbarPanelArg(value: unknown): { open: boolean; height: number } {
@@ -1503,6 +1542,7 @@ async function lockDashboard(): Promise<void> {
     console.error(`[lock] unload dashboard: ${errorMessage(error)}`);
   }
   await clearDashboardState(partition);
+  dashboardProxyAuth = null;
 
   try {
     await lockVault();
@@ -1538,7 +1578,11 @@ async function connectPasswordProtectedDashboard(
 
     const result = await client.connect(profileID);
     const dashboardSession = session.fromPartition(dashboardPartition);
-    await dashboardSession.setProxy(dashboardProxyConfig(result.proxy));
+    await configureDashboardProxy(
+      dashboardSession,
+      result.proxy,
+      result.proxy_auth,
+    );
     return { profileID, result };
   } catch (error) {
     if (unlocked) {
@@ -1636,7 +1680,11 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
   }
 
   const dashboardSession = session.fromPartition(partition);
-  await dashboardSession.setProxy(dashboardProxyConfig(result.proxy));
+  await configureDashboardProxy(
+    dashboardSession,
+    result.proxy,
+    result.proxy_auth,
+  );
   dashboardSession.setPermissionRequestHandler((_webContents, permission, callback) => {
     callback(permission === "fullscreen");
   });
@@ -1907,6 +1955,7 @@ async function openDashboard(profileID: string, result: ConnectResult): Promise<
     clearDashboardLoadWatch();
     dashboardHomeURL = "";
     dashboardPartition = "";
+    dashboardProxyAuth = null;
     dashboardPasswordProtected = false;
     dashboardLocked = false;
     dashboardProfileID = null;
@@ -4199,6 +4248,7 @@ async function runNavHangSmoke(window: BrowserWindow): Promise<void> {
       if (!address || typeof address === "string") {
         throw new Error("the test proxy did not get a port");
       }
+      dashboardProxyAuth = null;
       await dashboardSession.setProxy(
         dashboardProxyConfig(`127.0.0.1:${address.port}`),
       );
@@ -5465,6 +5515,7 @@ app.on("before-quit", (event) => {
         }
         if (partition) {
           await clearDashboardState(partition);
+          dashboardProxyAuth = null;
         }
         await dashboardStateClear;
         app.quit();

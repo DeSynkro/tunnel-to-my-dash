@@ -329,13 +329,14 @@ func (s *Service) handleConnect(w http.ResponseWriter, r *http.Request) {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	proxy, dashboardURL, err := s.connect(req.ProfileID)
+	proxy, proxyAuth, dashboardURL, err := s.connect(req.ProfileID)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{
 		"proxy":         proxy,
+		"proxy_auth":    proxyAuth,
 		"dashboard_url": dashboardURL,
 	})
 }

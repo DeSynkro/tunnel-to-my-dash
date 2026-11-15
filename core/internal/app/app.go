@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"net"
 	"sync"
 
@@ -17,13 +19,23 @@ type Options struct {
 	ExternalMode      string
 	ExternalOrigins   []string
 	AllowHTTPExternal bool
+	RequireProxyAuth  bool
 }
 
 type App struct {
-	tunnel *tunnel.Device
-	proxy  *proxy.Server
-	addr   net.Addr
-	once   sync.Once
+	tunnel    *tunnel.Device
+	proxy     *proxy.Server
+	addr      net.Addr
+	proxyAuth string
+	once      sync.Once
+}
+
+func randomProxyToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
 }
 
 func Start(cfg config.Tunnel, opts Options) (*App, error) {
@@ -49,12 +61,23 @@ func Start(cfg config.Tunnel, opts Options) (*App, error) {
 		return nil, err
 	}
 
+	authToken := ""
+	if opts.RequireProxyAuth {
+		authToken, err = randomProxyToken()
+		if err != nil {
+			device.Close()
+			return nil, err
+		}
+	}
+
 	policy := proxy.ExternalPolicy{
 		Mode:              mode,
 		Origins:           origins,
 		AllowHTTPExternal: opts.AllowHTTPExternal,
 	}
-	server := proxy.New(device, proxy.DirectDialer{}, policy)
+	server := proxy.New(device, proxy.DirectDialer{}, policy, proxy.Options{
+		AuthToken: authToken,
+	})
 	addr, err := server.Start()
 	if err != nil {
 		device.Close()
@@ -62,14 +85,21 @@ func Start(cfg config.Tunnel, opts Options) (*App, error) {
 	}
 
 	return &App{
-		tunnel: device,
-		proxy:  server,
-		addr:   addr,
+		tunnel:    device,
+		proxy:     server,
+		addr:      addr,
+		proxyAuth: authToken,
 	}, nil
 }
 
 func (a *App) ProxyAddr() net.Addr {
 	return a.addr
+}
+
+// ProxyAuth returns the per-run proxy token, or an empty string when the
+// proxy does not require authentication.
+func (a *App) ProxyAuth() string {
+	return a.proxyAuth
 }
 
 // DialContext opens a TCP connection through the userspace tunnel. It is used
