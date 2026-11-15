@@ -37,6 +37,7 @@ import com.desynkro.tunneltomydash.ui.AppViewModel
 import com.desynkro.tunneltomydash.ui.LockCoordinator
 import com.desynkro.tunneltomydash.ui.TtmdTheme
 import com.desynkro.tunneltomydash.web.WebViewScreen
+import com.desynkro.tunneltomydash.web.WebViewState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
@@ -86,6 +87,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WebViewState.clear(this)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         biometricEnabled = container.biometric.isEnabled()
         connectionState = container.tunnel.state.value

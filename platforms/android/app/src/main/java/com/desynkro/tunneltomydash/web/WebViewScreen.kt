@@ -330,6 +330,10 @@ class WebViewScreen(
         auth.clear()
         runCatching { webView.stopLoading() }
         runCatching { webView.loadUrl("about:blank") }
+        WebViewState.clear(context)
+        runCatching { webView.clearCache(true) }
+        runCatching { webView.clearFormData() }
+        runCatching { webView.clearHistory() }
         runCatching { webView.destroy() }
         runCatching {
             ProxyController.getInstance().clearProxyOverride(
