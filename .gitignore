@@ -59,6 +59,7 @@ Thumbs.db
 *.swo
 .idea/
 .vscode/
+.directory
 
 # Logs and crash dumps
 *.log
