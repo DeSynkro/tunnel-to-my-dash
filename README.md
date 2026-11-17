@@ -74,8 +74,14 @@ Install the APK, create a vault, then add a dashboard. The Add dashboard screen
 accepts a WireGuard `.conf` file or a QR code. The camera is used only while
 scanning, and the QR text goes into the encrypted vault like a file import.
 
+**Upgrading from 1.0?** Android cannot update across signing keys. Export the
+vault, uninstall 1.0, install 1.1.0 and import the vault. The release notes
+explain the full migration.
+
 A foreground notification keeps the tunnel alive when you switch apps or turn
 the screen off. Stop it from the notification or the app's menu.
+
+Release notes: [1.1.0](docs/RELEASE_NOTES_1.1.md).
 
 ## Build from source
 
@@ -97,6 +103,10 @@ make appimage        # Linux AppImage + SHA256SUMS
 make android-setup   # install the project-local Android toolchain once
 make android-release # signed Android APK
 ```
+
+`make android-release` reads `local/android-signing/release-keystore.env`, or
+the four `TTMD_ANDROID_*` variables it exports. Release signing fails closed if
+that material is absent; the keystore is never committed.
 
 CI builds and uploads the Linux AppImage and Windows portable artifacts. It
 also builds a debug Android APK for every change, and a signed release APK for
@@ -155,7 +165,7 @@ More detail: [docs/DESIGN.md](docs/DESIGN.md) and
 - **The Android local proxy is unauthenticated while the tunnel is running.** It
   binds to `127.0.0.1` on a random port and closes on Stop, but another app on
   the phone could use it if it discovered the port. It cannot read the vault or
-  other apps' cookies.
+  other apps' cookies. Desktop dashboard sessions use a per-run proxy token.
 - **HTTP dashboards stay plaintext.** WireGuard protects the path to your home
   endpoint; it does not encrypt the final LAN hop. Use HTTPS for sensitive
   dashboards.
@@ -219,6 +229,8 @@ browser.
 - Android DNS/WebView leakage has not been packet-tested. Desktop disables
   Chromium's resolver; Android relies on the installed WebView's proxy/DNS
   stack, so this build does not claim zero DNS leakage there.
+- The 1.1 Android WebView loopback/link-local fixes compile and have unit
+  coverage, but the physical-device matrix is still pending.
 - Android WebView proxy authentication is prepared but not enabled in 1.1. The
   proxy remains loopback-only until that path is verified on a device.
 - Dashboard logins may be required again after lock/quit because browser state

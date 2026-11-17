@@ -418,7 +418,7 @@ with opt-in exact external origins for fonts and widgets.
 - Responses never include `tunnel_config` or private keys.
 - The Electron main process is the only control client. The renderer talks to
   it through a narrow preload bridge.
-- The dashboard session uses `persist:profile-<id>` and
+- The dashboard session uses an in-memory `profile-<hash>` partition and
   `session.setProxy` pointing at the core's localhost proxy.
 - The data directory is next to the AppImage or portable exe when writable,
   otherwise the normal user data directory. Development uses
@@ -427,8 +427,8 @@ with opt-in exact external origins for fonts and widgets.
 ### Security
 
 - Shell renderer: context isolation, sandbox, no Node integration.
-- Dashboard: no preload, no Node, sandbox, context isolation, permissions
-  denied, `window.open` denied.
+- Dashboard: narrow login-capture/fill preload, no Node, sandbox, context
+  isolation, permissions denied, `window.open` denied.
 - Chromium background networking and known Google services disabled with
   command-line switches, then audited.
 - External content is off by default. A profile may opt into all public

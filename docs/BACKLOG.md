@@ -1,13 +1,16 @@
 # Backlog
 
-Everything still left before the Windows and Android ports. Check items off as
-they land, and keep the Done section for the record.
+Follow-up work after 1.1 and deferred ideas. Check items off as they land, and
+keep the Done section for the record.
 
-## Repo housekeeping
+## 1.1 follow-ups
 
-- [ ] Rebase and rerun the four Dependabot PRs: setup-node 4→7, checkout 4→7,
-  upload-artifact 4→7, and golang.org/x/crypto 0.57→0.58. They predate the CI
-  fixes.
+- [ ] Run the Android device matrix for the WebView loopback/link-local guard,
+  WebView proxy authentication and packet-level DNS capture.
+- [ ] Design and test optional device-bound vault storage for 1.2; keep
+  password and keyfile modes portable.
+- [ ] Review any remaining Dependabot PRs after the pinned-action and
+  toolchain updates landed.
 
 ## Done
 

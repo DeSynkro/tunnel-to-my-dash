@@ -294,7 +294,9 @@ start, covering a process kill that skipped normal teardown.
       refresh are blocked, while private redirects still load.
 - [x] Verify oversized Argon2 time, memory and thread values are rejected
       before derivation.
-- [x] Verify dashboard cookies, storage and caches are gone after clearing.
+- [x] Verify desktop dashboard cookies, storage and caches are gone after
+      clearing. Android state clearing has compile/unit coverage; its device
+      pass is still pending.
 - [x] Verify HTTPS is required for external content by default and that LAN
       HTTP still works.
 - [x] Verify the desktop proxy rejects missing credentials and accepts its

@@ -275,17 +275,18 @@ The exact method names and JSON shape are for the plan.
 - Migration from 1.0: 1.0 was signed with the debug-profile key, so Android
   cannot update it in place. Export the vault, uninstall 1.0, install 1.1 and
   import the export. The old key is retired and must not be used for 1.1.
-- Version 1.1 (`versionName`/`versionCode`); signed APK as the release artifact.
+- Version 1.1.0 (`versionName` 1.1.0, `versionCode` 2); signed APK as the
+  release artifact.
 - Only `INTERNET`, `POST_NOTIFICATIONS`, `FOREGROUND_SERVICE`,
   `FOREGROUND_SERVICE_SPECIAL_USE`, `USE_BIOMETRIC` and `CAMERA` permissions.
   `CAMERA` is used only by the WireGuard QR scanner.
 - No telemetry, analytics or crash upload. Logs stay on-device and are removed
   from release builds. Camera frames are never stored or uploaded; scanned QR
   text is kept only as the profile's encrypted tunnel config.
-- The Android build is reproducible with the project-local toolchain. CI runs
-  Android unit tests and builds a debug APK on normal changes. Tag and manual
-  release runs build the signed release APK from repository secrets and verify
-  its certificate before upload.
+- The Android build uses the project-local toolchain. CI runs Android unit
+  tests and builds a debug APK on normal changes. Tag and manual release runs
+  build the signed release APK from repository secrets and verify its
+  certificate before upload.
 
 ## Testing
 
@@ -306,7 +307,12 @@ The exact method names and JSON shape are for the plan.
   - app restart, process death and Retry
   - system autofill with Bitwarden
   - confirm ProtonVPN remains usable and the app does not appear as a VPN
-- Release APK install and launch on the Pixel without adb debugging enabled.
+- Release APK install and launch on the Pixel without adb debugging enabled
+  (1.0 baseline; the 1.1 signed APK still needs the same device pass).
+- 1.1 still needs a physical-device matrix for the WebView loopback/link-local
+  guard, WebView proxy authentication, and packet-level DNS capture.
+- The 1.1 APK is built and signature-verified in CI, including v3 APK signing
+  and the non-debuggable check.
 
 ## Approaches considered
 

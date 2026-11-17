@@ -286,9 +286,9 @@ dashboard.
 
 The first release can ship with a single profile and no picker. The vault and
 core APIs use stable profile IDs from the start, so adding a switcher later is
-a UI change rather than a data migration. Each profile gets its own Chromium
-session partition, so cookies from two dashboards that happen to share the same
-LAN IP do not collide.
+a UI change rather than a data migration. Each profile gets its own in-memory
+Chromium session partition, so cookies from two dashboards that happen to share
+the same LAN IP do not collide and nothing survives a lock or quit.
 
 ## Saved passwords
 
@@ -459,7 +459,7 @@ browser. External content is opt-in and visible.
   direct-on-home-LAN mode is a later question.
 - LAN services with self-signed HTTPS certificates will show a certificate
   error until a trust flow exists.
-- Browser cookies are not inside the vault. The app lock gates access, and a
-  "clear session on exit" option is planned.
+- Browser cookies are not inside the vault. They live in the dashboard's
+  in-memory session and are cleared on lock, close and quit.
 - A weak app password weakens the vault. The UI will say so.
 - Windows builds will need code signing to avoid SmartScreen warnings.

@@ -1,8 +1,7 @@
 # Roadmap
 
-This is the build order. Each phase ends with something we can run and test.
-Later phases do not start until the current one works. The remaining Linux v1
-work is tracked in `docs/BACKLOG.md`.
+This is the historical build order. Each phase ended with something we could
+run and test. Current follow-up work is tracked in `docs/BACKLOG.md`.
 
 ## Phase 0 — Repository and docs
 
@@ -81,11 +80,10 @@ pages. Jellyfin and OpenCode were checked in the Phase 5 network pass.
 - [x] Portable data directory beside the AppImage, with fallback
 - [x] Verify the Chromium sandbox works without `--no-sandbox`
 - [x] SHA-256 checksums and `make release`
-- [x] CI workflow, AppImage build and dependency updates (first hosted run
-      pending)
+- [x] CI workflow, AppImage build and pinned dependency updates
 - [x] Manual update path without telemetry
 - [ ] GPG-signed release artifacts
-- [ ] Automated network audit in CI
+- [x] Automated network audit in CI
 
 Done when a fresh user can download one file, run it, and reach their
 dashboard without installing anything else.

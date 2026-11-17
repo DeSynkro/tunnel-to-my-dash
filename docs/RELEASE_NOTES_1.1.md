@@ -34,6 +34,7 @@ release-integrity gaps found in the 1.0 review.
   `43:D3:45:D8:97:73:4C:1C:1A:3B:0D:C7:7C:06:AE:4C:66:FF:B2:7B:B8:91:44:F1:C6:97:30:F6:5F:00:C0:13`.
 - Tags and manual release runs build the signed APK in CI, verify the
   certificate and debuggable flag, and publish a versioned APK plus checksum.
+  The APK is `versionName` 1.1.0, `versionCode` 2, with v3 APK signing.
 - Actions are pinned to commit SHAs, desktop installs use `npm ci`, Gradle and
   Android command-line downloads are checksum-pinned, and packaged Electron
   builds load only from `app.asar` with Node execution/inspection fuses off.
