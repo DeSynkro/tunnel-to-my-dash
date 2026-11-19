@@ -484,7 +484,7 @@ network pass. Remaining: friendly tunnel error pages.
 - [ ] GPG-signed release artifacts
 - [ ] Automated network audit in CI
 
-Artifact: `desktop/release/Tunnel-to-My-Dash-1.1.0-x86_64.AppImage`.
+Artifact: `desktop/release/Tunnel-to-My-Dash-1.1.1-x86_64.AppImage`.
 
 ## Phase 5 — Real-world network pass
 

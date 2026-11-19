@@ -273,9 +273,9 @@ The exact method names and JSON shape are for the plan.
 - Locally, `make android-release` reads
   `local/android-signing/release-keystore.env`; that directory is gitignored.
 - Migration from 1.0: 1.0 was signed with the debug-profile key, so Android
-  cannot update it in place. Export the vault, uninstall 1.0, install 1.1 and
-  import the export. The old key is retired and must not be used for 1.1.
-- Version 1.1.0 (`versionName` 1.1.0, `versionCode` 2); signed APK as the
+  cannot update it in place. Export the vault, uninstall 1.0, install 1.1.1 and
+  import the export. The old key is retired and must not be used for 1.1.x.
+- Version 1.1.1 (`versionName` 1.1.1, `versionCode` 3); signed APK as the
   release artifact.
 - Only `INTERNET`, `POST_NOTIFICATIONS`, `FOREGROUND_SERVICE`,
   `FOREGROUND_SERVICE_SPECIAL_USE`, `USE_BIOMETRIC` and `CAMERA` permissions.

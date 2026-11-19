@@ -1,7 +1,7 @@
 {
   "name": "tunnel-to-my-dash-desktop",
   "productName": "Tunnel to My Dash",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "Desktop shell for Tunnel to My Dash",
   "author": "DeSynkro",

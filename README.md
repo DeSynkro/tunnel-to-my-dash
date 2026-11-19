@@ -10,7 +10,7 @@
 <p align="center">
   <a href="https://github.com/DeSynkro/tunnel-to-my-dash/actions/workflows/ci.yml"><img src="https://github.com/DeSynkro/tunnel-to-my-dash/actions/workflows/ci.yml/badge.svg" alt="Build status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3"></a>
-  <a href="https://github.com/DeSynkro/tunnel-to-my-dash/releases"><img src="https://img.shields.io/badge/version-1.1.0-orange.svg" alt="Version 1.1.0"></a>
+  <a href="https://github.com/DeSynkro/tunnel-to-my-dash/releases"><img src="https://img.shields.io/badge/version-1.1.1-orange.svg" alt="Version 1.1.1"></a>
   <img src="https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20Android-lightgrey.svg" alt="Linux, Windows and Android">
 </p>
 
@@ -75,13 +75,13 @@ accepts a WireGuard `.conf` file or a QR code. The camera is used only while
 scanning, and the QR text goes into the encrypted vault like a file import.
 
 **Upgrading from 1.0?** Android cannot update across signing keys. Export the
-vault, uninstall 1.0, install 1.1.0 and import the vault. The release notes
+vault, uninstall 1.0, install 1.1.1 and import the vault. The release notes
 explain the full migration.
 
 A foreground notification keeps the tunnel alive when you switch apps or turn
 the screen off. Stop it from the notification or the app's menu.
 
-Release notes: [1.1.0](docs/RELEASE_NOTES_1.1.md).
+Release notes: [1.1.1](docs/RELEASE_NOTES_1.1.1.md).
 
 ## Build from source
 
@@ -176,10 +176,10 @@ More detail: [docs/DESIGN.md](docs/DESIGN.md) and
   Only scan configs you trust.
 - **Keep the app and system WebView updated.** The Android client uses the
   system WebView, and the APK is distributed outside the Play Store.
-- **Android 1.1 uses a new dedicated release key**, not the debug-profile key
+- **Android 1.1.x uses a new dedicated release key**, not the debug-profile key
   used for 1.0. Users upgrading from 1.0 must export the vault, uninstall 1.0,
-  install 1.1 and import the vault. Verify the published SHA-256 and certificate
-  fingerprint. This is not a Play Store identity.
+  install 1.1.1 and import the vault. Verify the published SHA-256 and
+  certificate fingerprint. This is not a Play Store identity.
 - **No independent security audit.** The scope is deliberately small and the
   source is open, but treat it as a practical tool rather than a high-assurance
   VPN.
